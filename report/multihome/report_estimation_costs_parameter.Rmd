@@ -1,0 +1,425 @@
+---
+title: "report_estimation_costs_parameter"
+author: "Daisy Dan Song"
+date: "2025-05-14"
+output: html_document
+---
+
+# initialize
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+library(purrr)
+library(doParallel)
+registerDoParallel()
+```
+
+# import estimation equilibrium
+```{r}
+equilibrium <-
+  readRDS(
+    file = "output/multihome/estimate_data_initial/equilibrium_updated_initial.rds" %>%
+    here::here()
+  )
+
+equilibrium_simulate <-
+  readRDS(
+    file = "output/multihome/simulate/equilibrium.rds" %>%
+    here::here()
+  )
+equilibrium_simulate$constant$use_exp <- FALSE
+```
+
+# real data {.tabset}
+
+## c_w with varying lambda_w
+
+```{r}
+target_list <- 
+  list(
+    lambda_w = 
+      seq(
+        0.1, 
+        40, 
+        by = 3
+      ),
+    lambda_f = 
+      seq(
+        -0.1, 
+        -40, 
+        by = -3
+      )
+  )
+
+obj_lambda_w <- 
+  foreach(
+    param_value = target_list[[1]],
+    iter = seq_along(target_list[[1]]),
+    .combine = "cbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+  ) %do% {
+        
+    c_w <-
+      foreach(
+        t = seq_along(equilibrium$endogenous),
+        .combine = "rbind",
+        .packages = 
+          c(
+            "Dispatching",
+            "foreach",
+            "magrittr"
+          )
+      ) %dopar% {
+        c_w_t <- 
+          foreach(
+            j = seq_along(equilibrium$endogenous[[t]]),
+            .combine = "rbind"
+          ) %do% {  
+            s_w_d_w <-
+              solve_s_w_d_w_tj(
+                m_w = equilibrium$parameter$m_w,
+                m_f = equilibrium$parameter$m_f,
+                beta_w = equilibrium$parameter$beta_w,
+                lambda_w = param_value,
+                x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+                size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+                size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+                mu = equilibrium$shock[[t]][[j]]$mu,
+                ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+                w = equilibrium$endogenous[[t]][[j]]$w,
+                s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+                method_s_w = equilibrium$constant$method_s_w,
+                margin = equilibrium$constant$margin,
+                quadrature_size = equilibrium$constant$quadrature_size,
+                tol = equilibrium$constant$tol
+              ) 
+            owner <- equilibrium$exogenous[[t]][[j]]$owner
+            o <- t(owner) %*% owner
+            f <- equilibrium$endogenous[[t]][[j]]$f
+            w <- equilibrium$endogenous[[t]][[j]]$w
+            s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+            b <- 
+              (s_w_d_w * o) %*% (f - w) - s_w
+            
+            A <- s_w_d_w * o
+            
+            #ridge regularization
+            cond_A <- kappa(A)
+            
+            # Threshold for acceptable conditioning (commonly 1e12)
+            if (cond_A < 1e12) {
+              condition_c_w <- "well-conditioned"
+              # Well-conditioned: solve directly
+              c_w_tj <- Matrix::solve(A, b)
+            } else {
+              # Ill-conditioned: use adaptive ridge regularization
+              epsilon <- 1e-10
+              condition_c_w <- "ill-conditioned"
+              A_reg <- A + epsilon * diag(ncol(A))
+              c_w_tj <- Matrix::solve(A_reg, b)
+            }
+            df_tj <- 
+              data.frame(
+                c_w = c_w_tj,
+                i = 
+                  seq(
+                    1,
+                    length(c_w_tj)
+                  ),
+                t = t,
+                j = j,
+                lambda_f = equilibrium$parameter$lambda_f,
+                lambda_w = param_value,
+                condition_c_w = condition_c_w
+              ) %>% 
+                setNames(
+                    c(
+                    paste0("c_w_", iter),
+                    paste0("i_", iter),
+                    paste0("t_", iter),
+                    paste0("j_", iter),
+                    paste0("lambda_f_", iter),
+                    paste0("lambda_w_", iter),
+                    paste0("condition_c_w_", iter)
+                  )
+                )
+              return(df_tj)         
+              }
+        return(c_w_t)
+      }
+    return(c_w)
+  }
+obj_lambda_w
+
+max_cost_w <- 
+  obj_lambda_w %>% 
+  dplyr::select(
+    starts_with("c_w")
+    ) %>%
+  dplyr::rowwise() %>% 
+  dplyr::mutate(
+    max_cost_w = 
+      max(
+        dplyr::c_across(
+          everything()
+          )
+        )
+  ) %>%
+  dplyr::select(
+    max_cost_w
+  )
+
+df_w <- 
+  cbind(
+    obj_lambda_w,
+    max_cost_w
+  ) %>%
+  dplyr::filter(
+    i_1 > 1
+  ) %>%
+  dplyr::select(
+    t_1,
+    j_1,
+    i_1,
+    max_cost_w
+  )
+
+```
+
+## c_f with varying lambda_f{.tabset}
+```{r}
+
+obj_lambda_f <- 
+  foreach(
+    param_value = target_list[[2]],
+    iter = seq_along(target_list[[2]]),
+    .combine = "cbind"
+  ) %do% {
+    c_f <-
+      foreach(
+        t = seq_along(equilibrium$endogenous),
+        .combine = "rbind",
+        .packages = 
+          c(
+            "Dispatching",
+            "foreach",
+            "magrittr"
+          )
+      ) %dopar% {
+        c_f_t <- 
+          foreach(
+            j = seq_along(equilibrium$endogenous[[t]]),
+            .combine = "rbind"
+          ) %do% {  
+            c_w <- 
+              compute_supply_shock_c_w_tj(
+                m_w = equilibrium$parameter$m_w,
+                m_f = equilibrium$parameter$m_f,
+                beta_w = equilibrium$parameter$beta_w,
+                lambda_w = equilibrium$parameter$lambda_w,
+                x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+                size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+                size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+                mu = equilibrium$shock[[t]][[j]]$mu,
+                ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+                f = equilibrium$endogenous[[t]][[j]]$f,
+                w = equilibrium$endogenous[[t]][[j]]$w,
+                s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+                s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+                owner = equilibrium$exogenous[[t]][[j]]$owner,
+                method_s_w = equilibrium$constant$method_s_w,
+                margin = equilibrium$constant$margin,
+                quadrature_size = equilibrium$constant$quadrature_size,
+                tol = equilibrium$constant$tol
+              )
+          s_f_d_f <- 
+            solve_s_f_d_f_tj(
+              m_w = equilibrium$parameter$m_w,
+              m_f = equilibrium$parameter$m_f,
+              beta_f = equilibrium$parameter$beta_f,
+              lambda_f = param_value,
+              x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+              size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+              size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+              mu = equilibrium$shock[[t]][[j]]$mu,
+              ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+              f = equilibrium$endogenous[[t]][[j]]$f,
+              s_f = equilibrium$endogenous[[t]][[j]]$s_f
+            )
+          
+          s_w_d_f <- 
+            solve_s_w_d_f_tj(
+              m_w = equilibrium$parameter$m_w,
+              m_f = equilibrium$parameter$m_f,
+              beta_w = equilibrium$parameter$beta_w,
+              beta_f = equilibrium$parameter$beta_f,
+              lambda_w = equilibrium$parameter$lambda_w,
+              lambda_f = param_value,
+              x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+              x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+              size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+              size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+              mu = equilibrium$shock[[t]][[j]]$mu,
+              ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+              ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+              w = equilibrium$endogenous[[t]][[j]]$w,
+              f = equilibrium$endogenous[[t]][[j]]$f,
+              s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+              method_s_w = equilibrium$constant$method_s_w,
+              margin = equilibrium$constant$margin,
+              quadrature_size = equilibrium$constant$quadrature_size,
+              tol = equilibrium$constant$tol
+            ) 
+          
+        meeting_number <- 
+          compute_meeting_number_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+          
+        meeting_number_d_f <- 
+          compute_meeting_number_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            s_f_d_f = s_f_d_f
+          ) 
+          owner <- equilibrium$exogenous[[t]][[j]]$owner
+          o <- t(owner) %*% owner
+          f <- equilibrium$endogenous[[t]][[j]]$f
+          w <- equilibrium$endogenous[[t]][[j]]$w
+          s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+          size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+          
+          b <-  meeting_number * s_w +
+            (o * meeting_number_d_f) %*% (s_w * (f - w - c_w)) +
+            (o * s_w_d_f) %*% (meeting_number * (f - w - c_w)) 
+          
+          A <-  (o * s_f_d_f) * size_f
+          
+          #ridge regularization
+          cond_A <- kappa(A)
+          
+          # Threshold for acceptable conditioning (commonly 1e12)
+          if (cond_A < 1e12) {
+            condition_c_f <- "well-conditioned"
+            c_f_tj <- Matrix::solve(A, b)
+          } else {
+            condition_c_f <- "ill-conditioned"
+            epsilon <- 1e-10
+            A_reg <- A + epsilon * diag(ncol(A))
+            c_f_tj <- Matrix::solve(A_reg, b)
+          }
+          df_tj <- 
+            data.frame(
+              c_f = c_f_tj,
+              i = 
+                seq(
+                  1,
+                  length(c_f_tj)
+                ),
+              t = t,
+              j = j,
+              lambda_f = param_value,
+              lambda_w = equilibrium$parameter$lambda_w,
+              condition_c_f = condition_c_f
+            ) %>% 
+              setNames(
+                  c(
+                  paste0("c_f_", iter),
+                  paste0("i_", iter),
+                  paste0("t_", iter),
+                  paste0("j_", iter),
+                  paste0("lambda_f_", iter),
+                  paste0("lambda_w_", iter),
+                  paste0("condition_c_f_", iter)
+                )
+              )
+          return(df_tj)          
+              }
+        return(c_f_t)
+          }
+    return(c_f)
+  }
+obj_lambda_f
+
+max_cost_f <- 
+  obj_lambda_f %>% 
+  dplyr::select(
+    starts_with("c_f")
+    ) %>%
+  dplyr::rowwise() %>% 
+  dplyr::mutate(
+    max_cost_f = 
+      max(
+        dplyr::c_across(
+          everything()
+          )
+        )
+  ) %>%
+  dplyr::select(
+    max_cost_f
+  )
+
+df_f <- 
+  cbind(
+    obj_lambda_f,
+    max_cost_f
+  ) %>%
+  dplyr::filter(
+    i_1 > 1
+  ) %>%
+  dplyr::select(
+    t_1,
+    j_1,
+    i_1,
+    max_cost_f
+  )
+
+```
+
+## pick markets with negative costs
+```{r}
+df <- 
+  data.frame(
+   max_cost_f = df_f$max_cost_f,
+   max_cost_w = df_w$max_cost_w,
+   t = df_w$t_1,
+   j = df_w$j_1,
+   i = df_w$i_1
+  ) %>%
+  dplyr::filter(
+    max_cost_f < 0 | max_cost_w < 0
+  )
+df
+```
+
+
+
+
+
+
+
+

@@ -1,0 +1,235 @@
+---
+title: "Standard Errors for Estimation Results"
+author: "Daisy Dan Song"
+date: "2026-01-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(dplyr)
+library(tibble)
+```
+
+# Overview
+
+This note documents how to compute standard errors for the method-of-moments
+estimation reported in `draft/main.tex` (Estimation Results section).
+
+Let $\hat{\theta}$ solve
+$$
+\min_{\theta}\; \widehat{g}(\theta)^{\prime} W \widehat{g}(\theta),
+$$
+where $\widehat{g}(\theta)$ stacks the sample moment conditions in
+equations (sample demand and supply moments) of `draft/main.tex`.
+Define
+$$
+G = \frac{\partial \widehat{g}(\theta)}{\partial \theta^{\prime}}
+\Big|_{\theta = \hat{\theta}}, \quad
+\widehat{\Omega} = \widehat{\mathbb{E}} \left[g_i(\hat{\theta}) g_i(\hat{\theta})^{\prime}\right].
+$$
+Then the asymptotic variance is
+$$
+\widehat{\mathrm{Var}}(\hat{\theta}) =
+(G^{\prime} W G)^{-1} G^{\prime} W \widehat{\Omega} W G (G^{\prime} W G)^{-1}.
+$$
+If $W = \widehat{\Omega}^{-1}$ (efficient GMM), this reduces to
+$$
+(G^{\prime} \widehat{\Omega}^{-1} G)^{-1}.
+$$
+
+# Implementation template (R)
+
+```{r}
+# Estimated equilibrium from structural estimation
+eq_hat <- 
+    readRDS(
+      file = "output/multihome/estimate_data/equilibrium_updated_constrained.rds" %>%
+    here::here()
+  )
+
+
+instrument_demand <- 
+  make_instrument_demand(equilibrium = eq_hat)
+
+z_hat <- instrument_demand %>%
+  purrr::map(purrr::reduce, rbind) %>%
+  purrr::reduce(rbind)
+
+combo_info <- caret::findLinearCombos(z_hat)
+
+if (!is.null(combo_info$remove)) {
+  z_hat <- z_hat[, -combo_info$remove, drop = FALSE]
+}
+
+theta_hat <- transform_parameter_to_theta_optim(
+  mu_p = eq_hat$parameter$mu_p,
+  mu_ths = eq_hat$parameter$mu_ths,
+  m_f = eq_hat$parameter$m_f,
+  lambda_w = eq_hat$parameter$lambda_w,
+  lambda_f = eq_hat$parameter$lambda_f
+) %>%
+  as.numeric()
+
+demand_hat <- solve_demand_shock(equilibrium = eq_hat)
+g_w_hat <-
+  (demand_hat$ea_w %*% t(rep(1, ncol(z_hat)))) *
+  z_hat
+g_f_hat <-
+  (demand_hat$ea_f %*% t(rep(1, ncol(z_hat)))) *
+  z_hat
+gi_hat <- cbind(g_w_hat, g_f_hat)
+n_obs <- nrow(gi_hat)
+gbar_hat <- colMeans(gi_hat)
+
+# Omega-hat = E[g_i g_i']
+Omega_hat <- crossprod(gi_hat) / n_obs
+
+# Jacobian G = d gbar(theta) / d theta'
+# Numerical central differences (no function definitions)
+eps <- 1e-6
+k <- length(theta_hat)
+G_hat <- matrix(NA_real_, nrow = length(gbar_hat), ncol = k)
+
+for (p in seq_len(k)) {
+  theta_plus <- theta_hat
+  theta_minus <- theta_hat
+  theta_plus[p] <- theta_plus[p] + eps
+  theta_minus[p] <- theta_minus[p] - eps
+
+  param_plus <- transform_theta_to_parameter_demand(
+    theta = theta_plus,
+    parameter = eq_hat$parameter
+  )
+  eq_plus <- eq_hat
+  eq_plus$parameter <- param_plus
+  eq_plus <- update_mu(equilibrium = eq_plus, parameter = param_plus)
+  demand_plus <- solve_demand_shock(equilibrium = eq_plus)
+  g_w_plus <-
+    (demand_plus$ea_w %*% t(rep(1, ncol(z_hat)))) *
+    z_hat
+  g_f_plus <-
+    (demand_plus$ea_f %*% t(rep(1, ncol(z_hat)))) *
+    z_hat
+  gbar_plus <- colMeans(cbind(g_w_plus, g_f_plus))
+
+  param_minus <- transform_theta_to_parameter_demand(
+    theta = theta_minus,
+    parameter = eq_hat$parameter
+  )
+  eq_minus <- eq_hat
+  eq_minus$parameter <- param_minus
+  eq_minus <- update_mu(equilibrium = eq_minus, parameter = param_minus)
+  demand_minus <- solve_demand_shock(equilibrium = eq_minus)
+  g_w_minus <-
+    (demand_minus$ea_w %*% t(rep(1, ncol(z_hat)))) *
+    z_hat
+  g_f_minus <-
+    (demand_minus$ea_f %*% t(rep(1, ncol(z_hat)))) *
+    z_hat
+  gbar_minus <- colMeans(cbind(g_w_minus, g_f_minus))
+
+  G_hat[, p] <- (gbar_plus - gbar_minus) / (2 * eps)
+}
+
+# Use the same W as your estimation step. Here we default to efficient W.
+W_hat <- solve(Omega_hat)
+
+# ---- Variance formulas --------------------------------------------------------
+# Finite-sample scaling by 1/n_obs is included.
+
+A <- solve(t(G_hat) %*% W_hat %*% G_hat)
+V_theta_sandwich <-
+  (A %*% (t(G_hat) %*% W_hat %*% Omega_hat %*% W_hat %*% G_hat) %*% A) /
+  n_obs
+V_theta_efficient <-
+  solve(t(G_hat) %*% solve(Omega_hat) %*% G_hat) /
+  n_obs
+
+se_theta_sandwich <- sqrt(diag(V_theta_sandwich))
+se_theta_efficient <- sqrt(diag(V_theta_efficient))
+
+theta_table <- tibble::tibble(
+  parameter_theta = c(
+    "log_mu_p",
+    "log_mu_ths",
+    "logit_m_f",
+    "log_lambda_w",
+    "log_minus_lambda_f"
+  ),
+  estimate = theta_hat,
+  se_sandwich = se_theta_sandwich,
+  se_efficient = se_theta_efficient
+)
+
+theta_table
+```
+
+```{r}
+# ---- Delta method: standard errors on structural parameters -------------------
+
+m_f_hat <- exp(theta_hat[3]) / (1 + exp(theta_hat[3]))
+dm_f_hat <- m_f_hat * (1 - m_f_hat)
+J <- rbind(
+  c(exp(theta_hat[1]), 0, 0, 0, 0),  # mu_p
+  c(0, exp(theta_hat[2]), 0, 0, 0),  # mu_ths
+  c(0, 0, dm_f_hat, 0, 0),           # m_f
+  c(0, 0, -dm_f_hat, 0, 0),          # m_w = 1 - m_f
+  c(0, 0, 0, exp(theta_hat[4]), 0),  # lambda_w
+  c(0, 0, 0, 0, -exp(theta_hat[5]))  # lambda_f
+)
+
+V_param_sandwich <- J %*% V_theta_sandwich %*% t(J)
+V_param_efficient <- J %*% V_theta_efficient %*% t(J)
+
+param_est <- c(
+  eq_hat$parameter$mu_p,
+  eq_hat$parameter$mu_ths,
+  eq_hat$parameter$m_f,
+  eq_hat$parameter$m_w,
+  eq_hat$parameter$lambda_w,
+  eq_hat$parameter$lambda_f
+)
+
+param_table <- tibble::tibble(
+  parameter = c(
+    "mu_p",
+    "mu_ths",
+    "m_f",
+    "m_w",
+    "lambda_w",
+    "lambda_f"
+  ),
+  estimate = param_est,
+  se_sandwich = sqrt(diag(V_param_sandwich)),
+  se_efficient = sqrt(diag(V_param_efficient))
+)
+
+param_table
+```
+
+```{r}
+# Optional: write outputs to file for use in tables/appendix.
+se_output <- list(
+  theta = theta_table,
+  structural = param_table,
+  Omega_hat = Omega_hat,
+  G_hat = G_hat,
+  n_obs = n_obs
+)
+
+# saveRDS(
+#   se_output,
+#   here::here("output", "multihome", "estimate_data", "standard_errors.rds")
+# )
+```
+
+This file is intended as a reproducible reference for the standard-error
+calculations used in the paper.

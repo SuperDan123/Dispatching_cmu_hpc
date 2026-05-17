@@ -1,0 +1,7 @@
+#PKG_CPPFLAGS = -I../include
+# Clean, cross-platform Makevars for Linux, Conda, and macOS
+PKG_CPPFLAGS = -w -std=c++17 -O3 \
+    $(shell $(R_HOME)/bin/Rscript -e "RcppGSL:::CFlags()")
+
+PKG_LIBS = $(shell $(R_HOME)/bin/Rscript -e "RcppGSL:::LdFlags()")
+

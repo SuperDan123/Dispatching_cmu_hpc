@@ -1,0 +1,945 @@
+---
+title: "report data analysis (use distance data)"
+author: "Chiho Taniguchi"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 3, fig.width = 4)
+
+library("magrittr")
+library("kableExtra")
+library("ggplot2")
+
+height <- 6
+width <- 8
+
+```
+
+```{r }
+ 
+ data_cz_establishments <- 
+   here::here(file = "output/data_cz_establishments.rds") %>% 
+   readRDS()
+ 
+ data_area_area_distance <- 
+   here::here(file = "cleaned/data_area_area_distance.rds") %>% 
+   readRDS()
+ 
+ ## there are two establishments whose firm_id are NA in data_cz_establishments
+ 
+ data_cz_establishments_distance <- 
+   here::here(file = "output/data_cz_establishments_distance.rds") %>% 
+   readRDS()
+ 
+```
+
+# distance mean 
+
+## first stage
+
+```{r}
+
+data_cz_establishments_distance_na <- 
+  data_cz_establishments_distance %>% 
+  tidyr::drop_na(
+    distance_min_r
+  ) %>% 
+  dplyr::group_by(
+    year,
+    cz
+  ) %>% 
+  dplyr::mutate(
+    distance_min_avr_dropna = mean(distance_min_r),
+    distance_min_med_dropna = stats::median(distance_min_r),
+    distance_min_10_dropna = stats::quantile(distance_min_r, 0.1),
+    distance_min_25_dropna = stats::quantile(distance_min_r, 0.25),
+    distance_min_75_dropna = stats::quantile(distance_min_r, 0.75),
+    distance_min_90_dropna = stats::quantile(distance_min_r, 0.9),
+    log_wage_avr = mean(log_wage),
+    log_fee_avr = mean(log_fee)
+  ) 
+  
+ 
+data_cz_establishments_distance_na_distinct <- 
+  data_cz_establishments_distance_na %>% 
+  dplyr::arrange(
+    year,
+    cz
+  ) %>% 
+  dplyr::select(
+    year,
+    cz,
+    distance_min_avr_dropna,
+    distance_min_med_dropna,
+    distance_min_10_dropna,
+    distance_min_25_dropna,
+    distance_min_75_dropna,
+    distance_min_90_dropna,
+    N_jt,
+    N_jt_1000,
+    N_jt_10000,
+    log_wage_avr,
+    log_fee_avr
+  ) %>% 
+  dplyr::distinct() 
+
+data_cz_establishments_distance_na_distinct <- 
+  data_cz_establishments_distance_na_distinct %>% 
+  dplyr::mutate(
+    distance_min_avr_dropna_10000 = distance_min_avr_dropna / 10000,
+    distance_min_avr_dropna_100000 = distance_min_avr_dropna / 100000,
+    distance_min_avr_dropna_1000000 = distance_min_avr_dropna / 1000000,
+    distance_min_med_dropna_1000000 = distance_min_med_dropna / 1000000,
+    distance_min_10_dropna_1000000 = distance_min_10_dropna / 1000000,
+    distance_min_25_dropna_1000000 = distance_min_25_dropna / 1000000,
+    distance_min_75_dropna_1000000 = distance_min_75_dropna / 1000000,
+    distance_min_90_dropna_1000000 = distance_min_90_dropna / 1000000
+  )
+
+ results <- list()
+ 
+ results[[1]] <- 
+   estimatr::lm_robust(
+     formula = N_jt ~ distance_min_avr_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ 
+ rows_D <- 
+   tibble::tribble(
+     ~term, ~`(1)`,
+     'year_FE', 'Y',
+     'cz_FE', 'Y' 
+   )
+ 
+ attr(rows_D, 'position') <- c(3,4)
+ 
+ result <- 
+   list(
+     "N_jt" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows_D
+ ) 
+
+
+```
+
+## reduced form
+
+```{r}
+
+resultsr <- list()
+ 
+ resultsr[[1]] <- 
+   estimatr::lm_robust(
+     formula = log_wage_avr ~ distance_min_avr_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ resultsr[[2]] <- 
+   estimatr::lm_robust(
+     formula = log_fee_avr ~ distance_min_avr_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ rows <- 
+  tibble::tribble(
+    ~term, ~`(1)`, ~`(2)`,
+    'year_FE', 'Y', 'Y',
+    'cz_FE', 'Y', 'Y'
+  )
+ 
+ attr(rows, 'position') <- c(3,4)
+ 
+ result_r <- 
+   list(
+     "log_wage_avr" = resultsr[[1]],
+     "log_fee_avr" = resultsr[[2]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+
+## structural form {.tabset}
+
+### 2nd stage
+
+```{r}
+
+resultss <- list()
+
+resultss[[1]] <- 
+  fixest::feols(
+    fml = log_wage_avr ~ 1 | year + cz | N_jt ~ distance_min_avr_dropna_1000000,
+    data = data_cz_establishments_distance_na_distinct,
+    se = "hetero"
+  )
+
+resultss[[2]] <- 
+  fixest::feols(
+    fml = log_fee_avr ~ 1 | year + cz | N_jt ~ distance_min_avr_dropna_1000000,
+    data = data_cz_establishments_distance_na_distinct,
+    se = "hetero"
+  )
+
+results_s <- 
+  list(
+    "log_wage_avr" = resultss[[1]],
+    "log_fee_avr" = resultss[[2]]
+  )
+
+modelsummary::modelsummary(
+  results_s,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+### 1st stage
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+ 
+# distance median 
+
+## first stage
+
+```{r}
+
+ resultsm <- list()
+ 
+ resultsm[[1]] <- 
+   estimatr::lm_robust(
+     formula = N_jt ~ distance_min_med_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ 
+ rows_D <- 
+   tibble::tribble(
+     ~term, ~`(1)`,
+     'year_FE', 'Y',
+     'cz_FE', 'Y' 
+   )
+ 
+ attr(rows_D, 'position') <- c(3,4)
+ 
+ resultm <- 
+   list(
+     "N_jt" = resultsm[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   resultm,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows_D
+ ) 
+
+
+```
+
+## reduced form
+
+```{r}
+
+resultsrm <- list()
+ 
+ resultsrm[[1]] <- 
+   estimatr::lm_robust(
+     formula = log_wage_avr ~ distance_min_med_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ resultsrm[[2]] <- 
+   estimatr::lm_robust(
+     formula = log_fee_avr ~ distance_min_med_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ rows <- 
+  tibble::tribble(
+    ~term, ~`(1)`, ~`(2)`,
+    'year_FE', 'Y', 'Y',
+    'cz_FE', 'Y', 'Y'
+  )
+ 
+ attr(rows, 'position') <- c(3,4)
+ 
+ result_rm <- 
+   list(
+     "log_wage_avr" = resultsrm[[1]],
+     "log_fee_avr" = resultsrm[[2]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_rm,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+
+## structural form {.tabset}
+
+### 2nd stage
+
+```{r}
+
+resultssm <- list()
+
+resultssm[[1]] <- 
+  fixest::feols(
+    fml = log_wage_avr ~ 1 | year + cz | N_jt ~ distance_min_med_dropna_1000000,
+    data = data_cz_establishments_distance_na_distinct,
+    se = "hetero"
+  )
+
+resultssm[[2]] <- 
+  fixest::feols(
+    fml = log_fee_avr ~ 1 | year + cz | N_jt ~ distance_min_med_dropna_1000000,
+    data = data_cz_establishments_distance_na_distinct,
+    se = "hetero"
+  )
+
+results_sm <- 
+  list(
+    "log_wage_avr" = resultssm[[1]],
+    "log_fee_avr" = resultssm[[2]]
+  )
+
+modelsummary::modelsummary(
+  results_sm,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+### 1st stage
+
+```{r}
+
+modelsummary::modelsummary(
+  resultssm[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+# distance 10 percentile 
+
+## first stage
+
+```{r}
+
+ results10 <- list()
+ 
+ results10[[1]] <- 
+   estimatr::lm_robust(
+     formula = N_jt ~ distance_min_10_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ 
+ rows_D <- 
+   tibble::tribble(
+     ~term, ~`(1)`,
+     'year_FE', 'Y',
+     'cz_FE', 'Y' 
+   )
+ 
+ attr(rows_D, 'position') <- c(3,4)
+ 
+ result10 <- 
+   list(
+     "N_jt" = results10[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result10,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows_D
+ ) 
+
+
+```
+
+## reduced form
+
+```{r}
+
+resultsr10 <- list()
+ 
+ resultsr10[[1]] <- 
+   estimatr::lm_robust(
+     formula = log_wage_avr ~ distance_min_10_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ resultsr10[[2]] <- 
+   estimatr::lm_robust(
+     formula = log_fee_avr ~ distance_min_10_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ rows <- 
+  tibble::tribble(
+    ~term, ~`(1)`, ~`(2)`,
+    'year_FE', 'Y', 'Y',
+    'cz_FE', 'Y', 'Y'
+  )
+ 
+ attr(rows, 'position') <- c(3,4)
+ 
+ result_r10 <- 
+   list(
+     "log_wage_avr" = resultsr10[[1]],
+     "log_fee_avr" = resultsr10[[2]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r10,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+
+## structural form {.tabset}
+
+### 2nd stage
+
+```{r}
+
+resultss10 <- list()
+
+resultss10[[1]] <- 
+  fixest::feols(
+    fml = log_wage_avr ~ 1 | year + cz | N_jt ~ distance_min_10_dropna_1000000,
+    data = data_cz_establishments_distance_na_distinct,
+    se = "hetero"
+  )
+
+resultss10[[2]] <- 
+  fixest::feols(
+    fml = log_fee_avr ~ 1 | year + cz | N_jt ~ distance_min_10_dropna_1000000,
+    data = data_cz_establishments_distance_na_distinct,
+    se = "hetero"
+  )
+
+results_s10 <- 
+  list(
+    "log_wage_avr" = resultss10[[1]],
+    "log_fee_avr" = resultss10[[2]]
+  )
+
+modelsummary::modelsummary(
+  results_s10,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+### 1st stage
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss10[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+# distance 25 percentile 
+
+## first stage
+
+```{r}
+
+ results25 <- list()
+ 
+ results25[[1]] <- 
+   estimatr::lm_robust(
+     formula = N_jt ~ distance_min_25_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ 
+ rows_D <- 
+   tibble::tribble(
+     ~term, ~`(1)`,
+     'year_FE', 'Y',
+     'cz_FE', 'Y' 
+   )
+ 
+ attr(rows_D, 'position') <- c(3,4)
+ 
+ result25 <- 
+   list(
+     "N_jt" = results25[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result25,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows_D
+ ) 
+
+
+```
+
+## reduced form
+
+```{r}
+
+resultsr25 <- list()
+ 
+ resultsr25[[1]] <- 
+   estimatr::lm_robust(
+     formula = log_wage_avr ~ distance_min_25_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ resultsr25[[2]] <- 
+   estimatr::lm_robust(
+     formula = log_fee_avr ~ distance_min_25_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ rows <- 
+  tibble::tribble(
+    ~term, ~`(1)`, ~`(2)`,
+    'year_FE', 'Y', 'Y',
+    'cz_FE', 'Y', 'Y'
+  )
+ 
+ attr(rows, 'position') <- c(3,4)
+ 
+ result_r25 <- 
+   list(
+     "log_wage_avr" = resultsr25[[1]],
+     "log_fee_avr" = resultsr25[[2]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r25,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+
+## structural form {.tabset}
+
+### 2nd stage
+
+```{r}
+
+resultss25 <- list()
+
+resultss25[[1]] <- 
+  fixest::feols(
+    fml = log_wage_avr ~ 1 | year + cz | N_jt ~ distance_min_25_dropna_1000000,
+    data = data_cz_establishments_distance_na_distinct,
+    se = "hetero"
+  )
+
+resultss25[[2]] <- 
+  fixest::feols(
+    fml = log_fee_avr ~ 1 | year + cz | N_jt ~ distance_min_25_dropna_1000000,
+    data = data_cz_establishments_distance_na_distinct,
+    se = "hetero"
+  )
+
+results_s25 <- 
+  list(
+    "log_wage_avr" = resultss25[[1]],
+    "log_fee_avr" = resultss25[[2]]
+  )
+
+modelsummary::modelsummary(
+  results_s25,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+### 1st stage
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss25[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+# distance 75 percentile 
+
+## first stage
+
+```{r}
+
+ results75 <- list()
+ 
+ results75[[1]] <- 
+   estimatr::lm_robust(
+     formula = N_jt ~ distance_min_75_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ 
+ rows_D <- 
+   tibble::tribble(
+     ~term, ~`(1)`,
+     'year_FE', 'Y',
+     'cz_FE', 'Y' 
+   )
+ 
+ attr(rows_D, 'position') <- c(3,4)
+ 
+ result75 <- 
+   list(
+     "N_jt" = results75[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result75,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows_D
+ ) 
+
+
+```
+
+## reduced form
+
+```{r}
+
+resultsr75 <- list()
+ 
+ resultsr75[[1]] <- 
+   estimatr::lm_robust(
+     formula = log_wage_avr ~ distance_min_75_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ resultsr75[[2]] <- 
+   estimatr::lm_robust(
+     formula = log_fee_avr ~ distance_min_75_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ rows <- 
+  tibble::tribble(
+    ~term, ~`(1)`, ~`(2)`,
+    'year_FE', 'Y', 'Y',
+    'cz_FE', 'Y', 'Y'
+  )
+ 
+ attr(rows, 'position') <- c(3,4)
+ 
+ result_r75 <- 
+   list(
+     "log_wage_avr" = resultsr75[[1]],
+     "log_fee_avr" = resultsr75[[2]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r75,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+
+## structural form {.tabset}
+
+### 2nd stage
+
+```{r}
+
+resultss75 <- list()
+
+resultss75[[1]] <- 
+  fixest::feols(
+    fml = log_wage_avr ~ 1 | year + cz | N_jt ~ distance_min_75_dropna_1000000,
+    data = data_cz_establishments_distance_na_distinct,
+    se = "hetero"
+  )
+
+resultss75[[2]] <- 
+  fixest::feols(
+    fml = log_fee_avr ~ 1 | year + cz | N_jt ~ distance_min_75_dropna_1000000,
+    data = data_cz_establishments_distance_na_distinct,
+    se = "hetero"
+  )
+
+results_s75 <- 
+  list(
+    "log_wage_avr" = resultss75[[1]],
+    "log_fee_avr" = resultss75[[2]]
+  )
+
+modelsummary::modelsummary(
+  results_s75,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+### 1st stage
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss75[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+# distance 90 percentile 
+
+## first stage
+
+```{r}
+
+ results90 <- list()
+ 
+ results90[[1]] <- 
+   estimatr::lm_robust(
+     formula = N_jt ~ distance_min_90_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ 
+ rows_D <- 
+   tibble::tribble(
+     ~term, ~`(1)`,
+     'year_FE', 'Y',
+     'cz_FE', 'Y' 
+   )
+ 
+ attr(rows_D, 'position') <- c(3,4)
+ 
+ result90 <- 
+   list(
+     "N_jt" = results90[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result90,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows_D
+ ) 
+
+
+```
+
+## reduced form
+
+```{r}
+
+resultsr90 <- list()
+ 
+ resultsr90[[1]] <- 
+   estimatr::lm_robust(
+     formula = log_wage_avr ~ distance_min_90_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ resultsr90[[2]] <- 
+   estimatr::lm_robust(
+     formula = log_fee_avr ~ distance_min_90_dropna_1000000,
+     fixed_effects = year + cz,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_distinct
+   )
+ 
+ rows <- 
+  tibble::tribble(
+    ~term, ~`(1)`, ~`(2)`,
+    'year_FE', 'Y', 'Y',
+    'cz_FE', 'Y', 'Y'
+  )
+ 
+ attr(rows, 'position') <- c(3,4)
+ 
+ result_r90 <- 
+   list(
+     "log_wage_avr" = resultsr10[[1]],
+     "log_fee_avr" = resultsr10[[2]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r90,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+
+## structural form {.tabset}
+
+### 2nd stage
+
+```{r}
+
+resultss90 <- list()
+
+resultss90[[1]] <- 
+  fixest::feols(
+    fml = log_wage_avr ~ 1 | year + cz | N_jt ~ distance_min_90_dropna_1000000,
+    data = data_cz_establishments_distance_na_distinct,
+    se = "hetero"
+  )
+
+resultss90[[2]] <- 
+  fixest::feols(
+    fml = log_fee_avr ~ 1 | year + cz | N_jt ~ distance_min_90_dropna_1000000,
+    data = data_cz_establishments_distance_na_distinct,
+    se = "hetero"
+  )
+
+results_s90 <- 
+  list(
+    "log_wage_avr" = resultss90[[1]],
+    "log_fee_avr" = resultss90[[2]]
+  )
+
+modelsummary::modelsummary(
+  results_s90,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+### 1st stage
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss90[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+

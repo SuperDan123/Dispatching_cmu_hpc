@@ -1,0 +1,231 @@
+---
+title: "Using Share vs Not Using Share"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: html_document
+# output: github_document
+#     # toc: true
+#     # toc_float: true
+# always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 4, fig.width = 8)
+```
+
+```{r, include = F}
+
+type = "html" # regression output
+
+library(magrittr)
+library(ggpubr)
+library(stargazer)
+library(lfe)
+library(gmm)
+library(nleqslv)
+source("../R/gmm_estimation.R")
+source("../R/computing_equilibrium.R")
+
+```
+
+
+## Estimation without using share data
+```{r}
+estimation_result <- readRDS("../output/estimation_result/gmm_result_without_share_baseline.RDS")
+
+result <- estimation_result$result
+matching_params <- estimation_result$matching_params
+var_names <- estimation_result$var_names
+x_names <- var_names$x_names
+
+tab_nonlinear <- data.frame(
+  params = c("lambda_W", "lambda_F"),
+  coef = result$params_nonlinear,
+  se = result$se_nonlinear
+)
+
+tab_linear_demand <- data.frame(
+  vars = x_names[1:4],
+  coef = result$params_linear[[1]][x_names[1:4]],
+  se = result$se_linear[[1]][x_names[1:4]]
+)
+
+tab_linear_mc_W <- data.frame(
+  vars = x_names[1:4],
+  coef = result$params_linear[[2]][x_names[1:4]],
+  se = result$se_linear[[2]][x_names[1:4]]
+)
+
+tab_linear_mc_F <- data.frame(
+  vars = x_names[1:4],
+  coef = result$params_linear[[3]][x_names[1:4]],
+  se = result$se_linear[[3]][x_names[1:4]]
+)
+
+rownames(tab_nonlinear) <- NULL
+rownames(tab_linear_demand) <- NULL
+rownames(tab_linear_mc_W) <- NULL
+rownames(tab_linear_mc_F) <- NULL
+
+knitr::kable(
+  tab_nonlinear,
+  col.names = c("Parameter", "Est.", "S.E."),
+  digits = 3,
+  caption = "Non-linear Parameters"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+knitr::kable(
+  tab_linear_demand,
+  col.names = c("Variables", "Coef.", "S.E."),
+  digits = 3,
+  caption = "Linear Parameters (Demand Side)"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+knitr::kable(
+  tab_linear_mc_W,
+  col.names = c("Variables", "Coef.", "S.E."),
+  digits = 3,
+  caption = "Linear Parameters (Worker-Side Marginal Costs)"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+knitr::kable(
+  tab_linear_mc_F,
+  col.names = c("Variables", "Coef.", "S.E."),
+  digits = 3,
+  caption = "Linear Parameters (Firm-Side Marginal Costs)"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+```
+
+
+## Estimation using share data
+```{r}
+estimation_result <- readRDS("../output/estimation_result/gmm_result_two_shares_baseline.RDS")
+
+result <- estimation_result$result
+matching_params <- estimation_result$matching_params
+var_names <- estimation_result$var_names
+x_names <- var_names$x_names
+
+tab_nonlinear <- data.frame(
+  params = c("lambda_W", "lambda_F"),
+  coef = result$params_nonlinear,
+  se = result$se_nonlinear
+)
+
+tab_linear_demand_W <- data.frame(
+  vars = x_names[1:4],
+  coef = result$params_linear[[1]][x_names[1:4]],
+  se = result$se_linear[[1]][x_names[1:4]]
+)
+
+tab_linear_demand_F <- data.frame(
+  vars = x_names[1:4],
+  coef = result$params_linear[[2]][x_names[1:4]],
+  se = result$se_linear[[2]][x_names[1:4]]
+)
+
+tab_linear_mc_W <- data.frame(
+  vars = x_names[1:4],
+  coef = result$params_linear[[3]][x_names[1:4]],
+  se = result$se_linear[[3]][x_names[1:4]]
+)
+
+tab_linear_mc_F <- data.frame(
+  vars = x_names[1:4],
+  coef = result$params_linear[[4]][x_names[1:4]],
+  se = result$se_linear[[4]][x_names[1:4]]
+)
+
+rownames(tab_nonlinear) <- NULL
+rownames(tab_linear_demand_W) <- NULL
+rownames(tab_linear_demand_F) <- NULL
+rownames(tab_linear_mc_W) <- NULL
+rownames(tab_linear_mc_F) <- NULL
+
+knitr::kable(
+  tab_nonlinear,
+  col.names = c("Parameter", "Est.", "S.E."),
+  digits = 3,
+  caption = "Non-linear Parameters"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+knitr::kable(
+  tab_linear_demand_W,
+  col.names = c("Variables", "Coef.", "S.E."),
+  digits = 3,
+  caption = "Linear Parameters (Worker-Side Demand)"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+knitr::kable(
+  tab_linear_demand_F,
+  col.names = c("Variables", "Coef.", "S.E."),
+  digits = 3,
+  caption = "Linear Parameters (Firm-Side Demand)"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+
+knitr::kable(
+  tab_linear_mc_W,
+  col.names = c("Variables", "Coef.", "S.E."),
+  digits = 3,
+  caption = "Linear Parameters (Worker-Side Marginal Costs)"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+knitr::kable(
+  tab_linear_mc_F,
+  col.names = c("Variables", "Coef.", "S.E."),
+  digits = 3,
+  caption = "Linear Parameters (Firm-Side Marginal Costs)"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+```
+
+```{r}
+
+estimation_result <- readRDS("../output/estimation_result/gmm_result_two_shares_baseline.RDS")
+share_data <- readRDS("../output/share_data_two_shares.RDS")
+partwage_cz <- readRDS("../output/partwage_cz.RDS")
+
+result <- estimation_result$result
+matching_params <- estimation_result$matching_params
+var_names <- estimation_result$var_names
+
+theta <- result$params_nonlinear %>% unname()
+
+# Marginal cost
+mc <-  compute_marginal_cost_two_shares_two_mc(share_data,
+                                    partwage_cz,
+                                    var_names,
+                                    result,
+                                    matching_params)
+
+# Platform heterogeneity
+a <- compute_platform_heterogeneity_two_shares(share_data, var_names, result, matching_params)
+
+a %>% 
+  dplyr::mutate(a_W = a_W_observed + a_W_resid,
+                a_F = a_F_observed + a_F_resid) %>% 
+  ggscatter(x = "a_W", 
+            y = "a_F",
+            color = "skyblue",
+            shape = 21,
+            xlab = "a_W",
+            ylab = "a_F",
+            add = "reg.line")
+
+```
+
+
+

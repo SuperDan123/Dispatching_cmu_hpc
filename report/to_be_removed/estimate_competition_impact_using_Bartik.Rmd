@@ -1,0 +1,53 @@
+---
+title: "Estimate competition impact using Bartik type instrument"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 4, fig.width = 8)
+```
+
+# {.tabset}
+
+## Firm FE
+
+### Wage
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/competition_regression/all_platforms/coarse/competition_Bartik_wage_firmFE.png"))
+```
+
+### Fee
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/competition_regression/all_platforms/coarse/competition_Bartik_fee_firmFE.png"))
+```
+
+### Margin
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/competition_regression/all_platforms/coarse/competition_Bartik_margin_firmFE.png"))
+```
+
+
+## Establishment FE
+
+### Wage
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/competition_regression/all_platforms/coarse/competition_Bartik_wage_establishmentFE.png"))
+```
+
+### Fee
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/competition_regression/all_platforms/coarse/competition_Bartik_fee_establishmentFE.png"))
+```
+
+### Margin
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/competition_regression/all_platforms/coarse/competition_Bartik_margin_establishmentFE.png"))
+```

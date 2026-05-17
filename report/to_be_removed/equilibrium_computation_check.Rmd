@@ -1,0 +1,137 @@
+---
+title: "Equilibrium Computation Check"
+author: "Katsuhiro Komatsu"
+date: "2021/3/28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 6, fig.width = 12)
+```
+
+```{r, include = F}
+
+type = "html" # regression output
+
+library(magrittr)
+library(ggplot2); theme_set(theme_bw())
+library(stargazer)
+library(lfe)
+library(gmm)
+library(nleqslv)
+source("../R/gmm_estimation.R")
+source("../R/computing_equilibrium.R")
+
+```
+
+```{r}
+
+load("../output/share_data.RData")
+load("../output/parttime_wage_cz.RData")
+load("../output/estimation_result/gmm_result_without_share_baseline.RData")
+
+theta <- c(result$params_nonlinear, matching_params) %>% unname()
+
+# Marginal cost
+mc <-  compute_marginal_cost_without_share(share_data,
+                                           pt_wage_cz,
+                                           var_names,
+                                           result,
+                                           matching_params)
+
+# Residuals
+out <- compute_platform_heterogeneity(share_data, var_names, result, matching_params)
+a_resid <- out$a_resid
+
+
+data <- data.frame(id_unique = share_data$id_unique,
+                   firm_id = share_data$firm_id,
+                   year_cz = share_data$year_cz,
+                   year = share_data$year,
+                   cz = share_data$cz,
+                   a_observed = out$a_observed,
+                   mc = mc$mc_1,
+                   wage_act = share_data$wage,
+                   fee_act = share_data$fee,
+                   mw = share_data$mw) %>% 
+  dplyr::filter(is.finite(mc))
+
+
+simdata_list <- list()
+
+N_max <- 20 # Just for computational time. Need to set N_max = infinity later.
+
+mkt_id <- data %>% 
+  dplyr::group_by(year_cz) %>% 
+  dplyr::summarize(N = dplyr::n()) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(N) %>% 
+  dplyr::filter(N <= N_max) %>% 
+  dplyr::pull(year_cz)
+```
+
+- Focus on one arbitrary market
+```{r}
+data_j <- data
+a_unobserved_j <- sample(a_resid, replace = TRUE)
+data_j$a <- data$a_observed + a_unobserved_j
+  
+i <- 300   
+mkt <- mkt_id[i]
+data_i <- data_j[data_j$year_cz == mkt, ]
+year_i <- data_i$year[1]
+cz_i <- data_i$cz[1]
+w_0 <- pt_wage_cz[pt_wage_cz$year == year_i & pt_wage_cz$cz == cz_i, "ptwage"] %>% dplyr::pull()
+    
+# Solve for H_W, H_F
+fn_outer <- function(x){
+    H_W <- x[1]
+    H_F <- x[2]
+    
+    out <- solve_equilibrium_inner(H_W, H_F, data_i, theta)
+    s_W <- out$s_W
+    s_F <- out$s_F
+    
+    out <- compute_outside_share(w_0, H_W, H_F, theta)
+    s_W_0 <- out[1]
+    s_F_0 <- out[2]
+    
+    out <- c(0, 0)
+    out[1] <- -1 + sum(s_W) + s_W_0
+    out[2] <- -1 + sum(s_F) + s_F_0
+    
+    #return(sqrt(sum(out ^ 2)))
+    return(out)
+}
+
+H_W_vec <- pracma::linspace(10, 1000, n = 30)
+eqn_err_W <- 1:30
+eqn_err_F <- 1:30
+
+for (i in 1:length(H_W_vec)){
+  out <- fn_outer(c(H_W_vec[i], 1))
+  eqn_err_W[i] <- out[1]
+  eqn_err_F[i] <- out[2]
+}
+
+plot(H_W_vec, eqn_err_W)
+plot(H_W_vec, eqn_err_F)
+
+
+
+
+H_F_vec <- pracma::linspace(1e-4, 1e-3, n = 30)
+for (i in 1:length(H_F_vec)){
+  out <- fn_outer(c(1, H_F_vec[i]))
+  eqn_err_W[i] <- out[1]
+  eqn_err_F[i] <- out[2]
+}
+
+plot(H_F_vec, eqn_err_W)
+plot(H_F_vec, eqn_err_F)
+
+ 
+```
+

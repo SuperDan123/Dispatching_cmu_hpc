@@ -1,0 +1,314 @@
+---
+title: "Margin Distribution"
+author: "Katsuhiro Komatsu"
+date: "2020/8/3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = F, warning = F, include = F}
+rm(list = ls())
+gc()
+
+library(magrittr)
+library(ggplot2); theme_set(theme_bw())
+library(stargazer)
+library(tidyverse)
+library(gtools)
+library(knitr)
+library(psych)
+```
+
+```{r, include = F}
+load("../data/data_2010_2014_cleaned.RData")
+data <- dplyr::filter(data, tokutei == 0)
+```
+
+
+### Margin
+```{r, echo = F}
+ds <- data %>% 
+  dplyr::select(year, margin) %>% 
+  dplyr::group_by(year) %>% 
+  dplyr::mutate(temp = 1,
+                id = cumsum(temp)) %>% 
+  spread(year, margin) %>% 
+  dplyr::select(!(temp:id)) %>% 
+  describe(skew = F,
+           ranges = F,
+           trim = 0,
+           quant = c(.01, .05, .25, .5, .75, .95, .99))
+
+ds$vars <- NULL
+ds$se <- NULL
+```
+
+```{r, echo = F, results = "asis"}
+kable(ds, digits = 3)
+```
+
+
+
+
+### Wage
+```{r, echo = F}
+ds <- data %>% 
+  dplyr::select(year, wage) %>% 
+  dplyr::group_by(year) %>% 
+  dplyr::mutate(temp = 1,
+                id = cumsum(temp)) %>% 
+  spread(year, wage) %>% 
+  dplyr::select(!(temp:id)) %>% 
+  describe(skew = F,
+           ranges = F,
+           trim = 0,
+           quant = c(.01, .05, .25, .5, .75, .95, .99))
+
+ds$vars <- NULL
+ds$se <- NULL
+```
+
+```{r, echo = F, results = "asis"}
+kable(ds, digits = 2)
+```
+
+### Fee
+```{r, echo = F}
+ds <- data %>% 
+  dplyr::select(year, fee) %>% 
+  dplyr::group_by(year) %>% 
+  dplyr::mutate(temp = 1,
+                id = cumsum(temp)) %>% 
+  spread(year, fee) %>% 
+  dplyr::select(!(temp:id)) %>% 
+  describe(skew = F,
+           ranges = F,
+           trim = 0,
+           quant = c(.01, .05, .25, .5, .75, .95, .99))
+
+ds$vars <- NULL
+ds$se <- NULL
+```
+
+```{r, echo = F, results = "asis"}
+kable(ds, digits = 2)
+```
+
+
+### CDF of Margins
+```{r, echo = F}
+
+g <- data %>% 
+  dplyr::filter(year == 2010 | year == 2012 | year == 2014) %>% 
+  dplyr::mutate(year = as.factor(year)) %>% 
+  ggplot(aes(x = margin)) +
+  stat_ecdf(aes(color = year)) +
+  labs(y = "CDF") + 
+  coord_cartesian(xlim = c(0.2, 1))
+
+g
+```
+
+- Compute the dispersion of margin in each commuting zone (95%tile - 5%tile, 90%tile - 10%tile etc.)
+- Plot the dispersion in year 2010 on x-axis and the change of the dispersion on y-axis.
+```{r, echo = F, message = F}
+
+data_cz <- data %>% 
+  dplyr::group_by(year, cz) %>% 
+  dplyr::summarise(margin_p05 = quantile(margin, c(0.05)),
+                   margin_p10 = quantile(margin, c(0.1)),
+                   margin_p25 = quantile(margin, c(0.25)),
+                   margin_p75 = quantile(margin, c(0.75)),
+                   margin_p90 = quantile(margin, c(0.9)),
+                   margin_p95 = quantile(margin, c(0.95)),
+                   N = dplyr::n()) %>% 
+  dplyr::ungroup()
+
+# data_cz <- data_cz %>% 
+#   dplyr::filter(N >= 10)
+
+```
+### 1. Change of the dispersion between 2010-2014 (After the policy change)
+```{r, echo = F, warning = F, message = F, fig.width = 12, fig.height = 6}
+
+g1 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p75 - margin_p25) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2014 - year_2010))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p75 - p25") + ylab("Change in margin p75 - p25")
+
+
+g2 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p90 - margin_p10) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2014 - year_2010))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p90 - p10") + ylab("Change in margin p90 - p10")
+  
+
+g3 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p95 - margin_p05) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2014 - year_2010))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p95 - p5") + ylab("Change in margin p95 - p5")
+
+gridExtra::grid.arrange(g1, g2, g3, nrow = 1)
+
+```
+
+
+### 2. Change between 2010-2013 (After the policy change)
+```{r, echo = F, warning = F, message = F, fig.width = 12, fig.height = 6}
+
+g1 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p75 - margin_p25) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2013 - year_2010))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p75 - p25") + ylab("Change in margin p75 - p25")
+
+
+g2 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p90 - margin_p10) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2013 - year_2010))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p90 - p10") + ylab("Change in margin p90 - p10")
+  
+
+g3 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p95 - margin_p05) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2013 - year_2010))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p95 - p5") + ylab("Change in margin p95 - p5")
+
+gridExtra::grid.arrange(g1, g2, g3, nrow = 1)
+
+```
+
+
+
+### 3. Change between 2010-2012 (Before the policy change)
+```{r, echo = F, warning = F, message = F, fig.width = 12, fig.height = 6}
+
+g1 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p75 - margin_p25) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2012 - year_2010))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p75 - p25") + ylab("Change in margin p75 - p25")
+
+
+g2 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p90 - margin_p10) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2012 - year_2010))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p90 - p10") + ylab("Change in margin p90 - p10")
+  
+
+g3 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p95 - margin_p05) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2012 - year_2010))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p95 - p5") + ylab("Change in margin p95 - p5")
+
+gridExtra::grid.arrange(g1, g2, g3, nrow = 1)
+```
+
+
+### 4. Change between 2010-2011 (Before the policy change)
+```{r, echo = F, warning = F, message = F, fig.width = 12, fig.height = 6}
+
+g1 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p75 - margin_p25) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2011 - year_2010))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p75 - p25") + ylab("Change in margin p75 - p25")
+
+
+g2 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p90 - margin_p10) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2011 - year_2010))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p90 - p10") + ylab("Change in margin p90 - p10")
+  
+
+g3 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p95 - margin_p05) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2011 - year_2010))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p95 - p5") + ylab("Change in margin p95 - p5")
+
+gridExtra::grid.arrange(g1, g2, g3, nrow = 1)
+```
+
+
+### 5. Change between 2012-2013
+```{r, echo = F, warning = F, message = F, fig.width = 12, fig.height = 6}
+
+g1 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p75 - margin_p25) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2013 - year_2012))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p75 - p25") + ylab("Change in margin p75 - p25")
+
+
+g2 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p90 - margin_p10) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2013 - year_2012))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p90 - p10") + ylab("Change in margin p90 - p10")
+  
+
+g3 <- data_cz %>% 
+  dplyr::mutate(margin_disp = margin_p95 - margin_p05) %>% 
+  dplyr::select(year, margin_disp, cz) %>% 
+  tidyr::spread(key = year, value = margin_disp, sep = "_") %>% 
+  ggplot(aes(x = year_2010, y = (year_2013 - year_2012))) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  xlab("Margin p95 - p5") + ylab("Change in margin p95 - p5")
+
+gridExtra::grid.arrange(g1, g2, g3, nrow = 1)
+```

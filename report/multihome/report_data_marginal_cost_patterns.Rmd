@@ -1,0 +1,634 @@
+---
+title: "report_data_marginal_cost_patterns"
+author: "Daisy Dan Song"
+date: "2025-02-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+```
+
+# import solved equilibrium
+```{r}
+equilibrium <-
+  readRDS(
+    file = "output/multihome/estimate_data/equilibrium_updated.rds" %>%
+    here::here()
+  )
+
+# update the mu shape
+equilibrium <-
+  update_mu(
+    equilibrium = equilibrium,
+    parameter = equilibrium$parameter
+  ) 
+```
+
+# test market
+```{r}
+t <- 1
+j <- 1
+equilibrium$constant$method_s_w <- "exact"
+equilibrium$constant$use_exp <- FALSE
+```
+
+## profit and foc_f shape for i = 2
+
+```{r}
+df <- 
+  seq(
+    -10,
+    60,
+    by = 0.1
+  ) %>%
+  purrr::map(
+    function(x) {
+      f_x <- equilibrium$endogenous[[t]][[j]]$f
+      f_x[2] <- x
+      profit <- 
+        solve_profit_ths_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          beta_f = equilibrium$parameter$beta_f,
+          gamma_w = equilibrium$parameter$gamma_w,
+          gamma_f = equilibrium$parameter$gamma_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          lambda_f = equilibrium$parameter$lambda_f,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          x_c_w = equilibrium$exogenous[[t]][[j]]$x_c_w,
+          x_c_f = equilibrium$exogenous[[t]][[j]]$x_c_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          owner = equilibrium$exogenous[[t]][[j]]$owner,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          ec_w = equilibrium$shock[[t]][[j]]$ec_w,
+          ec_f = equilibrium$shock[[t]][[j]]$ec_f,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          f = f_x,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = "exact",
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol,
+          use_exp = equilibrium$constant$use_exp
+        ) 
+    return(
+      tibble::tibble(
+        f = x,
+        profit = profit[2]
+      )
+    )
+  }
+) %>%
+dplyr::bind_rows()
+
+g <-
+  df %>%
+  ggplot(
+    aes(
+      x = f,
+      y = profit
+    )
+  ) +
+  geom_point() +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed"
+  ) +
+  theme_classic()
+g
+```
+```{r}
+df <- 
+  seq(
+    -10,
+    60,
+    by = 0.5
+  ) %>%
+  purrr::map(
+    function(x) {
+      f_x <- equilibrium$endogenous[[t]][[j]]$f
+      f_x[2] <- x
+      foc <- 
+        compute_foc_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          beta_f = equilibrium$parameter$beta_f,
+          gamma_w = equilibrium$parameter$gamma_w,
+          gamma_f = equilibrium$parameter$gamma_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          lambda_f = equilibrium$parameter$lambda_f,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          x_c_w = equilibrium$exogenous[[t]][[j]]$x_c_w,
+          x_c_f = equilibrium$exogenous[[t]][[j]]$x_c_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          owner = equilibrium$exogenous[[t]][[j]]$owner,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          ec_w = equilibrium$shock[[t]][[j]]$ec_w,
+          ec_f = equilibrium$shock[[t]][[j]]$ec_f,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          f = f_x,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = "exact",
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol,
+          use_exp = equilibrium$constant$use_exp
+        ) 
+    return(
+      tibble::tibble(
+        f = x,
+        foc = foc[3]
+      )
+    )
+  }
+) %>%
+dplyr::bind_rows()
+
+g <-
+  df %>%
+  ggplot(
+    aes(
+      x = f,
+      y = foc
+    )
+  ) +
+  geom_point() +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed"
+  ) +
+  theme_classic()
+g
+```
+
+## profit and foc_f shape for i = 3
+
+```{r}
+df <- 
+  seq(
+    -10,
+    60,
+    by = 0.1
+  ) %>%
+  purrr::map(
+    function(x) {
+      f_x <- equilibrium$endogenous[[t]][[j]]$f
+      f_x[3] <- x
+      profit <- 
+        solve_profit_ths_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          beta_f = equilibrium$parameter$beta_f,
+          gamma_w = equilibrium$parameter$gamma_w,
+          gamma_f = equilibrium$parameter$gamma_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          lambda_f = equilibrium$parameter$lambda_f,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          x_c_w = equilibrium$exogenous[[t]][[j]]$x_c_w,
+          x_c_f = equilibrium$exogenous[[t]][[j]]$x_c_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          owner = equilibrium$exogenous[[t]][[j]]$owner,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          ec_w = equilibrium$shock[[t]][[j]]$ec_w,
+          ec_f = equilibrium$shock[[t]][[j]]$ec_f,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          f = f_x,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = "exact",
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol,
+          use_exp = equilibrium$constant$use_exp
+        ) 
+    return(
+      tibble::tibble(
+        f = x,
+        profit = profit[3]
+      )
+    )
+  }
+) %>%
+dplyr::bind_rows()
+
+g <-
+  df %>%
+  ggplot(
+    aes(
+      x = f,
+      y = profit
+    )
+  ) +
+  geom_point() +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed"
+  ) +
+  theme_classic()
+g
+```
+```{r}
+df <- 
+  seq(
+    -10,
+    60,
+    by = 0.5
+  ) %>%
+  purrr::map(
+    function(x) {
+      f_x <- equilibrium$endogenous[[t]][[j]]$f
+      f_x[3] <- x
+      foc <- 
+        compute_foc_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          beta_f = equilibrium$parameter$beta_f,
+          gamma_w = equilibrium$parameter$gamma_w,
+          gamma_f = equilibrium$parameter$gamma_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          lambda_f = equilibrium$parameter$lambda_f,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          x_c_w = equilibrium$exogenous[[t]][[j]]$x_c_w,
+          x_c_f = equilibrium$exogenous[[t]][[j]]$x_c_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          owner = equilibrium$exogenous[[t]][[j]]$owner,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          ec_w = equilibrium$shock[[t]][[j]]$ec_w,
+          ec_f = equilibrium$shock[[t]][[j]]$ec_f,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          f = f_x,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = "exact",
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol,
+          use_exp = equilibrium$constant$use_exp
+        ) 
+    return(
+      tibble::tibble(
+        f = x,
+        foc = foc[4]
+      )
+    )
+  }
+) %>%
+dplyr::bind_rows()
+
+g <-
+  df %>%
+  ggplot(
+    aes(
+      x = f,
+      y = foc
+    )
+  ) +
+  geom_point() +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed"
+  ) +
+  theme_classic()
+g
+```
+
+# Marginal Cost Analysis
+
+```{r}
+df <- 
+  foreach(
+    t = seq_along(equilibrium$endogenous),
+    .combine = "rbind"
+  ) %do% {
+    df_t <- 
+      foreach(
+        j = seq_along(equilibrium$endogenous[[t]]),
+        .combine =  "rbind"
+      ) %do% {
+        c_w_tj <- 
+          compute_c_w_tj(
+            gamma_w = equilibrium$parameter$gamma_w,
+            x_c_w = equilibrium$exogenous[[t]][[j]]$x_c_w,
+            ec_w = equilibrium$shock[[t]][[j]]$ec_w,
+            use_exp = equilibrium$constant$use_exp
+          ) 
+        c_f_tj <- 
+          compute_c_f_tj(
+            gamma_f = equilibrium$parameter$gamma_f,
+            x_c_f = equilibrium$exogenous[[t]][[j]]$x_c_f,
+            ec_f = equilibrium$shock[[t]][[j]]$ec_f,
+            use_exp = equilibrium$constant$use_exp
+          ) 
+        w <- equilibrium$endogenous[[t]][[j]]$w
+        f <- equilibrium$endogenous[[t]][[j]]$f
+        size_w <- 
+          rep(
+            equilibrium$exogenous[[t]][[j]]$size_w,
+            length(w)
+          ) 
+        w_0 <- 
+          rep(
+            equilibrium$exogenous[[t]][[j]]$w_0,
+            length(w)
+          ) 
+        df_tj <- 
+          cbind(
+            c_w = c_w_tj[2:length(c_w_tj)],
+            c_f = c_f_tj[2:length(c_f_tj)],
+            w = w[2:length(w)],
+            f = f[2:length(f)],
+            size_w = size_w,
+            w_0 = w_0
+          )
+          
+        return(df_tj)
+      }
+    return(df_t)
+  }
+
+df <- data.frame(df)
+summary(df)
+```
+
+## c_f distribution
+```{r}
+g <- 
+  df %>%
+  ggplot(
+    aes(
+      x = c_f
+    )
+  ) + 
+  geom_freqpoly()
+g
+```
+
+## c_w distribution
+
+```{r}
+g <- 
+  df %>%
+  ggplot(
+    aes(
+      x = c_w
+    )
+  ) + 
+  geom_freqpoly()
+g
+```
+
+
+# filtered data
+```{r}
+q01_c_w <- 
+  quantile(
+    df$c_w, 
+    0.1, 
+    na.rm = TRUE
+    )
+q99_c_w <- 
+  quantile(
+    df$c_w, 
+    0.9, 
+    na.rm = TRUE
+    )
+
+df_filtered_w <- 
+  df %>% 
+  dplyr::filter(
+    c_w > q01_c_w & c_w < q99_c_w
+    )
+summary(df_filtered_w)
+```
+
+## c_w and w
+
+```{r}
+g <- 
+  df_filtered_w %>%
+  ggplot(
+    aes(
+      x = w,
+      y = c_w
+    )
+  ) + 
+  geom_point() +
+  geom_smooth(
+    method = "lm", 
+    color = "blue"
+    ) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dotted",
+    color = "red"
+  ) +
+  theme_minimal()
+g
+```
+
+## c_w and f
+
+```{r}
+g <- 
+  df_filtered_w %>%
+  ggplot(
+    aes(
+      x = f,
+      y = c_w
+    )
+  ) + 
+  geom_point() +
+  geom_smooth(
+    method = "lm", 
+    color = "blue"
+    ) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dotted",
+    color = "red"
+  ) +
+  theme_minimal()
+g
+```
+
+## c_w and size_w
+
+```{r}
+g <- 
+  df_filtered_w %>%
+  ggplot(
+    aes(
+      x = size_w,
+      y = c_w
+    )
+  ) + 
+  geom_point() +
+  geom_smooth(
+    method = "lm", 
+    color = "blue"
+    ) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dotted",
+    color = "red"
+  ) +
+  theme_minimal()
+g
+```
+
+## c_w and w_0
+
+```{r}
+g <- 
+  df_filtered_w %>%
+  ggplot(
+    aes(
+      x = w_0,
+      y = c_w
+    )
+  ) + 
+  geom_point() +
+  geom_smooth(
+    method = "lm", 
+    color = "blue"
+    ) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dotted",
+    color = "red"
+  ) +
+  theme_minimal()
+g
+```
+
+
+# filtered data
+```{r}
+q05_c_f <- 
+  quantile(
+    df$c_f, 
+    0.09, 
+    na.rm = TRUE
+    )
+q95_c_f <- 
+  quantile(
+    df$c_w, 
+    0.97, 
+    na.rm = TRUE
+    )
+
+df_filtered_f <- 
+  df %>% 
+  dplyr::filter(
+    c_f > q05_c_f & c_f < q95_c_f
+    )
+
+summary(df_filtered_f)
+```
+
+## c_f and f
+
+```{r}
+g <- 
+  df_filtered_f %>%
+  ggplot(
+    aes(
+      x = f,
+      y = c_f
+    )
+  ) + 
+  geom_point() +
+  geom_smooth(
+    method = "lm", 
+    color = "blue"
+    ) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dotted",
+    color = "red"
+  ) +
+  theme_minimal()
+g
+```
+
+## c_f and size_w
+
+```{r}
+g <- 
+  df_filtered_f %>%
+  ggplot(
+    aes(
+      x = size_w,
+      y = c_f
+    )
+  ) + 
+  geom_point() +
+  geom_smooth(
+    method = "lm", 
+    color = "blue"
+    ) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dotted",
+    color = "red"
+  ) +
+  theme_minimal()
+g
+
+```
+
+## c_f and w_0
+
+```{r}
+g <- 
+  df_filtered_f %>%
+  ggplot(
+    aes(
+      x = w_0,
+      y = c_f
+    )
+  ) + 
+  geom_point() +
+  geom_smooth(
+    method = "lm", 
+    color = "blue"
+    ) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dotted",
+    color = "red"
+  ) +
+  theme_minimal()
+g
+```
+

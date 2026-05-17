@@ -1,0 +1,372 @@
+---
+title: "Model Fit Summary (Using Shares)"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    number_sections: true
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 3, fig.width = 6)
+library(psych)
+library(magrittr)
+library(xtable)
+library(knitr)
+library(lfe)
+library(kableExtra)
+library(ggplot2); theme_classic()
+library(Dispatching)
+
+partwage_pref <- readRDS("../output/partwage_pref.RDS")
+num_labor <- readRDS("../output/num_labor_cz.RDS")
+num_establishments <- readRDS("../output/num_establishments_cz.RDS")
+share_data <- readRDS("../output/share_data_two_shares.RDS")
+
+```
+
+<!-- # Platform's Problem -->
+<!-- Profit function: -->
+<!-- $$ -->
+<!-- \Pi_i = q_i (f_i - w_i) - D_i^W c_i^W - D_i^F c_i^F. -->
+<!-- $$ -->
+<!-- First-order conditions: -->
+<!-- $$ -->
+<!-- -q_i + \frac{\partial q_i}{\partial w_i}(f_i-w_i) - \frac{\partial D_i^W}{\partial w_i}c_i^W - \frac{\partial D_i^F}{\partial w_i}c_i^F = 0 \\ -->
+<!-- q_i + \frac{\partial q_i}{\partial f_i}(f_i-w_i) - \frac{\partial D_i^W}{\partial f_i}c_i^W - \frac{\partial D_i^F}{\partial f_i}c_i^F = 0, -->
+<!-- $$ -->
+<!-- where -->
+<!-- $$ -->
+<!-- \frac{\partial D^W_i}{\partial w_i} = \frac{1}{\lambda^W}\left(1+\frac{\beta + 2(\alpha-1)}{2(2-\alpha-\beta)}\right)(1 - s_i^W)s_i^W, \\ -->
+<!-- \frac{\partial D^W_i}{\partial w_i} = \frac{1}{\lambda^W}\frac{ \alpha}{2(2-\alpha-\beta)}(1-s^F_i)s_i^F,  \\ -->
+<!-- \frac{\partial D^W_i}{\partial f_i} =- \frac{1}{\lambda^F}\frac{\beta}{2(2-\alpha-\beta)}(1-s_i^W)s_i^W, \\ -->
+<!-- \frac{\partial D^F_i}{\partial f_i} = -\frac{1}{\lambda^F}\left(1+\frac{\alpha+2(\beta-1)}{2(2-\alpha-\beta)}\right)(1-s_i^F)s_i^F. -->
+<!-- $$ -->
+<!-- In this specification, if marginal costs are constant, then $(1-s_i)s_i$ is the only source for heterogeneity in how demands respond to price changes that determines the distribution of $w_i$ and $f_i$. -->
+
+<!-- ## Variations in shares in the actual data -->
+<!-- ```{r} -->
+<!-- share_data <- readRDS("../output/share_data_two_shares.RDS") -->
+
+<!-- ds <- share_data %>%  -->
+<!--   dplyr::mutate( -->
+<!--     ln_s_prod_W = log(s_W) + log(1-s_W), -->
+<!--     ln_s_prod_F = log(s_F) + log(1-s_F) -->
+<!--   ) %>%  -->
+<!--   dplyr::select(ln_s_prod_W, ln_s_prod_F) %>%  -->
+<!--   describe(skew = F, -->
+<!--            ranges = F, -->
+<!--            trim = 0, -->
+<!--          quant = c(.05, .25, .5, .75, .95)) -->
+
+<!-- ds$vars <- NULL -->
+<!-- ds$se <- NULL -->
+<!-- rownames(ds) <- c("log  s_W(1-s_W)", -->
+<!--                   "log  s_F(1-s_F)") -->
+
+<!-- kable(ds, digits = 1) -->
+<!-- ``` -->
+
+<!-- ### Variation across cz-year -->
+<!-- ```{r} -->
+<!-- share_data <- readRDS("../output/share_data_two_shares.RDS") -->
+
+<!-- ds <- share_data %>%  -->
+<!--   dplyr::mutate( -->
+<!--     ln_s_prod_W = log(s_W) + log(1-s_W), -->
+<!--     ln_s_prod_F = log(s_F) + log(1-s_F) -->
+<!--   ) %>%  -->
+<!--   dplyr::select(ln_s_prod_W, ln_s_prod_F, year, cz) %>%  -->
+<!--   dplyr::group_by(year, cz) %>%  -->
+<!--   dplyr::summarise_all(~ mean(.)) %>%  -->
+<!--   dplyr::ungroup() %>%  -->
+<!--   dplyr::select(-year, -cz) %>%  -->
+<!--   describe(skew = F, -->
+<!--            ranges = F, -->
+<!--            trim = 0, -->
+<!--          quant = c(.05, .25, .5, .75, .95)) -->
+
+<!-- ds$vars <- NULL -->
+<!-- ds$se <- NULL -->
+<!-- rownames(ds) <- c("log  s_W(1-s_W)", -->
+<!--                   "log  s_F(1-s_F)") -->
+
+<!-- kable(ds, digits = 1) -->
+<!-- ``` -->
+
+
+
+# Model Fit with Exact Residuals {.tabset}
+
+## Linear Model
+### Wage
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/linear/wage.png")
+```
+
+### Fee
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/linear/fee.png")
+```
+
+
+### Worker share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/linear/share_worker.png")
+```
+
+### Firm share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/linear/share_firm.png")
+```
+
+## Log Model
+
+### Wage
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log/wage.png")
+```
+
+### Fee
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log/fee.png")
+```
+
+
+### Worker share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log/share_worker.png")
+```
+
+### Firm share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log/share_firm.png")
+```
+
+## Log-linear Model
+
+### Wage
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log_linear/wage.png")
+```
+
+### Fee
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log_linear/fee.png")
+```
+
+
+### Worker share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log_linear/share_worker.png")
+```
+
+### Firm share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log_linear/share_firm.png")
+```
+
+## Linear Model (Ridge)
+### Wage
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/linear_ridge/wage.png")
+```
+
+### Fee
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/linear_ridge/fee.png")
+```
+
+
+### Worker share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/linear_ridge/share_worker.png")
+```
+
+### Firm share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/linear_ridge/share_firm.png")
+```
+
+## Log Model (Ridge)
+### Wage
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log_ridge/wage.png")
+```
+
+### Fee
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log_ridge/fee.png")
+```
+
+
+### Worker share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log_ridge/share_worker.png")
+```
+
+### Firm share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log_ridge/share_firm.png")
+```
+
+## Log-linear Model (Ridge)
+### Wage
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log_linear_ridge/wage.png")
+```
+
+### Fee
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log_linear_ridge/fee.png")
+```
+
+
+### Worker share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log_linear_ridge/share_worker.png")
+```
+
+### Firm share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/exact/log_linear_ridge/share_firm.png")
+```
+
+# Model Fit without Residuals {.tabset}
+## Linear Model
+### Wage
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/linear/wage.png")
+```
+
+### Fee
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/linear/fee.png")
+```
+
+
+### Worker share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/linear/share_worker.png")
+```
+
+### Firm share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/linear/share_firm.png")
+```
+
+## Log Model
+
+### Wage
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log/wage.png")
+```
+
+### Fee
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log/fee.png")
+```
+
+
+### Worker share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log/share_worker.png")
+```
+
+### Firm share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log/share_firm.png")
+```
+
+## Log-linear Model
+
+### Wage
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log_linear/wage.png")
+```
+
+### Fee
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log_linear/fee.png")
+```
+
+
+### Worker share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log_linear/share_worker.png")
+```
+
+### Firm share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log_linear/share_firm.png")
+```
+
+## Linear Model (Ridge)
+### Wage
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/linear_ridge/wage.png")
+```
+
+### Fee
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/linear_ridge/fee.png")
+```
+
+
+### Worker share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/linear_ridge/share_worker.png")
+```
+
+### Firm share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/linear_ridge/share_firm.png")
+```
+
+## Log Model (Ridge)
+### Wage
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log_ridge/wage.png")
+```
+
+### Fee
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log_ridge/fee.png")
+```
+
+
+### Worker share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log_ridge/share_worker.png")
+```
+
+### Firm share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log_ridge/share_firm.png")
+```
+
+## Log-linear Model (Ridge)
+### Wage
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log_linear_ridge/wage.png")
+```
+
+### Fee
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log_linear_ridge/fee.png")
+```
+
+
+### Worker share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log_linear_ridge/share_worker.png")
+```
+
+### Firm share
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/no_residuals/log_linear_ridge/share_firm.png")
+```

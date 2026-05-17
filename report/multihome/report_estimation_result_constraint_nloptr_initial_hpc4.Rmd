@@ -1,0 +1,392 @@
+---
+title: "report_estimation_result_constraint_nloptr_initial_hpc4"
+author: "Daisy Dan Song"
+date: "2025-03-27"
+output: html_document
+---
+
+# initialize
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+library(purrr)
+```
+
+# import estimation equilibrium
+```{r}
+equilibrium <-
+  readRDS(
+    file = "output/multihome/estimate_data_initial/equilibrium_updated_initial.rds" %>%
+    here::here()
+  )
+```
+
+# demand linear parameters
+```{r}
+cbind(
+  beta_w = equilibrium$parameter$beta_w,
+  beta_f = equilibrium$parameter$beta_f
+)
+```
+
+# supply linear parameters
+```{r}
+cbind(
+  gamma_w = equilibrium$parameter$gamma_w,
+  gamma_f = equilibrium$parameter$gamma_f
+)
+```
+
+# non-linear parameters
+```{r}
+rbind(
+  m_w = equilibrium$parameter$m_w,
+  m_f = equilibrium$parameter$m_f,
+  lambda_w = equilibrium$parameter$lambda_w,
+  lambda_f = equilibrium$parameter$lambda_f,
+  mu_p = equilibrium$parameter$mu_p,
+  mu_ths = equilibrium$parameter$mu_ths
+)
+```
+
+# demand shocks
+```{r}
+ea_w <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous)
+  ) %do%{
+    foreach(
+      j = seq_along(equilibrium$exogenous[[t]])
+    ) %do% { 
+      ea_w <- 
+        equilibrium$shock[[t]][[j]]$ea_w
+      return(ea_w)
+    }
+  }
+
+ea_f <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous)
+  ) %do%{
+    foreach(
+      j = seq_along(equilibrium$exogenous[[t]])
+    ) %do% { 
+      ea_f <- 
+        equilibrium$shock[[t]][[j]]$ea_f
+      return(ea_f)
+    }
+  }
+
+df <- 
+  data.frame(
+    ea_w = unlist(ea_w),
+    ea_f = unlist(ea_f)
+  )
+g <- 
+  ggplot(
+    df, 
+    aes(
+      x = ea_w, 
+      y = ea_f
+    )
+  ) +
+  geom_point() +
+  geom_vline(
+    xintercept = 0, 
+    color = "red", 
+    lty = "solid"
+  ) +
+  geom_hline(
+    yintercept = 0, 
+    color = "red", 
+    lty = "solid"
+  ) +
+  labs(
+    x = "elicited ea_w", 
+    y = "elicited ea_f", 
+    title = "Scatter Plot of Demand Shocks"
+  ) +
+  theme_classic()
+g
+```
+
+# supply shocks
+```{r}
+ec_w <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous)
+  ) %do%{
+    foreach(
+      j = seq_along(equilibrium$exogenous[[t]])
+    ) %do% { 
+      ec_w <- 
+        equilibrium$shock[[t]][[j]]$ec_w
+      return(ec_w)
+    }
+  }
+
+ec_f <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous)
+  ) %do%{
+    foreach(
+      j = seq_along(equilibrium$exogenous[[t]])
+    ) %do% { 
+      ec_f <- 
+        equilibrium$shock[[t]][[j]]$ec_f
+      return(ec_f)
+    }
+  }
+
+df$ec_w <-  unlist(ec_w)
+df$ec_f <-  unlist(ec_f)
+
+g <- 
+  ggplot(
+    df, 
+    aes(
+      x = ec_w, 
+      y = ec_f
+    )
+  ) +
+  geom_point() +
+  geom_vline(
+    xintercept = 0, 
+    color = "red", 
+    lty = "solid"
+  ) +
+  geom_hline(
+    yintercept = 0, 
+    color = "red", 
+    lty = "solid"
+  ) +
+  labs(
+    x = "elicited ec_w", 
+    y = "elicited ec_f", 
+    title = "Scatter Plot of Supply Shocks"
+  ) +
+  theme_classic()
+g
+```
+
+## summary statistics
+```{r}
+summary(df)
+```
+
+# costs
+```{r}
+c_w <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous),
+    .combine = rbind
+  ) %do% {
+    foreach(
+      j = seq_along(equilibrium$exogenous[[t]]),
+      .combine = rbind
+    ) %do% {
+      c_w_tj <- 
+          compute_supply_shock_c_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = equilibrium$parameter$lambda_w,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          owner = equilibrium$exogenous[[t]][[j]]$owner,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      return(c_w_tj)
+    }
+  }
+```
+
+
+```{r}
+c_f <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous),
+    .combine = rbind
+  ) %do% {
+    foreach(
+      j = seq_along(equilibrium$exogenous[[t]]),
+      .combine = rbind
+    ) %do% {
+      c_f_tj <- 
+        compute_supply_shock_c_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          lambda_f = equilibrium$parameter$lambda_f,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          owner = equilibrium$exogenous[[t]][[j]]$owner,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        ) 
+      return(c_f_tj)
+    }
+  }
+```
+
+
+## summary statistics
+```{r}
+attributes(c_f) <- NULL
+attributes(c_w) <- NULL
+summary(
+  data.frame(
+    c_f = c_f,
+    c_w = c_w
+  )
+)
+```
+
+```{r}
+p1 <- 
+  ggplot(
+    data.frame(c_w = c_w), 
+    aes(x = c_w)
+    ) +
+    geom_histogram(
+      bins = 100, 
+      fill = "steelblue",
+      alpha = 0.7
+      ) +
+    labs(
+      title = "Histogram of c_w",
+      x = "Cost", 
+      y = "Count"
+      ) +
+    theme_classic()
+p1
+```
+
+
+```{r}
+p2 <- 
+  ggplot(
+    data.frame(c_f = c_f), 
+    aes(x = c_f)
+    ) + 
+  geom_histogram(
+    bins = 100, 
+    fill = "steelblue",
+    alpha = 0.7
+    ) +
+  labs(
+    title = "Histogram of c_f",
+    x = "Cost", 
+    y = "Count"
+    ) +
+  theme_classic()
+p2
+```
+
+    
+# shares
+```{r}
+s_w_predicted <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous),
+    .combine = rbind
+  ) %do% {
+    foreach(
+      j = seq_along(equilibrium$exogenous[[t]]),
+      .combine = rbind
+    ) %do% {
+        solution_tj <- 
+          solve_s_w_tj_exact(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            lambda_w = equilibrium$parameter$lambda_w,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+      return(solution_tj)
+    }
+  }
+
+```
+
+```{r}
+s_w_actual <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous),
+    .combine = rbind
+  ) %do% {
+    foreach(
+      j = seq_along(equilibrium$exogenous[[t]]),
+      .combine = rbind
+    ) %do% {
+      s_w_tj <- equilibrium$endogenous[[t]][[j]]$s_w
+      return(s_w_tj)
+    }
+  }
+
+```
+
+```{r}
+g <- 
+  ggplot(
+    df, 
+    aes(
+      x = s_w_predicted, 
+      y = s_w_actual
+    )
+  ) +
+  geom_point() +
+  geom_abline(
+    slope = 1, 
+    intercept = 0, 
+    color = "red", 
+    linetype = "solid"
+  ) +
+  labs(
+    x = "s_w_predicted",
+    y = "s_w_actual",
+    title = "Scatter Plot of share of workers"
+  ) +
+  theme_classic()
+g
+```
+

@@ -1,0 +1,194 @@
+---
+title: "daily_variation"
+author: "Katsuhiro Komatsu"
+date: "2020/8/2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = F, warning = F, include = F}
+rm(list = ls())
+gc()
+
+library(magrittr)
+library(ggplot2); theme_set(theme_bw())
+library(stargazer)
+library(lfe)
+library(gtools)
+library(knitr)
+library(psych)
+```
+
+```{r, include = F}
+load("../data/data_2010_2014_cleaned.RData")
+```
+
+
+
+```{r, include = F}
+
+data <- data %>% 
+  dplyr::mutate(daily_ratio = tempdaily / (tempdaily + tempperm + tempfixed),
+                daily_positive = tempdaily > 0)
+
+mun_mean <- data %>% 
+  dplyr::group_by(mun, year) %>% 
+  dplyr::summarise(daily_ratio = mean(daily_ratio, na.rm = T),
+                   daily_positive = mean(daily_positive),
+                   N = dplyr::n()) %>% 
+  na.omit()
+
+pref_mean <- data %>% 
+  dplyr::group_by(pref, year) %>% 
+  dplyr::summarise(daily_ratio = mean(daily_ratio, na.rm = T),
+                   daily_positive = mean(daily_positive),
+                   wage = mean(wage),
+                   fee = mean(fee),
+                   margin = mean(margin),
+                   N = dplyr::n()) %>% 
+  na.omit()
+
+cz_mean <- data %>% 
+  dplyr::group_by(cz, year) %>% 
+  dplyr::summarise(daily_ratio = mean(daily_ratio, na.rm = T),
+                   daily_positive = mean(daily_positive),
+                   N = dplyr::n()) %>% 
+  na.omit()
+
+write.csv(mun_mean, "../data/daily_ratio_municipality.csv", row.names = F)
+write.csv(pref_mean, "../data/daily_ratio_prefecture.csv", row.names = F)
+```
+
+- daily_ratio: 事業所ごとに派遣労働者数にしめる日雇いの割合を計算し、地域内で平均を計算
+- daily_positive: 地域内で日雇い派遣を雇っている事業所の割合
+```{r, echo = F}
+g1 <- ggplot(mun_mean, aes(x = daily_ratio)) +
+  geom_histogram()
+
+g2 <- ggplot(pref_mean, aes(x = daily_ratio)) +
+  geom_histogram()
+
+gridExtra::grid.arrange(g1, g2, nrow = 1)
+```
+
+### Growth of Number of Platforms 2010-2014
+```{r, echo = F}
+temp <- pref_mean %>% 
+  dplyr::filter(year == 2010 | year == 2014) %>% 
+  dplyr::arrange(pref, year) %>% 
+  dplyr::group_by(pref) %>% 
+  dplyr::mutate(platform_num_growth = (dplyr::lead(N) - N) / N) %>% 
+  dplyr::filter(year == 2010)
+
+
+g1 <- ggplot(temp, aes(x = daily_ratio, y = platform_num_growth)) + 
+  geom_point() + geom_smooth(method = lm, se = F) + ylab("Growth of Number of Platforms")
+
+
+g2 <- ggplot(temp, aes(x = daily_positive, y = platform_num_growth)) +
+  geom_point() + geom_smooth(method = lm, se = F) + ylab("Growth of Number of Platforms")
+
+
+g <- gridExtra::grid.arrange(g1, g2, nrow = 1)
+
+ggsave("../figuretable/num_platform_daily_pref_2010_2014.png", g, width = 6, height = 3)
+
+```
+
+### Growth of Number of Platforms 2013-2014
+```{r, echo = F}
+temp <- pref_mean %>% 
+  dplyr::filter(year == 2013 | year == 2014) %>% 
+  dplyr::arrange(pref, year) %>% 
+  dplyr::group_by(pref) %>% 
+  dplyr::mutate(platform_num_growth = (dplyr::lead(N) - N) / N) %>% 
+  dplyr::filter(year == 2013)
+
+
+g1 <- ggplot(temp, aes(x = daily_ratio, y = platform_num_growth)) + 
+  geom_point() + geom_smooth(method = lm, se = F) + ylab("Growth of Number of Platforms")
+
+
+g2 <- ggplot(temp, aes(x = daily_positive, y = platform_num_growth)) +
+  geom_point() + geom_smooth(method = lm, se = F) + ylab("Growth of Number of Platforms")
+
+
+g <- gridExtra::grid.arrange(g1, g2, nrow = 1)
+
+ggsave("../figuretable/num_platform_daily_pref_2013_2014.png", g, width = 6, height = 3)
+
+```
+
+### Growth 2010-2011
+```{r, echo = F}
+temp <- pref_mean %>% 
+  dplyr::filter(year == 2010 | year == 2011) %>% 
+  dplyr::arrange(pref, year) %>% 
+  dplyr::group_by(pref) %>% 
+  dplyr::mutate(platform_num_growth = (dplyr::lead(N) - N) / N) %>% 
+  dplyr::filter(year == 2010)
+
+
+g1 <- ggplot(temp, aes(x = daily_ratio, y = platform_num_growth)) + 
+  geom_point() + geom_smooth(method = lm, se = F) + ylab("Growth of Number of Platforms")
+
+
+g2 <- ggplot(temp, aes(x = daily_positive, y = platform_num_growth)) +
+  geom_point() + geom_smooth(method = lm, se = F) + ylab("Growth of Number of Platforms")
+
+
+g <- gridExtra::grid.arrange(g1, g2, nrow = 1)
+
+ggsave("../figuretable/num_platform_daily_pref_2010_2011.png", g, width = 6, height = 3)
+
+```
+
+
+
+
+### Reduced form
+```{r, echo = F}
+temp <- pref_mean %>% 
+  dplyr::filter(year == 2010 | year == 2014) %>% 
+  dplyr::arrange(pref, year) %>% 
+  dplyr::group_by(pref) %>% 
+  dplyr::mutate(wage_growth = (dplyr::lead(wage) - wage) / wage,
+                fee_growth = (dplyr::lead(fee) - fee) / fee,
+                margin_growth = (dplyr::lead(margin) - margin) / margin) %>% 
+  dplyr::filter(year == 2010)
+
+
+g1 <- ggplot(temp, aes(x = daily_ratio, y = wage_growth)) + 
+  geom_point() + geom_smooth(method = lm, se = F) + ylab("Wage growth")
+
+g2 <- ggplot(temp, aes(x = daily_positive, y = wage_growth)) +
+  geom_point() + geom_smooth(method = lm, se = F) + ylab("Wage growth")
+
+g3 <- ggplot(temp, aes(x = daily_ratio, y = fee_growth)) + 
+  geom_point() + geom_smooth(method = lm, se = F) + ylab("Fee growth")
+
+
+g4 <- ggplot(temp, aes(x = daily_positive, y = fee_growth)) +
+  geom_point() + geom_smooth(method = lm, se = F) + ylab("Fee growth")
+
+
+g <- gridExtra::grid.arrange(g1, g2, g3, g4, nrow = 2)
+
+ggsave("../figuretable/wage_fee_daily_pref_2010_2014.png", g, width = 6, height = 3)
+
+
+```
+
+```{r}
+g1 <- ggplot(temp, aes(x = daily_ratio, y = margin_growth)) + 
+  geom_point() + geom_smooth(method = lm, se = F) + ylab("Margin growth")
+
+g2 <- ggplot(temp, aes(x = daily_positive, y = margin_growth)) +
+  geom_point() + geom_smooth(method = lm, se = F) + ylab("Margin growth")
+
+g <- gridExtra::grid.arrange(g1, g2, nrow = 1)
+```
+

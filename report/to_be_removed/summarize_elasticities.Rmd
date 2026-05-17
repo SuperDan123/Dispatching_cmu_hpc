@@ -1,0 +1,167 @@
+---
+title: "Summarize elasticities"
+author: "Katsuhiro Komatsu"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+library(ggplot2)
+library(magrittr)
+```
+
+
+```{r}
+
+elasticity_worker_wage <- function(lambda_W, alpha, beta){
+  out <- 1 / lambda_W * (1 + (beta + 2 * (alpha - 1)) / (2 * (2 - alpha - beta)))
+  return(out)
+}
+
+elasticity_worker_fee <- function(lambda_F, alpha, beta){
+  out <- 1 / lambda_F * (beta / (2 * (2 - alpha - beta)))
+  return(out)
+}
+
+elasticity_firm_wage <- function(lambda_W, alpha, beta){
+  out <- 1 / lambda_W * (alpha / (2 * (2 - alpha - beta)))
+  return(out)
+}
+
+elasticity_firm_fee <- function(lambda_F, alpha, beta){
+  out <- 1 / lambda_F * (1 + (alpha + 2 * (beta - 1)) / (2 * (2 - alpha - beta)))
+  return(out)
+}
+
+elasticity_output_wage <- function(lambda_W, alpha, beta){
+  e_ww <- elasticity_worker_wage(lambda_W, alpha, beta)
+  e_fw <- elasticity_firm_wage(lambda_W, alpha, beta)
+  out <- alpha * e_ww + beta * e_fw
+  return(out)
+}
+
+elasticity_output_fee <- function(lambda_F, alpha, beta){
+  e_ww <- elasticity_worker_fee(lambda_F, alpha, beta)
+  e_fw <- elasticity_firm_fee(lambda_F, alpha, beta)
+  out <- alpha * e_wf + beta * e_ff
+  return(out)
+}
+```
+
+
+
+```{r}
+lambda_W <- 1.5
+lambda_F <- 0.2
+
+total <- 0.614 + 0.188
+N <- 30
+
+els_price <- list()
+els_output <- list()
+for (i in 1:N){
+  
+  alpha <- total / N * i
+  beta <- total - alpha
+  
+  e_ww <- elasticity_worker_wage(lambda_W, alpha, beta)
+  e_wf <- elasticity_worker_fee(lambda_F, alpha, beta)
+  e_ff <- elasticity_firm_fee(lambda_F, alpha, beta)
+  e_fw <- elasticity_firm_wage(lambda_W, alpha, beta)
+  
+  els_price[[i]] <- c(e_ww, e_wf, e_ff, e_fw, alpha, beta)
+  
+  e_qw <- elasticity_output_wage(lambda_W, alpha, beta)
+  e_qf <- elasticity_output_fee(lambda_F, alpha, beta)
+  els_output[[i]] <- c(e_qw, e_qf, alpha, beta)
+  
+}
+
+els_price <- do.call("rbind", els_price) %>% as.data.frame()
+colnames(els_price) <- c("e_worker_wage", "e_worker_fee", "e_firm_fee", "e_firm_wage", "alpha", "beta")
+
+els_output <- do.call("rbind", els_output) %>% as.data.frame()
+colnames(els_output) <- c("e_output_wage", "e_output_fee", "alpha", "beta")
+
+```
+
+
+```{r}
+
+els_price %>% 
+  tidyr::pivot_longer(cols = e_worker_wage:e_firm_wage) %>% 
+  dplyr::mutate(
+    name = dplyr::case_when(
+      name == "e_worker_wage" ~ "worker demand & wage",
+      name == "e_worker_fee" ~ "worker demand & fee",
+      name == "e_firm_wage" ~ "firm demand & wage",
+      name == "e_firm_fee" ~ "firm demand & fee"
+    )
+  ) %>% 
+  ggplot(
+    aes(
+      x = alpha,
+      y = value,
+      color = name,
+      shape = name,
+      linetype = name
+    )
+  ) +
+  geom_line() +
+  geom_point() +
+  geom_vline(xintercept = 0.614, color = "gray", linetype = "dashed") +
+  scale_color_viridis_d() +
+  labs(
+    x = "alpha",
+    y = "Elasticity of Demand"
+  ) +
+  theme_classic() +
+  theme(
+    legend.title = element_blank()
+  )
+
+```
+
+
+```{r}
+els_output %>%
+  tidyr::pivot_longer(cols = e_output_wage:e_output_fee) %>% 
+  dplyr::mutate(
+    name = dplyr::case_when(
+      name == "e_output_wage" ~ "wage",
+      name == "e_output_fee" ~ "fee"
+    )
+  ) %>% 
+  ggplot(
+    aes(
+      x = alpha,
+      y = value,
+      color = name,
+      shape = name,
+      linetype = name
+    )
+  ) +
+  geom_line() +
+  geom_point() +
+  geom_vline(xintercept = 0.614, color = "gray", linetype = "dashed") +
+  scale_color_viridis_d() +
+  labs(
+    x = "alpha",
+    y = "Elasticity of Total Matches"
+  ) +
+  theme_classic() +
+  theme(
+    legend.title = element_blank()
+  )
+
+```
+
+
+
+
+
+
+

@@ -1,0 +1,286 @@
+---
+title: "Benchmark Equilibrium Case Comparison"
+author: "Daisy Dan Song"
+date: "2026-03-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+)
+
+rm(list = ls())
+devtools::load_all(".")
+
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(tibble)
+library(foreach)
+foreach::registerDoSEQ()
+```
+
+## Purpose
+
+This report compares endogenous equilibrium outcomes across four solver cases:
+
+1. Baseline equilibrium (`solve_equilibrium`)  
+2. Competitive benchmark (`solve_equilibrium_competitive`)  
+3. Frictionless with free entry (`solve_equilibrium_frictionless_with_free_entry`)  
+4. Frictionless without free entry (`solve_equilibrium_frictionless`)  
+
+All differences are reported relative to the baseline case for endogenous variables:
+`w` and `f`.
+Because outcomes are identical across markets/zones in this benchmark setup, we compare
+only one market-zone pair: `t = 1`, `j = 1`.
+
+```{r solve-cases, message=FALSE, warning=FALSE}
+seed <- 1
+set.seed(seed)
+
+equilibrium_init <-
+  generate_equilibrium(
+    n_ths = 4,
+    n_market = 2,
+    n_zone = 2,
+    seed = seed
+  )
+
+equilibrium_base <-
+  solve_equilibrium(
+    equilibrium = equilibrium_init,
+    solver = "nleqslv",
+    multistart = 10
+  )
+
+equilibrium_competitive <-
+  solve_equilibrium_competitive(
+    equilibrium = equilibrium_base,
+    solver = "nleqslv",
+    multistart = 20
+  )
+
+equilibrium_frictionless_free_entry <-
+  solve_equilibrium_frictionless_with_free_entry(
+    equilibrium = equilibrium_base
+  )
+
+equilibrium_frictionless_no_free_entry <-
+  solve_equilibrium_frictionless(
+    equilibrium = equilibrium_base,
+    solver = "nleqslv",
+    multistart = 5
+  )
+
+t_compare <- 1
+j_compare <- 1
+```
+
+```{r helper-functions}
+extract_endogenous_tj_long <- function(eq, case_name, t, j) {
+  rows <- list()
+  idx <- 1
+
+  endo <- eq$endogenous[[t]][[j]]
+
+  for (var_name in c("w", "f")) {
+    values <- as.numeric(endo[[var_name]])
+    rows[[idx]] <- tibble(
+      case = case_name,
+      t = t,
+      j = j,
+      variable = var_name,
+      index = seq_along(values),
+      value = values
+    )
+    idx <- idx + 1
+  }
+
+  bind_rows(rows)
+}
+```
+
+```{r build-comparison}
+baseline_long <-
+  extract_endogenous_tj_long(
+    eq = equilibrium_base,
+    case_name = "baseline",
+    t = t_compare,
+    j = j_compare
+  )
+
+all_cases_long <-
+  bind_rows(
+    baseline_long,
+    extract_endogenous_tj_long(
+      eq = equilibrium_competitive,
+      case_name = "competitive",
+      t = t_compare,
+      j = j_compare
+    ),
+    extract_endogenous_tj_long(
+      eq = equilibrium_frictionless_free_entry,
+      case_name = "frictionless_free_entry",
+      t = t_compare,
+      j = j_compare
+    ),
+    extract_endogenous_tj_long(
+      eq = equilibrium_frictionless_no_free_entry,
+      case_name = "frictionless_no_free_entry",
+      t = t_compare,
+      j = j_compare
+    )
+  ) %>%
+  filter(index >= 3)
+
+comparison_table <-
+  all_cases_long %>%
+  select(variable, index, case, value) %>%
+  tidyr::pivot_wider(
+    names_from = case,
+    values_from = value
+  ) %>%
+  mutate(
+    diff_competitive = competitive - baseline,
+    diff_frictionless_free_entry = frictionless_free_entry - baseline,
+    diff_frictionless_no_free_entry = frictionless_no_free_entry - baseline
+  )
+```
+
+## Case-specific Objectives (`t = 1`, `j = 1`, index >= 3)
+
+```{r objective-table}
+t <- 1
+j <- 1
+baseline_check <- check_equilibrium_tj(t = t_compare, j = j_compare, equilibrium = equilibrium_base)
+competitive_check <- 
+    compute_profit_ths_tj(
+      m_w = equilibrium_competitive$parameter$m_w,
+      m_f = equilibrium_competitive$parameter$m_f,
+      gamma_w = equilibrium_competitive$parameter$gamma_w,
+      gamma_f = equilibrium_competitive$parameter$gamma_f,
+      x_c_w = equilibrium_competitive$exogenous[[t]][[j]]$x_c_w,
+      x_c_f = equilibrium_competitive$exogenous[[t]][[j]]$x_c_f,
+      size_w = equilibrium_competitive$exogenous[[t]][[j]]$size_w,
+      size_f = equilibrium_competitive$exogenous[[t]][[j]]$size_f,
+      owner = equilibrium_competitive$exogenous[[t]][[j]]$owner,
+      mu = equilibrium_competitive$shock[[t]][[j]]$mu,
+      ec_w = equilibrium_competitive$shock[[t]][[j]]$ec_w,
+      ec_f = equilibrium_competitive$shock[[t]][[j]]$ec_f,
+      w = equilibrium_competitive$endogenous[[t]][[j]]$w,
+      f = equilibrium_competitive$endogenous[[t]][[j]]$f,
+      s_w = equilibrium_competitive$endogenous[[t]][[j]]$s_w,
+      s_f = equilibrium_competitive$endogenous[[t]][[j]]$s_f,
+      use_exp = equilibrium_competitive$constant$use_exp
+    ) 
+competitive_check <- 
+  max(
+    abs(
+      competitive_check[
+        3:nrow(competitive_check),
+        , 
+        drop = FALSE
+      ]
+    )
+  )
+
+c_w <- 
+  compute_c_w_tj(
+    gamma_w = equilibrium_frictionless_free_entry$parameter$gamma_w,
+    x_c_w = equilibrium_frictionless_free_entry$exogenous[[t]][[j]]$x_c_w,
+    ec_w = equilibrium_frictionless_free_entry$shock[[t]][[j]]$ec_w,
+    use_exp = equilibrium_frictionless_free_entry$constant$use_exp
+  ) 
+
+c_f <-
+  compute_c_f_tj(
+    gamma_f = equilibrium_frictionless_free_entry$parameter$gamma_f,
+    x_c_f = equilibrium_frictionless_free_entry$exogenous[[t]][[j]]$x_c_f,
+    ec_f = equilibrium_frictionless_free_entry$shock[[t]][[j]]$ec_f,
+    use_exp = equilibrium_frictionless_free_entry$constant$use_exp
+  ) 
+
+frictionless_fe_check <- 
+  equilibrium_frictionless_free_entry$endogenous[[t]][[j]]$f - equilibrium_frictionless_free_entry$endogenous[[t]][[j]]$w - c_w - c_f
+
+frictionless_fe_check <- 
+  max(
+    abs(
+      frictionless_fe_check[
+        3:nrow(frictionless_fe_check),
+        , 
+        drop = FALSE
+      ]
+    )
+  )
+frictionless_no_fe_check <- 
+  compute_foc_tj_frictionless(
+    m_w = equilibrium_frictionless_no_free_entry$parameter$m_w,
+    m_f = equilibrium_frictionless_no_free_entry$parameter$m_f,
+    beta_w = equilibrium_frictionless_no_free_entry$parameter$beta_w,
+    beta_f = equilibrium_frictionless_no_free_entry$parameter$beta_f,
+    gamma_w = equilibrium_frictionless_no_free_entry$parameter$gamma_w,
+    gamma_f = equilibrium_frictionless_no_free_entry$parameter$gamma_f,
+    lambda_w = equilibrium_frictionless_no_free_entry$parameter$lambda_w,
+    lambda_f = equilibrium_frictionless_no_free_entry$parameter$lambda_f,
+    x_a_w = equilibrium_frictionless_no_free_entry$exogenous[[t]][[j]]$x_a_w,
+    x_a_f = equilibrium_frictionless_no_free_entry$exogenous[[t]][[j]]$x_a_f,
+    x_c_w = equilibrium_frictionless_no_free_entry$exogenous[[t]][[j]]$x_c_w,
+    x_c_f = equilibrium_frictionless_no_free_entry$exogenous[[t]][[j]]$x_c_f,
+    size_w = equilibrium_frictionless_no_free_entry$exogenous[[t]][[j]]$size_w,
+    size_f = equilibrium_frictionless_no_free_entry$exogenous[[t]][[j]]$size_f,
+    owner = equilibrium_frictionless_no_free_entry$exogenous[[t]][[j]]$owner,
+    mu = equilibrium_frictionless_no_free_entry$shock[[t]][[j]]$mu,
+    ea_w = equilibrium_frictionless_no_free_entry$shock[[t]][[j]]$ea_w,
+    ea_f = equilibrium_frictionless_no_free_entry$shock[[t]][[j]]$ea_f,
+    ec_w = equilibrium_frictionless_no_free_entry$shock[[t]][[j]]$ec_w,
+    ec_f = equilibrium_frictionless_no_free_entry$shock[[t]][[j]]$ec_f,
+    w = equilibrium_frictionless_no_free_entry$endogenous[[t]][[j]]$w,
+    f = equilibrium_frictionless_no_free_entry$endogenous[[t]][[j]]$f,
+    s_f = equilibrium_frictionless_no_free_entry$endogenous[[t]][[j]]$s_f,
+    method_s_w = "exact",
+    margin = equilibrium_frictionless_no_free_entry$constant$margin,
+    quadrature_size = equilibrium_frictionless_no_free_entry$constant$quadrature_size,
+    tol = equilibrium_frictionless_no_free_entry$constant$tol,
+    use_exp = equilibrium_frictionless_no_free_entry$constant$use_exp
+  ) 
+
+frictionless_no_fe_check <- 
+  max(
+    abs(
+      frictionless_no_fe_check
+    )
+  )
+
+baseline_objective_foc <- max(abs(c(baseline_check$foc_w, baseline_check$foc_f)), na.rm = TRUE)
+competitive_objective_profit <- competitive_check
+frictionless_fe_objective_wedge <- frictionless_fe_check
+frictionless_no_fe_objective_wedge <- frictionless_no_fe_check
+
+objective_table <-
+  tibble(
+    baseline_foc = baseline_objective_foc,
+    competitive_profit_zero = competitive_objective_profit,
+    frictionless_free_entry_wedge_zero = frictionless_fe_objective_wedge,
+    frictionless_no_free_entry_wedge_zero = frictionless_no_fe_objective_wedge
+  )
+
+knitr::kable(
+  objective_table,
+  digits = 8,
+  caption = "Case-specific objective residuals (target is zero)"
+)
+```
+
+## Endogenous Variables by Case (`t = 1`, `j = 1`, index >= 3)
+
+```{r comparison-table}
+knitr::kable(
+  comparison_table %>% arrange(variable, index),
+  digits = 6,
+  caption = "Comparison across equilibrium cases with differences from baseline"
+)
+```

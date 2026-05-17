@@ -1,0 +1,178 @@
+---------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\DAIJI\Documents\GitHub\Dispatching\output\daiji_results\reg
+> .log
+  log type:  text
+ opened on:   1 Sep 2023, 15:31:50
+
+. set more off;
+
+. set graphics off;
+
+. clear;
+
+. use  $workpath\03_analyze_data\tempagency.dta;
+
+. qui xtreg lfee hh_p i.year, i(`panel') cluster(`cluster');
+
+. eststo fee;
+
+. qui xtreg lwage hh_p i.year, i(`panel') cluster(`cluster');
+
+. eststo wage;
+
+. qui xtreg lfee_wage hh_p i.year, i(`panel') cluster(`cluster');
+
+. eststo feewage;
+
+. estout fee wage feewage, cells(b(star fmt(3)) se(par fmt(3))) starlevels(* 0.10
+>  ** 0.05 *** 0.01) stats(N) keep(hh_p) title("Regression Results");
+
+Regression Results
+------------------------------------------------------------
+                      fee            wage         feewage   
+                     b/se            b/se            b/se   
+------------------------------------------------------------
+hh_p               -1.071***       -1.093***        0.363***
+                  (0.336)         (0.255)         (0.082)   
+------------------------------------------------------------
+N               23594.000       23594.000       23594.000   
+------------------------------------------------------------
+
+. qui xtreg lfee hh_p i.year `controls', i(`panel') cluster(`cluster');
+
+. eststo fee;
+
+. qui xtreg lwage hh_p i.year `controls', i(`panel') cluster(`cluster');
+
+. eststo wage;
+
+. qui xtreg lfee_wage hh_p i.year `controls', i(`panel') cluster(`cluster');
+
+. eststo feewage;
+
+. estout fee wage feewage, cells(b(star fmt(3)) se(par fmt(3))) starlevels(* 0.10
+>  ** 0.05 *** 0.01) stats(N) keep(hh_p) title("Regression Results");
+
+Regression Results
+------------------------------------------------------------
+                      fee            wage         feewage   
+                     b/se            b/se            b/se   
+------------------------------------------------------------
+hh_p               -1.410***       -1.544***        0.352***
+                  (0.459)         (0.365)         (0.083)   
+------------------------------------------------------------
+N               23594.000       23594.000       23594.000   
+------------------------------------------------------------
+
+. qui xtreg lfee hh_zip3 i.year, i(`panel') cluster(`cluster');
+
+. eststo fee;
+
+. qui xtreg lwage hh_zip3 i.year, i(`panel') cluster(`cluster');
+
+. eststo wage;
+
+. qui xtreg lfee_wage hh_zip3 i.year, i(`panel') cluster(`cluster');
+
+. eststo feewage;
+
+. estout fee wage feewage, cells(b(star fmt(3)) se(par fmt(3))) starlevels(* 0.10
+>  ** 0.05 *** 0.01) stats(N) keep(hh_zip3) title("Regression Results");
+
+Regression Results
+------------------------------------------------------------
+                      fee            wage         feewage   
+                     b/se            b/se            b/se   
+------------------------------------------------------------
+hh_zip3            -0.061**        -0.046*         -0.013** 
+                  (0.031)         (0.027)         (0.006)   
+------------------------------------------------------------
+N               23594.000       23594.000       23594.000   
+------------------------------------------------------------
+
+. qui xtreg lfee hh_zip3 i.year `controls', i(`panel') cluster(`cluster');
+
+. eststo fee;
+
+. qui xtreg lwage hh_zip3 i.year `controls', i(`panel') cluster(`cluster');
+
+. eststo wage;
+
+. qui xtreg lfee_wage hh_zip3 i.year `controls', i(`panel') cluster(`cluster');
+
+. eststo feewage;
+
+. estout fee wage feewage, cells(b(star fmt(3)) se(par fmt(3))) starlevels(* 0.10
+>  ** 0.05 *** 0.01) stats(N) keep(hh_zip3) title("Regression Results");
+
+Regression Results
+------------------------------------------------------------
+                      fee            wage         feewage   
+                     b/se            b/se            b/se   
+------------------------------------------------------------
+hh_zip3            -0.085***       -0.066***       -0.017***
+                  (0.027)         (0.024)         (0.005)   
+------------------------------------------------------------
+N               23594.000       23594.000       23594.000   
+------------------------------------------------------------
+
+. qui xtreg lfee hh_cz i.year, i(`panel') cluster(`cluster');
+
+. eststo fee;
+
+. qui xtreg lwage hh_cz i.year, i(`panel') cluster(`cluster');
+
+. eststo wage;
+
+. qui xtreg lfee_wage hh_cz i.year, i(`panel') cluster(`cluster');
+
+. eststo feewage;
+
+. estout fee wage feewage, cells(b(star fmt(3)) se(par fmt(3))) starlevels(* 0.10
+>  ** 0.05 *** 0.01) stats(N) keep(hh_cz) title("Regression Results");
+
+Regression Results
+------------------------------------------------------------
+                      fee            wage         feewage   
+                     b/se            b/se            b/se   
+------------------------------------------------------------
+hh_cz              -0.174***       -0.179***        0.017   
+                  (0.036)         (0.033)         (0.012)   
+------------------------------------------------------------
+N               23594.000       23594.000       23594.000   
+------------------------------------------------------------
+
+. qui xtreg lfee hh_cz i.year `controls', i(`panel') cluster(`cluster');
+
+. eststo fee;
+
+. qui xtreg lwage hh_cz i.year `controls', i(`panel') cluster(`cluster');
+
+. eststo wage;
+
+. qui xtreg lfee_wage hh_cz i.year `controls', i(`panel') cluster(`cluster');
+
+. eststo feewage;
+
+. estout fee wage feewage, cells(b(star fmt(3)) se(par fmt(3))) starlevels(* 0.10
+>  ** 0.05 *** 0.01) stats(N) keep(hh_cz) title("Regression Results");
+
+Regression Results
+------------------------------------------------------------
+                      fee            wage         feewage   
+                     b/se            b/se            b/se   
+------------------------------------------------------------
+hh_cz              -0.202***       -0.205***        0.014   
+                  (0.037)         (0.034)         (0.012)   
+------------------------------------------------------------
+N               23594.000       23594.000       23594.000   
+------------------------------------------------------------
+
+. log close;
+      name:  <unnamed>
+       log:  C:\Users\DAIJI\Documents\GitHub\Dispatching\output\daiji_results\reg
+> .log
+  log type:  text
+ closed on:   1 Sep 2023, 15:32:04
+---------------------------------------------------------------------------------

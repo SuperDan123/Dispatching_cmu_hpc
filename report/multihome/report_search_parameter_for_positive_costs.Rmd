@@ -1,0 +1,281 @@
+---
+title: "report_search_parameter_for_positive_costs"
+author: "Daisy Dan Song"
+date: "2025-06-21"
+output: html_document
+---
+
+# initialize
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+library(purrr)
+library(doParallel)
+registerDoParallel()
+```
+
+# set constant
+```{r}
+seed <- 1
+set.seed(seed)
+n <- 100
+num_ths_max <- 15
+```
+
+# load and sample data
+```{r}
+equilibrium <- 
+  readRDS(
+    file = "output/multihome/make_equilibrium_zipcode_firm_from_data/equilibrium.rds" %>%
+    here::here()
+  )
+
+equilibrium <- 
+  sample_data_zip_code(
+    n = n,
+    seed = seed,
+    num_ths_max = num_ths_max,
+    equilibrium = equilibrium
+  )
+equilibrium$constant$use_exp <- "FALSE"
+```
+
+```{r}
+target_list <- 
+  list(
+    m_f = 
+      seq(
+        0.91,
+        1.21,
+        0.05
+      ),
+    m_w = 
+      seq(
+        0.01,
+        2,
+        0.3
+      ),
+    lambda_w = 
+      seq(
+        0.01,
+        5,
+        1
+      ),
+    lambda_f = 
+      seq(
+        -0.01,
+        -5,
+        - 1
+      )
+  )
+```
+
+### 1. Generate Parameter Grid
+
+
+```{r}
+df <- expand.grid(target)
+```
+
+### 2. Iterate and Test Each Combination
+
+```{r, cache=TRUE}
+df$success <- FALSE
+
+m <- 
+  foreach(
+    i = 1:nrow(df),
+    .packages = c(
+      "foreach",
+      "magrittr",
+      "Dispatching"
+    )
+  )%do%{
+    equilibrium$parameter$m_w <- df$m_w[i]
+    equilibrium$parameter$m_w <- df$m_f[i]
+    equilibrium$parameter$lambda_w <- df$lambda_w[i]
+    equilibrium$parameter$lambda_f <- df$lambda_f[i]
+    df$success[i] <- 
+      tryCatch({
+        solve_demand_shock(
+          equilibrium = equilibrium
+        )
+        TRUE  # If no error, return TRUE
+      }, error = function(e) {
+        FALSE # If error, return FALSE
+      })
+  }
+
+
+```
+
+
+```{r}
+df %>%
+  dplyr::arrange(
+    m_f,
+    m_w,
+    lambda_w,
+    lambda_f,
+    success
+  ) %>%
+  dplyr::filter(
+    success == FALSE
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+<<<<<<< Updated upstream
+=======
+
+
+# m_f
+```{r, cache=TRUE}
+objective_values <- 
+  foreach(
+    i = 1
+  ) %do% {
+    foreach(
+      param_value = target_list[[i]],
+      .combine = "rbind"
+    ) %do% {
+      obj <- 
+        tryCatch(
+          {
+            a_w <- 
+              foreach(
+                t = seq_along(equilibrium$endogenous),
+                .combine = rbind,
+                .packages = c(
+                  "foreach",
+                  "magrittr",
+                  "Dispatching"
+                )
+              ) %dopar% {
+                a_w_t <- 
+                  foreach(
+                    j = seq_along(equilibrium$endogenous[[t]]),
+                    .combine = rbind
+                  ) %do% {
+                    a_w_tj <- 
+                      compute_demand_shock_nleqslv_a_w_tj(
+                        m_w = equilibrium$parameter$m_w,
+                        m_f = param_value,
+                        lambda_w = equilibrium$parameter$lambda_w,
+                        size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+                        size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+                        mu = equilibrium$shock[[t]][[j]]$mu,
+                        w = equilibrium$endogenous[[t]][[j]]$w,
+                        s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+                        s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+                        method_s_w = equilibrium$constant$method_s_w,
+                        margin = equilibrium$constant$margin,
+                        quadrature_size = equilibrium$constant$quadrature_size,
+                        tol = equilibrium$constant$tol
+                      )
+                    return(a_w_tj)
+                  }
+                return(a_w_t)
+              }
+            TRUE  # If no error, return TRUE
+      }, error = function(e) {
+        FALSE # If error, return FALSE
+      }
+        )
+
+      return(
+        data.frame(
+          parameter = names(target_list)[i],
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+  }
+
+objective_values[[1]] %>%
+  dplyr::arrange(
+    objective
+  )
+```
+
+# m_w
+```{r, cache=TRUE}
+objective_values <- 
+  foreach(
+    i = 2
+  ) %do% {
+    foreach(
+      param_value = target_list[[i]],
+      .combine = "rbind"
+    ) %do% {
+      obj <- 
+        tryCatch(
+          {
+            a_w <- 
+              foreach(
+                t = seq_along(equilibrium$endogenous),
+                .combine = rbind,
+                .packages = c(
+                  "foreach",
+                  "magrittr",
+                  "Dispatching"
+                )
+              ) %dopar% {
+                a_w_t <- 
+                  foreach(
+                    j = seq_along(equilibrium$endogenous[[t]]),
+                    .combine = rbind
+                  ) %do% {
+                    a_w_tj <- 
+                      compute_demand_shock_nleqslv_a_w_tj(
+                        m_w = param_value,
+                        m_f = equilibrium$parameter$m_f,
+                        lambda_w = equilibrium$parameter$lambda_w,
+                        size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+                        size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+                        mu = equilibrium$shock[[t]][[j]]$mu,
+                        w = equilibrium$endogenous[[t]][[j]]$w,
+                        s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+                        s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+                        method_s_w = equilibrium$constant$method_s_w,
+                        margin = equilibrium$constant$margin,
+                        quadrature_size = equilibrium$constant$quadrature_size,
+                        tol = equilibrium$constant$tol
+                      )
+                    return(a_w_tj)
+                  }
+                return(a_w_t)
+              }
+            TRUE  # If no error, return TRUE
+      }, error = function(e) {
+        FALSE # If error, return FALSE
+      }
+        )
+
+      return(
+        data.frame(
+          parameter = names(target_list)[i],
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+  }
+
+objective_values[[1]] %>%
+  dplyr::arrange(
+    objective
+  )
+```
+>>>>>>> Stashed changes

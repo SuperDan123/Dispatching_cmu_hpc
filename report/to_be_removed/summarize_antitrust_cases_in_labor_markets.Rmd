@@ -1,0 +1,62 @@
+---
+title: "Summary of Antitrust Cases in Labor Markets"
+author: "Katsuhiro Komatsu"
+date: "2021/8/15"
+output: html_document
+---
+
+# US
+- In 2010, the DOJ sued several tech companies (Adobe, Apple Inc., Google, Intel, Intuit, Pixar, Lucasfilm and eBay) for no-poaching agreement.
+  - https://www.justice.gov/opa/pr/justice-department-requires-six-high-tech-companies-stop-entering-anticompetitive-employee
+
+- In 2016, the DOJ and FTC jointly released "Antitrust Guidance for Human Resource Professionals".
+  - https://www.justice.gov/atr/file/903511/download
+  - There had been civil enforcement actions prior to this.
+    - E.g. Civil enforcement against tech companies for no-poaching agreements.
+  - Going forward, the DOJ intends to proceed **criminally** against naked wage-fixing or no-poaching agreements, which are per se illegal.
+  
+- In 2018-2019, the Antitrust Division has filed statements of interest in several private antitrust cases.
+  - https://www.justice.gov/atr/division-operations/division-update-spring-2019/no-poach-approach
+  
+- In 2020, first criminal wage-fixing case.
+  - charged the former owner of a therapist staffing company for participating in a conspiracy to fix prices by lowering the rates paid to physical therapists and physical therapist assistants
+
+- In 2021, first criminal no-poaching case.
+  - charged Surgical Care Affiliates LLC and its successor entity (both outpatient medical care center operators) with violations of Section 1 of the Sherman Act
+  - https://www.justice.gov/atr/case/us-v-surgical-care-affiliates-llc-and-scai-holdings-llc
+
+- As for mergers, there has not been any case challenged over concerns relating to labor market compeition.
+  - Yet, FTC staff have been instructed to “look for potential effects on the labor market with every merger they review.”, according to FTC chairman Joseph Simons.
+  - https://www.judiciary.senate.gov/imo/media/doc/Simons%20Responses%20to%20QFRs1.pdf
+  
+- In 2021, President Biden issued executive order on promoting competition in the american economy.
+  - https://www.whitehouse.gov/briefing-room/presidential-actions/2021/07/09/executive-order-on-promoting-competition-in-the-american-economy/
+  - The order affirms that it is the policy of the Administration to enforce the antitrust laws to combat ... the harmful effects of monopoly and **monopsony** - especially as these issues arise in **labor markets** ...
+  
+  
+# Europe
+
+- Antitrust infringement decisions have been taken by National Competition Authorities (NCAs) of EU members, rather than the European Commission (EC).
+  - Examples of national enforcement (https://www.steptoe.com/en/news-publications/employment-practices-eu-antitrust-enforcement-biden-executive-order-article.html)
+    - Wage-fixing agreement between fifteen hospitals in Nederland in 2010
+    - Agreement not to hire employees working for a competitor without approval by eight road transport freight forwarding agents in Spain in 2010
+
+- Policy statements
+  - Portuguese: http://www.concorrencia.pt/vPT/Noticias_Eventos/ConsultasPublicas/Documents/Preliminary%20Version%20Issues%20Paper_No-Poach%20EN.pdf
+
+
+# Japan
+- No criminal prosecution so far.
+
+- Japan Fair Trade Commission (JFTC) published a report clarifying when a hiring behavior is problematic.
+  - (Report in Japanese) https://www.jftc.go.jp/cprc/conference/index_files/180215jinzai01.pdf
+  - (Summary in Japanese) https://www.jftc.go.jp/cprc/conference/index_files/180215zinzai02.pdf
+  - (Summary in English) https://www.jftc.go.jp/en/pressreleases/yearly-2018/February/180215_files/180215_2.pdf
+
+
+- There was one case seen as a problem in 1963 by JFTC but it didn't lead to further investigation.
+  - Competition for artists and engineers between film companies (on page 3 in the report above) 
+
+  
+  
+  

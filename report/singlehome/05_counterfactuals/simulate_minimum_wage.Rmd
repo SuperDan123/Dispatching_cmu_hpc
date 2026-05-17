@@ -1,0 +1,770 @@
+---
+title: "Counterfactual: Minimum wage"
+author: "Katsuhiro Komatsu"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+
+library("magrittr")
+library("ggplot2")
+library("foreach")
+library("Dispatching")
+
+```
+
+
+```{r}
+equilibrium <- readRDS(here::here("output/estimate_structural_parameters/equilibrium_data_distance_IV.RDS"))
+result_hypo <- readRDS(here::here("output/simulate_minimum_wage/result_hypothetical_market.RDS"))
+result_act <- readRDS(here::here("output/simulate_minimum_wage/result_actual_market.RDS"))
+
+```
+
+
+```{r}
+
+data <- result_hypo$data_cf
+
+wage_ranking <- result_hypo$equilibrium_original %>% 
+  dplyr::arrange(-wage) %>% 
+  dplyr::select(id_unique)
+
+wage_ranking$ranking <- 1:dim(wage_ranking)[1]
+
+data <- data %>% 
+  dplyr::left_join(wage_ranking, by = "id_unique")
+
+
+```
+
+
+```{r}
+surplus_list <- list()
+outcome_list <- list()
+endogenous_list <- list()
+
+# Loop over constraints
+for (j in 1:length(result_act$equilibrium)){
+  
+  surplus_j <- result_act$surplus[[j]] %>% as.data.frame()
+  surplus_j$minimum_wage <- result_act$minimum_wage[j]
+  surplus_list[[j]] <- surplus_j
+  
+  eq_j <- result_act$equilibrium[[j]]$endogenous %>% 
+    do.call("rbind", .) %>% 
+    as.data.frame() %>% 
+    na.omit()
+  
+  endogenous_list[[j]] <- eq_j %>% 
+    dplyr::mutate(minimum_wage = result_act$minimum_wage[j])
+    
+  outcome_list[[j]] <- eq_j %>% 
+    dplyr::summarise(
+      wage = mean(wage),
+      fee = mean(fee),
+      s_W = mean(s_W),
+      s_F = mean(s_F),
+      negative_profit = mean(profit < 0)
+    ) %>% 
+    dplyr::mutate(minimum_wage = result_act$minimum_wage[j])
+}
+
+surplus_all <- do.call("rbind", surplus_list)
+
+# surplus_baseline <- compute_surplus(equilibrium) %>% as.data.frame()
+surplus_baseline <- surplus_list[[1]] %>% dplyr::select(-minimum_wage)
+
+surplus_all <- surplus_all %>% 
+  dplyr::left_join(surplus_baseline, by = c("year", "cz")) %>% 
+  dplyr::mutate(
+    WS = WS.x - WS.y,
+    FS = FS.x - FS.y,
+    profit = profit.x - profit.y
+  ) %>% 
+  dplyr::select(cz, year, minimum_wage, WS, FS, profit)
+
+outcome_mean <- do.call("rbind", outcome_list)
+
+
+endogenous <- do.call("rbind", endogenous_list)
+
+```
+
+
+```{r}
+# Minimum wage vs. fraction of establishments with binding constraint
+
+wage <- equilibrium$generate_dataframe() %>% 
+  dplyr::pull(wage)
+
+frac <- rep(0, 5)
+
+frac[1] <- mean(wage <= 0.6)
+frac[2] <- mean(wage <= 0.7)
+frac[3] <- mean(wage <= 0.8)
+frac[4] <- mean(wage <= 0.9)
+frac[5] <- mean(wage <= 1)
+
+frac_constrained <- data.frame(minimum_wage = pracma::linspace(0.6, 1, 5),
+                               frac = frac)
+
+```
+
+
+# Simulation in a hypothetical market
+- One has $a^W$ that is at +1 s.d. of the empirical distribution. The other has $a^W$ that is at -1 s.d.
+- Part-time wage = 0.8
+
+```{r}
+height <- 3
+width <- 4
+color <- "#440154FF"
+
+limits <- c(0, 0)
+limits[1] <- min(data$minimum_wage)
+limits[2] <- max(data$minimum_wage)
+```
+
+
+:::: {style="display: grid; grid-template-columns: 1fr 1fr; grid-column-gap: 10px; "}
+
+::: {}
+
+## Wage
+```{r}
+data %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = wage,
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = format(round(wage, 2), nsmall = 2), y = wage - 0.05), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline wage rank") +
+  scale_shape_discrete(name = "Baseline wage rank") +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Wage (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/wage.png"),
+  width = width,
+  height = height
+)
+
+```
+
+:::
+
+::: {}
+
+## Fee
+```{r}
+data %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = fee,
+      color = factor(ranking),
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(fee, 2), y = fee - 0.05), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline wage rank") +
+  scale_shape_discrete(name = "Baseline wage rank") +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Fee (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/fee.png"),
+  width = width,
+  height = height
+)
+
+
+```
+
+
+:::
+
+::::
+
+:::: {style="display: grid; grid-template-columns: 1fr 1fr; grid-column-gap: 10px; "}
+
+::: {}
+
+## Worker share
+```{r}
+data %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = s_W,
+      color = factor(ranking),
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(s_W, 5), y = s_W * 0.95), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline wage rank") +
+  scale_shape_discrete(name = "Baseline wage rank") +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Worker share"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/worker_share.png"),
+  width = width,
+  height = height
+)
+
+```
+
+:::
+
+::: {}
+
+## Firm share
+```{r}
+data %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = s_F,
+      color = factor(ranking),
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(s_F, 6), y = s_F * 0.95), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline wage rank") +
+  scale_shape_discrete(name = "Baseline wage rank") +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Firm share"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/firm_share.png"),
+  width = width,
+  height = height
+)
+```
+
+:::
+
+::::
+
+
+
+## Match
+
+```{r, out.width = "60%"}
+data %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = Q,
+      color = factor(ranking),
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(Q, 5), y = Q * 0.95), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline wage rank") +
+  scale_shape_discrete(name = "Baseline wage rank") +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Matches"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/match.png"),
+  width = width,
+  height = height
+)
+```
+
+
+## Net price
+
+```{r}
+data %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = fee - wage,
+      color = factor(ranking),
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(fee - wage, 2), y = (fee - wage) - 0.002), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline wage rank") +
+  scale_shape_discrete(name = "Baseline wage rank") +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Fee - Wage (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/net_price.png"),
+  width = width,
+  height = height
+)
+
+```
+
+
+## Profit
+
+```{r}
+data %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = profit,
+      color = factor(ranking),
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(profit, 5), y = profit * 0.95), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline wage rank") +
+  scale_shape_discrete(name = "Baseline wage rank") +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Profit (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/profit.png"),
+  width = width,
+  height = height
+)
+
+```
+
+## Max FOC error
+
+```{r}
+data %>% 
+  dplyr::filter(ranking == 1) %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = foc_error
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(foc_error, 5), y = foc_error * 0.95), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  ylim(0, NA) +
+  scale_linetype_discrete(name = "Baseline wage rank") +
+  scale_shape_discrete(name = "Baseline wage rank") +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Maximum FOC error"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/foc_error.png"),
+  width = width,
+  height = height
+)
+```
+
+
+
+# Simulation in actual markets
+
+
+## Fraction of constrained establishments
+
+```{r}
+frac_constrained %>% 
+  dplyr::mutate(group = "all") %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = frac,
+      color = "all"
+    )
+  ) +
+  geom_point() + 
+  geom_text(aes(label = format(round(frac, 2), nsmall = 2), y = frac + 0.05), size = 3) +
+  geom_line() +
+  ylim(0, 1) +
+  labs(
+    x = "Wage (10K Yen / Day)",
+    y = "Fraction of establishments"
+  ) +
+  scale_color_viridis_d() +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/constrained_fraction.png"),
+  width = width,
+  height = height
+)
+
+```
+
+
+## Average outcomes
+
+### Wage
+```{r}
+outcome_mean %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = wage,
+      color = "all"
+    )
+  ) +
+  ggrepel::geom_text_repel(aes(label = round(wage, 2), y = wage - 0.01), size = 3) +
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Wage (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/wage_actual_market.png"),
+  width = width,
+  height = height
+)  
+
+
+```
+
+### Fee
+```{r}
+outcome_mean %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = fee,
+      color = "all"
+    )
+  ) +
+  ggrepel::geom_text_repel(aes(label = round(fee, 2), y = fee - 0.01), size = 3) +
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Fee (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/fee_actual_market.png"),
+  width = width,
+  height = height
+)  
+
+
+```
+
+
+### Worker share
+
+```{r}
+outcome_mean %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = s_W,
+      color = "all"
+    )
+  ) +
+  ggrepel::geom_text_repel(aes(label = round(s_W, 4), y = s_W * 0.99), size = 3) +
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Worker share"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/worker_share_actual_market.png"),
+  width = width,
+  height = height
+)  
+
+
+```
+
+
+### Firm share
+
+```{r}
+outcome_mean %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = s_F,
+      color = "all"
+    )
+  ) +
+  ggrepel::geom_text_repel(aes(label = round(s_F, 6), y = s_F * 0.97), size = 3) +
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Client firm share"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/firm_share_actual_market.png"),
+  width = width,
+  height = height
+)  
+
+
+```
+
+
+### Share of establishments with negative profits
+
+```{r}
+
+
+outcome_mean %>% 
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = negative_profit,
+      color = "all"
+    )
+  ) +
+  ggrepel::geom_text_repel(aes(label = round(negative_profit, 3), y = negative_profit -0.0005), size = 3) +
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Fraction of establishments \n with negative profits"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/fraction_negative_profits.png"),
+  width = width,
+  height = height
+)  
+
+
+```
+
+## Surplus
+
+### Median
+
+```{r}
+
+surplus_all %>% 
+  dplyr::group_by(minimum_wage) %>% 
+  dplyr::summarise(
+    WS = median(WS),
+    FS = median(FS),
+    profit = median(profit),
+    total = median(WS + FS + profit)
+  ) %>% 
+  dplyr::ungroup() %>% 
+  tidyr::pivot_longer(cols = WS:total) %>%
+  dplyr::mutate(
+    name = dplyr::case_when(
+      name == "WS" ~ "Worker",
+      name == "FS" ~ "Client firm",
+      name == "profit" ~ "THS",
+      name == "total" ~ "Total"
+    )
+  ) %>%  
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = value,
+      color = name,
+      linetype = name,
+      shape = name
+    )
+  ) + 
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Median change in surplus (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.title = element_blank(),
+    legend.position = "bottom"
+  )
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/surplus_median.png"),
+  width = width,
+  height = height
+)
+
+
+```
+
+
+### Average
+
+```{r}
+
+surplus_all %>% 
+  dplyr::group_by(minimum_wage) %>% 
+  dplyr::summarise(
+    WS = mean(WS),
+    FS = mean(FS),
+    profit = mean(profit),
+    total = mean(WS + FS + profit)
+  ) %>% 
+  dplyr::ungroup() %>% 
+  tidyr::pivot_longer(cols = WS:total) %>%
+  dplyr::mutate(
+    name = dplyr::case_when(
+      name == "WS" ~ "Worker",
+      name == "FS" ~ "Client firm",
+      name == "profit" ~ "THS",
+      name == "total" ~ "Total"
+    )
+  ) %>%  
+  ggplot(
+    aes(
+      x = minimum_wage,
+      y = value,
+      color = name,
+      linetype = name,
+      shape = name
+    )
+  ) + 
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  labs(
+    x = "Minimum wage (10K Yen / Day)",
+    y = "Average change in surplus (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.title = element_blank(),
+    legend.position = "bottom"
+  )
+
+ggsave(
+  filename = here::here("figuretable/simulate_minimum_wage/surplus_mean.png"),
+  width = width,
+  height = height
+)
+
+
+```
+
+

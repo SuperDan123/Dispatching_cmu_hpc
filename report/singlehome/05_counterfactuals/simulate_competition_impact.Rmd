@@ -1,0 +1,191 @@
+---
+title: "Simulate Competition Impact"
+author: "Katsuhiro Komatsu"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+
+library("magrittr")
+library("ggplot2")
+library("Dispatching")
+```
+
+
+
+```{r}
+result <- readRDS(here::here("output/simulate_competition_impact/result.RDS"))
+eq <- readRDS(here::here("output/estimate_structural_parameters/equilibrium_data_distance_IV.RDS"))
+```
+
+
+- Construct a hypothetical market where there are $N$ homogeneous establishments.
+- Solve equilibrium with $N=1, \dots, 100$
+
+
+
+# Parameters
+
+```{r}
+
+data <- construct_hypothetical_market_homogeneous(eq, 1)
+
+a_W <- data$a[1, 1]
+a_F <- data$a[1, 2]
+mc_W <- data$mc[1, 1]
+mc_F <- data$mc[1, 2]
+mu <- data$mu[1]
+w_0 <- data$w_0
+S_W <- data$S[1]
+S_F <- data$S[2]
+
+param_table <- data.frame(matrix(0, nrow = 8, ncol = 0))
+
+param_table$description <- c("Worker side preference heterogeneity",
+                            "Clinet firm side preference heterogeneity", 
+                            "Worker side marginal cost",
+                            "Client firm side marginal cost",
+                            "Match efficiency", 
+                            "Part-time wage",
+                            "Worker side market size",
+                            "Client firm side market size")
+
+param_table$value <- c(a_W, a_F, mc_W, mc_F, mu, w_0, S_W, S_F)
+
+rownames(param_table) <- c("$a^W$",  "$a^F$", "$c^W$", "$c^F$", "$\\mu$", "$w_0$", "$S^W$", "$S^F$")
+colnames(param_table) <- c("Description", "Value")
+
+param_table %>%
+  kableExtra::kbl(
+    format = "html",
+    digits = 2,
+    escape = F,
+    align = c("l", "r")
+  )  %>% 
+  kableExtra::kable_classic(full_width = F, html_font = "Cambria")
+
+
+
+
+
+```
+
+
+# Wage
+
+```{r}
+result %>% 
+  dplyr::select(wage, N) %>% 
+  dplyr::distinct() %>% 
+  ggplot(
+    aes(
+      x = N,
+      y = wage /  result$wage[1],
+      color = "all"
+    )
+  ) + 
+  geom_point() +
+  geom_line() +
+  scale_color_viridis_d() +
+  labs(
+    x = "Number of THS establishments",
+    y = "Impact on wage"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+```
+
+
+
+# Fee
+
+```{r}
+result %>% 
+  dplyr::select(fee, N) %>% 
+  dplyr::distinct() %>% 
+  ggplot(
+    aes(
+      x = N,
+      y = fee / result$fee[1],
+      color = "all"
+    )
+  ) + 
+  geom_point() +
+  geom_line() +
+  scale_color_viridis_d() +
+  labs(
+    x = "Number of THS establishments",
+    y = "Impact on fee"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+```
+
+
+
+
+
+# Worker share
+
+```{r}
+result %>% 
+  dplyr::select(s_W, N) %>% 
+  dplyr::distinct() %>% 
+  ggplot(
+    aes(
+      x = N,
+      y = s_W / result$s_W[1],
+      color = "all"
+    )
+  ) + 
+  geom_point() +
+  geom_line() +
+  scale_color_viridis_d() +
+  labs(
+    x = "Number of THS establishments",
+    y = "Impact on worker share"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+```
+
+
+
+# Client firm share
+
+```{r}
+result %>% 
+  dplyr::select(s_F, N) %>% 
+  dplyr::distinct() %>% 
+  ggplot(
+    aes(
+      x = N,
+      y = s_F / result$s_F[1],
+      color = "all"
+    )
+  ) + 
+  geom_point() +
+  geom_line() +
+  scale_color_viridis_d() +
+  labs(
+    x = "Number of THS establishments",
+    y = "Impact on client firm share"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+```
+
+

@@ -1,0 +1,180 @@
+---
+title: "Estimate competition impact"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 3, fig.width = 4)
+
+library(Dispatching)
+library(magrittr)
+library(ggplot2)
+
+height <- 6
+width <- 8
+
+```
+
+
+
+```{r}
+
+result_OLS_firmFE <- readRDS(here::here("output/estimate_competition_impact/OLS_firmFE.RDS"))
+result_OLS_firmFE_lintrend <- readRDS(here::here("output/estimate_competition_impact/OLS_firmFE_linear_trend.RDS"))
+result_OLS_estabFE <- readRDS(here::here("output/estimate_competition_impact/OLS_estabFE.RDS"))
+result_OLS_estabFE_lintrend <- readRDS(here::here("output/estimate_competition_impact/OLS_estabFE_linear_trend.RDS"))
+
+result_2SLS_firmFE <- readRDS(here::here("output/estimate_competition_impact/2SLS_firmFE.RDS"))
+result_2SLS_estabFE <- readRDS(here::here("output/estimate_competition_impact/2SLS_estabFE.RDS"))
+
+result_2SLS_lagged_firmFE <- readRDS(here::here("output/estimate_competition_impact/2SLS_lagged_IV_firmFE.RDS"))
+result_2SLS_lagged_estabFE <- readRDS(here::here("output/estimate_competition_impact/2SLS_lagged_IV_estabFE.RDS"))
+
+result_first_stage_firmFE <- readRDS(here::here("output/estimate_competition_impact/first_stage_firmFE.RDS"))
+
+N_vec <-c(4, 7, 10, 13, 16, 19)
+```
+
+
+```{r}
+ylab_wage <- "Impact on wage"
+ylab_fee <- "Impact on fee"
+ylab_margin <- "Impact on margin"
+```
+
+
+
+
+# OLS {.tabset}
+
+## Firm FE
+
+
+```{r}
+make_coefficent_plot_from_result(result_OLS_firmFE[[1]], N_vec, iv = FALSE, ylab = ylab_wage)
+make_coefficent_plot_from_result(result_OLS_firmFE[[2]], N_vec, iv = FALSE, ylab = ylab_fee)
+make_coefficent_plot_from_result(result_OLS_firmFE[[3]], N_vec, iv = FALSE, ylab = ylab_margin)
+```
+
+## Firm FE + CZ linear trend
+
+
+```{r}
+make_coefficent_plot_from_result(result_OLS_firmFE_lintrend[[1]], N_vec, iv = FALSE, ylab = ylab_wage)
+make_coefficent_plot_from_result(result_OLS_firmFE_lintrend[[2]], N_vec, iv = FALSE, ylab = ylab_fee)
+make_coefficent_plot_from_result(result_OLS_firmFE_lintrend[[3]], N_vec, iv = FALSE, ylab = ylab_margin)
+```
+
+
+
+## Establishment FE
+
+
+```{r}
+make_coefficent_plot_from_result(result_OLS_estabFE[[1]], N_vec, iv = FALSE, ylab = ylab_wage)
+make_coefficent_plot_from_result(result_OLS_estabFE[[2]], N_vec, iv = FALSE, ylab = ylab_fee)
+make_coefficent_plot_from_result(result_OLS_estabFE[[3]], N_vec, iv = FALSE, ylab = ylab_margin)
+```
+
+
+
+## Establishment FE + CZ linear trend
+
+
+```{r}
+make_coefficent_plot_from_result(result_OLS_estabFE_lintrend[[1]], N_vec, iv = FALSE, ylab = ylab_wage)
+make_coefficent_plot_from_result(result_OLS_estabFE_lintrend[[2]], N_vec, iv = FALSE, ylab = ylab_fee)
+make_coefficent_plot_from_result(result_OLS_estabFE_lintrend[[3]], N_vec, iv = FALSE, ylab = ylab_margin)
+```
+
+
+
+# 2SLS using the number of establishments in adjacent commuting zones {.tabset}
+
+## Firm FE
+
+
+```{r}
+make_coefficent_plot_from_result(result_2SLS_firmFE[[1]], N_vec, iv = TRUE, ylab = ylab_wage)
+ggsave(filename = here::here("figuretable/estimate_competition_impact/wage_2SLS_firmFE.png"))
+
+make_coefficent_plot_from_result(result_2SLS_firmFE[[2]], N_vec, iv = TRUE, ylab = ylab_fee)
+ggsave(filename = here::here("figuretable/estimate_competition_impact/fee_2SLS_firmFE.png"))
+
+make_coefficent_plot_from_result(result_2SLS_firmFE[[3]], N_vec, iv = TRUE, ylab = ylab_margin)
+ggsave(filename = here::here("figuretable/estimate_competition_impact/margin_2SLS_firmFE.png"))
+
+```
+
+
+
+## Establishment FE
+
+
+```{r}
+make_coefficent_plot_from_result(result_2SLS_estabFE[[1]], N_vec, iv = TRUE, ylab = ylab_wage)
+make_coefficent_plot_from_result(result_2SLS_estabFE[[2]], N_vec, iv = TRUE, ylab = ylab_fee)
+make_coefficent_plot_from_result(result_2SLS_estabFE[[3]], N_vec, iv = TRUE, ylab = ylab_margin)
+```
+
+
+
+# 2SLS using the lagged number of establishments in adjacent commuting zones {.tabset}
+
+
+## Firm FE
+
+
+```{r}
+make_coefficent_plot_from_result(result_2SLS_lagged_firmFE[[1]], N_vec, iv = TRUE, ylab = ylab_wage)
+make_coefficent_plot_from_result(result_2SLS_lagged_firmFE[[2]], N_vec, iv = TRUE, ylab = ylab_fee)
+make_coefficent_plot_from_result(result_2SLS_lagged_firmFE[[3]], N_vec, iv = TRUE, ylab = ylab_margin)
+```
+
+
+
+## Establishment FE
+
+
+```{r}
+make_coefficent_plot_from_result(result_2SLS_lagged_estabFE[[1]], N_vec, iv = TRUE, ylab = ylab_wage)
+make_coefficent_plot_from_result(result_2SLS_lagged_estabFE[[2]], N_vec, iv = TRUE, ylab = ylab_fee)
+make_coefficent_plot_from_result(result_2SLS_lagged_estabFE[[3]], N_vec, iv = TRUE, ylab = ylab_margin)
+```
+
+
+
+# First stage
+
+```{r}
+gm <- tibble::tribble(
+  ~raw, ~clean, ~fmt,
+  "nobs", "Obs.", 0,
+  "r.squared", "R-sq.", 3)
+
+var_name <- c("log(1 + N_adj)" = "$\\log{(1 + N_{adj})}$")
+
+modelsummary::modelsummary(result_first_stage_firmFE, 
+                      		 booktabs = TRUE,
+                           stars = c("$^{*}$" = .1, "$^{**}$" = .05, "$^{***}$" = .01),
+                           output = "latex_tabular",
+                      		 escape = F,
+                      		 fmt = 3,
+                           coef_map = var_name,
+                           gof_map = gm) %>%
+  kableExtra::add_header_above(c(" ", "$\\\\log{(1+N)}$" = 1), escape = F) %>% 
+  kableExtra::save_kable(
+    file = here::here("figuretable/estimate_competition_impact/first_stage_firmFE.tex")
+  )
+```
+
+
+

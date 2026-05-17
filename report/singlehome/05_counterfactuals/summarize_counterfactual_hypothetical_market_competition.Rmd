@@ -1,0 +1,414 @@
+---
+title: "Counterfactual: Margin constraint"
+author: "Kohei Kawaguchi"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+
+library("magrittr")
+library("ggplot2")
+library("foreach")
+library("kableExtra")
+library("Dispatching")
+dir.create(
+  "figuretable/counterfactual_hypothetical_market_competitoin" %>% here::here(),
+  showWarnings = FALSE
+)
+```
+
+
+# Read data
+
+```{r}
+counterfactual_list <- 
+  readRDS(here::here("output/counterfactual_hypothetical_market_competition/result_hypothetical_market.RDS"))
+```
+
+# Set constants
+
+```{r}
+color <- viridis::viridis_pal(option = "A")(1)
+height <- 3
+width <- 4
+legend_position <- "none"
+n_firms_vec <-
+  counterfactual_list$equilibrium_copy_list %>%
+  purrr::map(~ nrow(.$endogenous[[1]])) %>%
+  purrr::reduce(c)
+limits <- c(
+  min(n_firms_vec),
+  max(n_firms_vec)
+)
+```
+
+# Check parameters
+
+```{r}
+lambda <- counterfactual_list$equilibrium_baseline$parameters$lambda
+matching_params <- counterfactual_list$equilibrium_baseline$parameters$matching_params
+
+# Reduced form params
+beta <- convert_parameters_from_structural_to_reduced(lambda, matching_params)
+beta_WW <- beta[1]
+beta_FW <- beta[2]
+beta_WF <- beta[3]
+beta_FF <- beta[4]
+
+
+data.frame(
+  "a_W" = matching_params[1],
+  "a_F" = matching_params[2]
+) %>%
+  kbl() %>%
+  kable_styling()
+
+matrix(beta, nrow = 2) %>%
+  magrittr::set_colnames(c("s_W", "s_F")) %>%
+  magrittr::set_rownames(c("Wage", "Fee")) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+
+# Transform data
+
+```{r}
+endogenous_df <-
+  counterfactual_list$equilibrium_copy_list %>%
+  purrr::map(~ .$endogenous) %>%
+  purrr::map(~ purrr::reduce(., rbind)) %>%
+  purrr::map2(
+    .,
+    n_firms_vec,
+    ~ tibble::as_tibble(.x) %>%
+      dplyr::mutate(n_firms = .y)
+  ) %>%
+  purrr::reduce(dplyr::bind_rows) %>%
+  dplyr::mutate(margin = log(fee/wage)) %>%
+  dplyr::group_by(n_firms) %>%
+  dplyr::summarise(
+    dplyr::across(
+      c(fee, wage, margin),
+      mean
+    ),
+    dplyr::across(
+      c(s_W, s_F, Q, profit),
+      sum
+    )
+    ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(id_unique = 1)
+
+surplus_df <- 
+  counterfactual_list$equilibrium_copy_list %>%
+  purrr::map(compute_surplus) %>%
+  purrr::reduce(rbind) %>%
+  tibble::as_tibble() %>%
+  dplyr::mutate(n_firms = n_firms_vec) 
+```
+
+
+# Endogenous variables
+
+## Fee
+
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = n_firms,
+      y = fee,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  geom_line(color = color) +
+  labs(
+    x = "Number of firms",
+    y = "Fee (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_competitoin/fee.png"),
+  width = width,
+  height = height
+)
+```
+
+
+## Wage
+
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = n_firms,
+      y = wage,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  geom_line(color = color) +
+  labs(
+    x = "Number of firms",
+    y = "Wage (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_competitoin/wage.png"),
+  width = width,
+  height = height
+)
+```
+
+## Margin
+
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = n_firms,
+      y = margin,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  geom_line(color = color) +
+  labs(
+    x = "Number of firms",
+    y = "Margin (log(Fee/Wage))"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_competitoin/margin.png"),
+  width = width,
+  height = height
+)
+```
+
+
+## Worker share
+
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = n_firms,
+      y = s_W,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  geom_line(color = color) +
+  labs(
+    x = "Number of firms",
+    y = "Worker share"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_competitoin/worker_share.png"),
+  width = width,
+  height = height
+)
+
+```
+
+:::
+
+::: {}
+
+## Firm share
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = n_firms,
+      y = s_F,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  geom_line(color = color) +
+  labs(
+    x = "Number of firms",
+    y = "Firm share"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_competitoin/firm_share.png"),
+  width = width,
+  height = height
+)
+```
+
+## Match
+
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = n_firms,
+      y = Q,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  geom_line(color = color) +
+  labs(
+    x = "Number of firms",
+    y = "Matches"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_competitoin/match.png"),
+  width = width,
+  height = height
+)
+
+```
+
+
+## Profit
+
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = n_firms,
+      y = profit,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  geom_line(color = color) +
+  labs(
+    x = "Number of firms",
+    y = "Profit"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_competitoin/profit.png"),
+  width = width,
+  height = height
+)
+
+```
+
+# Surplus
+
+## Worker surplus
+
+```{r}
+surplus_df %>% 
+  ggplot(
+    aes(
+      x = n_firms,
+      y = WS
+    )
+  ) + 
+  geom_line(color = color) +
+  labs(
+    x = "Number of firms",
+    y = "Worker surplus"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_competitoin/worker_surplus.png"),
+  width = width,
+  height = height
+)
+```
+
+## Firms surplus
+
+```{r}
+surplus_df %>% 
+  ggplot(
+    aes(
+      x = n_firms,
+      y = FS
+    )
+  ) + 
+  geom_line(color = color) +
+  labs(
+    x = "Number of firms",
+    y = "Client firm surplus"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_competitoin/firm_surplus.png"),
+  width = width,
+  height = height
+)
+```
+
+## THS surplus
+
+```{r}
+surplus_df %>% 
+  ggplot(
+    aes(
+      x = n_firms,
+      y = profit
+    )
+  ) + 
+  geom_line(color = color) +
+  labs(
+    x = "Number of firms",
+    y = "THS surplus"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_competitoin/ths_surplus.png"),
+  width = width,
+  height = height
+)
+```
+

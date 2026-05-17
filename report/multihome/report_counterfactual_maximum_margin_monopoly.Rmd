@@ -1,0 +1,98 @@
+---
+title: "report_counterfactual_maximum_margin_monopoly"
+author: "Daisy Dan Song"
+date: "2024-05-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  results = "hide"
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+```
+
+# Set constant
+
+```{r}
+seed <- 1
+set.seed(seed)
+n_ths <- 2
+n_market <- 1
+n_zone <- 1
+t <- 1
+j <- 1
+multistart <- 10
+use_rcpp <- TRUE
+solver <- "nleqslv"
+```
+
+
+# Generate the baseline equilibrium
+
+```{r}
+equilibrium <-
+  generate_equilibrium(
+    n_ths = n_ths,
+    n_market = n_market,
+    n_zone = n_zone,
+    seed = seed
+  )
+```
+
+# Counterfactual Analysis {.tabset}
+
+## maximum margin {.tabset}
+```{r}
+
+eq1_nleqslv <-
+  solve_equilibrium_tj(
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = "nleqslv",
+    multistart = multistart,
+    use_rcpp = use_rcpp
+  )
+equilibrium$endogenous[[t]]$w <- eq1_nleqslv$endogenous[[t]]$w
+equilibrium$endogenous[[t]]$f <- eq1_nleqslv$endogenous[[t]]$f
+
+
+counterfactual <- 
+  evaluate_counterfactual_maximum_margin_tj(
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = "nleqslv",
+    multistart = multistart
+  )
+```
+
+### table 
+```{r, results = "asis"}
+counterfactual %>%
+  dplyr::arrange(
+    i,
+    maximum_margin
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+### graph {.tabset}
+```{r, results = "asis"}
+p <- 
+  plot_counterfactual_maximum_margin(
+    counterfactual = counterfactual
+  )
+```
+

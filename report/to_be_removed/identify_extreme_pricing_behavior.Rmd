@@ -1,0 +1,59 @@
+---
+title: "Identify extreme pricing behavior"
+author: "Katsuhiro Komatsu"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+```
+
+### What I do
+- Conduct a counterfactual in which margins have to be not greater than 0.1.
+- There are THS establishments that choose extremely large wages and fees.
+- Compare those establishments with other establishments in terms of actual prices and shares.
+
+
+### Margin
+
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/counterfactual/margin_constraint/extreme_pricing/wage_too_high/margin_cdf.png"))
+knitr::include_graphics(here::here("figuretable/counterfactual/margin_constraint/extreme_pricing/fee_too_high/margin_cdf.png"))
+```
+
+
+### Wage
+
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/counterfactual/margin_constraint/extreme_pricing/wage_too_high/wage_cdf.png"))
+knitr::include_graphics(here::here("figuretable/counterfactual/margin_constraint/extreme_pricing/fee_too_high/wage_cdf.png"))
+```
+
+### Fee
+
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/counterfactual/margin_constraint/extreme_pricing/wage_too_high/fee_cdf.png"))
+knitr::include_graphics(here::here("figuretable/counterfactual/margin_constraint/extreme_pricing/fee_too_high/fee_cdf.png"))
+```
+
+
+### Worker share
+
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/counterfactual/margin_constraint/extreme_pricing/wage_too_high/worker_share_cdf.png"))
+knitr::include_graphics(here::here("figuretable/counterfactual/margin_constraint/extreme_pricing/fee_too_high/worker_share_cdf.png"))
+```
+
+### Client firm share
+
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/counterfactual/margin_constraint/extreme_pricing/wage_too_high/firm_share_cdf.png"))
+knitr::include_graphics(here::here("figuretable/counterfactual/margin_constraint/extreme_pricing/fee_too_high/firm_share_cdf.png"))
+```
+
+
+
+

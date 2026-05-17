@@ -1,0 +1,184 @@
+---
+title: "report_data_zip_code_a_w_time"
+author: "Daisy Dan Song"
+date: "2024-11-24"
+output: html_document
+---
+
+# initialize
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(ggplot2)
+```
+
+# load data
+```{r}
+equilibrium <- 
+  readRDS(
+    file = "output/multihome/make_equilibrium_zipcode_firm_from_data/equilibrium.rds" %>%
+    here::here()
+)
+```
+
+# partition market
+```{r}
+num_ths_list <- 
+  foreach(
+    t = seq_along(equilibrium$endogenous)
+  ) %do% {
+    foreach(
+      j = seq_along(equilibrium$endogenous[[t]])
+    ) %do% {
+   num <- length(equilibrium$endogenous[[t]][[j]]$w)
+   return(num)
+  }
+}
+
+num_ths <- 
+  sort(
+    unique(
+      unlist(
+        num_ths_list
+        )
+      )
+    )
+
+market_partition <- list()
+num_market <- c()
+
+j <- 1
+for (i in num_ths){
+  eq <- equilibrium
+  shock <- list()
+  endogenous <- list()
+  exogenous <- list()
+  num <- 0
+  for (t in seq_along(num_ths_list)){
+    index <- 
+      which(
+        num_ths_list[[t]] == i
+        )
+    num <- num + length(index)
+    
+    endogenous <- 
+      append(
+        endogenous, 
+        equilibrium$endogenous[[t]][index]
+      )
+  
+    exogenous <- 
+      append(
+        exogenous, 
+        equilibrium$exogenous[[t]][index]
+      )
+    
+    shock <- 
+      append(
+        shock, 
+        equilibrium$shock[[t]][index]
+      )
+  }
+  num_market[j] <- num
+  eq$shock <- list(shock)
+  eq$exogenous <- list(exogenous)
+  eq$endogenous <- list(endogenous)
+  market_partition[[j]] <- eq
+  j <- j + 1
+}
+
+
+```
+
+# unique number of ths corresponding number of markets
+```{r}
+cbind(
+  num_ths,
+  num_market
+)
+```
+
+# check a_w time
+
+## exact 
+
+```{r}
+check_time <-
+  1:10 %>%
+  purrr::map(
+    function (index) {
+      equilibrium_1 <- market_partition[[index]]
+      time <-
+        check_a_w_time(
+          t_seq = 1,
+          j_seq = 1,
+          equilibrium = equilibrium_1
+          )
+      result <-
+        data.frame(
+          num_ths = num_ths[index],
+          time = time %>% as.numeric()
+        )
+      return(result)
+    }
+  ) %>%
+  dplyr::bind_rows() 
+
+check_time %>%
+  ggplot(
+    aes(
+      x = num_ths,
+      y = time
+    )
+  ) +
+  geom_point() +
+  geom_line() +
+  theme_classic()
+
+```
+
+## approximate
+
+```{r}
+check_time <-
+  1:65 %>%
+  purrr::map(
+    function (index) {
+      equilibrium_1 <- market_partition[[index]]
+      equilibrium_1$constant$method_s_w <- "approximate"
+      time <-
+        check_a_w_time(
+          t_seq = 1,
+          j_seq = 1,
+          equilibrium = equilibrium_1
+          )
+      
+      result <-
+        data.frame(
+          num_ths = num_ths[index],
+          time = time %>% as.numeric()
+        )
+      return(result)
+    }
+  ) %>%
+  dplyr::bind_rows() 
+
+check_time %>%
+  ggplot(
+    aes(
+      x = num_ths,
+      y = time
+    )
+  ) +
+  geom_point() +
+  geom_line() +
+  theme_classic()
+
+```

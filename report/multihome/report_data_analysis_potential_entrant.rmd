@@ -1,0 +1,3278 @@
+---
+title: "report data analysis potential entrant (all sample)"
+author: "Chiho Taniguchi"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 3, fig.width = 4)
+
+library("magrittr")
+library("kableExtra")
+library("ggplot2")
+
+height <- 6
+width <- 8
+
+```
+
+```{r }
+ 
+ data_cz_establishments <- 
+   here::here(file = "output/data_cz_establishments.rds") %>% 
+   readRDS()
+ 
+ data_area_area_distance <- 
+   here::here(file = "cleaned/data_area_area_distance.rds") %>% 
+   readRDS()
+ 
+ data_cz_potential_entrant_all <- 
+   here::here(file = "output/data_cz_potential_entrant_all.rds") %>% 
+   readRDS()
+
+ data_cz_potential_entrant <- 
+   here::here(file= "output/data_cz_potential_entrant.rds") %>% 
+   readRDS()
+ 
+ data_cz_potential_entrantunder3 <- 
+   here::here(file= "output/data_cz_potential_entrantunder3.rds") %>% 
+   readRDS()
+ 
+ data_cz_potential_entrantunder5 <- 
+   here::here(file= "output/data_cz_potential_entrantunder5.rds") %>% 
+   readRDS()
+ 
+```
+
+
+
+```{r}
+
+data_cz_potential_entrant =
+  data_cz_potential_entrant %>% 
+  dplyr::mutate(
+    potential_entrant10km = potential_entrant10km / 1000,
+    potential_entrant20km = potential_entrant20km / 1000,
+    potential_entrant30km = potential_entrant30km / 1000,
+    potential_entrant40km = potential_entrant40km / 1000,
+    potential_entrant50km = potential_entrant50km / 1000
+  )
+
+data_cz_potential_entrantunder3 =
+  data_cz_potential_entrantunder3 %>% 
+  dplyr::mutate(
+    potential_entrant10km = potential_entrant10km / 1000,
+    potential_entrant20km = potential_entrant20km / 1000,
+    potential_entrant30km = potential_entrant30km / 1000,
+    potential_entrant40km = potential_entrant40km / 1000,
+    potential_entrant50km = potential_entrant50km / 1000
+  )
+
+data_cz_potential_entrantunder5 =
+  data_cz_potential_entrantunder5 %>% 
+  dplyr::mutate(
+    potential_entrant10km = potential_entrant10km / 1000,
+    potential_entrant20km = potential_entrant20km / 1000,
+    potential_entrant30km = potential_entrant30km / 1000,
+    potential_entrant40km = potential_entrant40km / 1000,
+    potential_entrant50km = potential_entrant50km / 1000
+  )
+
+
+```
+
+
+
+# all sample
+
+## first stage 
+
+係数が小さくなるなるため、potential_entrantの数値は1000で除した値を使用。
+
+### results {.tabset}
+
+#### 5km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant5km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+
+#### 10km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant10km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+
+#### 20km
+
+```{r}
+
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant20km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+
+
+
+#### 30km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant30km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+#### 40km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant40km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+
+#### 50 km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant50km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+### bonscatter plot {.tabset}
+
+#### 5km
+
+```{r}
+  
+plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant5km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:802) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 200, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant5km_avr = mean(potential_entrant5km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant5km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant5km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 10km
+
+```{r}
+  
+plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant10km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:802) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 200, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant10km_avr = mean(potential_entrant10km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant10km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant10km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 20km
+
+```{r}
+  
+ plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant20km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:802) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 40, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant20km_avr = mean(potential_entrant20km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant20km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant20km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 30km
+
+```{r}
+  
+ plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant30km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:802) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 40, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant30km_avr = mean(potential_entrant30km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant30km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant30km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 40km
+
+```{r}
+  
+  plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant40km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:802) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 40, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant40km_avr = mean(potential_entrant40km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant40km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant40km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 50km
+
+```{r}
+  
+  plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant50km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:802) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 40, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant50km_avr = mean(potential_entrant50km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant50km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant50km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+## reduced form {.tabset}
+
+### 5km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant5km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+   
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant5km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant5km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 10km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant10km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+   
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant10km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant10km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 20km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant20km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant20km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant20km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 30km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant30km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant30km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant30km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 40km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant40km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant40km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant40km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 50km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant50km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant50km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant50km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+## structural form {.tabset}
+
+### 2nd stage {.tabset}
+
+#### 5km
+
+```{r}
+
+resultss0 <- list()
+
+resultss0[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant5km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss0[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant5km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss0[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant5km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s0 <- 
+  list(
+    "log_diff_wage" = resultss0[[1]],
+    "log_diff_fee" = resultss0[[2]],
+    "log_diff_fee - log_diff_wage" = resultss0[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s0,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+
+
+
+#### 10km
+
+```{r}
+
+resultss <- list()
+
+resultss[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant10km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant10km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant10km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 20km
+
+```{r}
+
+resultss2 <- list()
+
+resultss2[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant20km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss2[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant20km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss2[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant20km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s2 <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s2,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 30km
+
+```{r}
+
+resultss3 <- list()
+
+resultss3[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant30km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss3[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant30km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss3[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant30km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s3 <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s3,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 40km
+
+```{r}
+
+resultss4 <- list()
+
+resultss4[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant40km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss4[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant40km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss4[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant40km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s4 <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s4,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 50km
+
+```{r}
+
+resultss5 <- list()
+
+resultss5[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant50km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss5[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant50km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss5[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant50km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s5 <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s5,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+### 1st stage {.tabset}
+
+#### 5km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss0[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+#### 10km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+#### 20km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss2[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+#### 30km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss3[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+#### 40km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss4[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+
+#### 50km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss5[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+# sub sample 1
+
+The number of establishments in cz in each year is equivalent to 3 or less than 3.
+
+```{r}
+
+data_cz_potential_entrant = data_cz_potential_entrantunder3
+
+```
+
+## first stage 
+
+係数が小さくなるなるため、potential_entrantの数値は1000で除した値を使用。
+
+### results {.tabset}
+
+#### 5km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant5km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+
+#### 10km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant10km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+
+#### 20km
+
+```{r}
+
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant20km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+
+
+
+#### 30km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant30km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+#### 40km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant40km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+
+#### 50 km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant50km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+### bonscatter plot {.tabset}
+
+#### 5km
+
+```{r}
+  
+plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant5km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:151) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 100, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant5km_avr = mean(potential_entrant5km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant5km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant5km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 10km
+
+```{r}
+  
+plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant10km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:151) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 100, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant10km_avr = mean(potential_entrant10km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant10km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant10km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 20km
+
+```{r}
+  
+ plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant20km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:151) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 100, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant20km_avr = mean(potential_entrant20km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant20km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant20km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 30km
+
+```{r}
+  
+ plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant30km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:151) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 100, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant30km_avr = mean(potential_entrant30km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant30km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant30km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 40km
+
+```{r}
+  
+  plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant40km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:151) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 100, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant40km_avr = mean(potential_entrant40km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant40km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant40km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 50km
+
+```{r}
+  
+  plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant50km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:151) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 100, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant50km_avr = mean(potential_entrant50km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant50km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant50km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+## reduced form {.tabset}
+
+### 5km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant5km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+   
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant5km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant5km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 10km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant10km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+   
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant10km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant10km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 20km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant20km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant20km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant20km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 30km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant30km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant30km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant30km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 40km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant40km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant40km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant40km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 50km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant50km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant50km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant50km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+## structural form {.tabset}
+
+### 2nd stage {.tabset}
+
+#### 5km
+
+```{r}
+
+resultss0 <- list()
+
+resultss0[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant5km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss0[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant5km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss0[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant5km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s0 <- 
+  list(
+    "log_diff_wage" = resultss0[[1]],
+    "log_diff_fee" = resultss0[[2]],
+    "log_diff_fee - log_diff_wage" = resultss0[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s0,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 10km
+
+```{r}
+
+resultss <- list()
+
+resultss[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant10km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant10km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant10km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 20km
+
+```{r}
+
+resultss2 <- list()
+
+resultss2[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant20km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss2[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant20km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss2[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant20km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s2 <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s2,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 30km
+
+```{r}
+
+resultss3 <- list()
+
+resultss3[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant30km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss3[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant30km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss3[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant30km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s3 <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s3,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 40km
+
+```{r}
+
+resultss4 <- list()
+
+resultss4[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant40km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss4[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant40km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss4[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant40km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s4 <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s4,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 50km
+
+```{r}
+
+resultss5 <- list()
+
+resultss5[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant50km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss5[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant50km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss5[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant50km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s5 <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s5,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+### 1st stage {.tabset}
+
+#### 5km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss0[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+#### 10km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+#### 20km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss2[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+#### 30km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss3[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+#### 40km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss4[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+
+#### 50km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss5[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+
+# sub sample 2
+
+The number of establishments in cz in each year is equivalent to 5 or less than 5.
+
+```{r}
+
+data_cz_potential_entrant = data_cz_potential_entrantunder5
+
+```
+
+## first stage 
+
+係数が小さくなるなるため、potential_entrantの数値は1000で除した値を使用。
+
+### results {.tabset}
+
+#### 5km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant5km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+
+#### 10km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant10km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+
+#### 20km
+
+```{r}
+
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant20km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+
+
+
+#### 30km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant30km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+#### 40km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant40km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+
+#### 50 km
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   fixest::feols(
+    fml = Nj_diff ~ potential_entrant50km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+### bonscatter plot {.tabset}
+
+#### 5km
+
+```{r}
+  
+plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant5km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:221) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 100, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant5km_avr = mean(potential_entrant5km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant5km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant5km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 10km
+
+```{r}
+  
+plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant10km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:221) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 100, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant10km_avr = mean(potential_entrant10km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant10km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant10km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 20km
+
+```{r}
+  
+ plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant20km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:221) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 100, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant20km_avr = mean(potential_entrant20km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant20km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant20km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 30km
+
+```{r}
+  
+ plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant30km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:221) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 100, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant30km_avr = mean(potential_entrant30km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant30km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant30km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 40km
+
+```{r}
+  
+  plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant40km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:221) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 100, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant40km_avr = mean(potential_entrant40km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant40km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant40km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+#### 50km
+
+```{r}
+  
+  plot_firststage =
+  data_cz_potential_entrant %>% 
+  dplyr::ungroup() %>% 
+  dplyr::arrange(
+    potential_entrant50km
+  ) %>% 
+  dplyr::mutate(
+    id = c(1:221) 
+    )%>% 
+  dplyr::mutate(
+    cut_bin = cut(id, breaks = 100, labels = FALSE)
+  ) %>% 
+  dplyr::group_by(
+    cut_bin
+  ) %>% 
+  dplyr::mutate(
+    Nj_diff_avr = mean(Nj_diff),
+    potential_entrant50km_avr = mean(potential_entrant50km)
+  ) %>% 
+  dplyr::select(
+    Nj_diff_avr,
+    potential_entrant50km_avr
+  ) %>% 
+  dplyr::distinct()
+
+g <- ggplot() +
+   geom_point(
+     data = plot_firststage,
+     mapping = aes(y = Nj_diff_avr, x = potential_entrant50km_avr),
+     size = 0.5
+   ) +
+  theme_classic()
+ 
+ print(g)
+
+```
+
+## reduced form {.tabset}
+
+### 5km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant5km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+   
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant5km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant5km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 10km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant10km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+   
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant10km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant10km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 20km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant20km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant20km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant20km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 30km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant30km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant30km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant30km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 40km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant40km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant40km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant40km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+### 50km
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   fixest::feols(
+    fml = log_wage_diff ~ potential_entrant50km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+ resultr[[2]] <- 
+   fixest::feols(
+    fml = log_fee_diff ~ potential_entrant50km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+ 
+resultr[[3]] <- 
+   fixest::feols(
+    fml = margin ~ potential_entrant50km | year + cz ,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+## structural form {.tabset}
+
+### 2nd stage {.tabset}
+
+#### 5km
+
+```{r}
+
+resultss00 <- list()
+
+resultss00[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant5km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss00[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant5km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss00[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant5km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s00 <- 
+  list(
+    "log_diff_wage" = resultss00[[1]],
+    "log_diff_fee" = resultss00[[2]],
+    "log_diff_fee - log_diff_wage" = resultss00[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s00,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 10km
+
+```{r}
+
+resultss <- list()
+
+resultss[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant10km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant10km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant10km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 20km
+
+```{r}
+
+resultss2 <- list()
+
+resultss2[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant20km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss2[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant20km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss2[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant20km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s2 <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s2,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 30km
+
+```{r}
+
+resultss3 <- list()
+
+resultss3[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant30km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss3[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant30km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss3[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant30km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s3 <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s3,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 40km
+
+```{r}
+
+resultss4 <- list()
+
+resultss4[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant40km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss4[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant40km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss4[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant40km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s4 <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s4,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+#### 50km
+
+```{r}
+
+resultss5 <- list()
+
+resultss5[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant50km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss5[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | year + cz | Nj_diff ~ potential_entrant50km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+resultss5[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | year + cz | Nj_diff ~ potential_entrant50km,
+    data = data_cz_potential_entrant,
+    se = "hetero"
+  )
+
+results_s5 <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s5,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+### 1st stage {.tabset}
+
+#### 5km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss00[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+#### 10km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+#### 20km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss2[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+#### 30km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss3[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+#### 40km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss4[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+
+#### 50km
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss5[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+
+
+

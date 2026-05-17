@@ -1,0 +1,1863 @@
+---
+title: "report_reduced_form_analysis"
+author: "Daisy Dan Song"
+date: "2026-01-06"
+output: html_document
+---
+
+# initialize
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+library(purrr)
+library(dplyr)
+library(tidyr)
+library(fixest)
+library(broom)
+library(glue)
+library(patchwork)
+library(here)
+```
+
+# load data
+```{r}
+# load data --------------------------------------------------------------
+data_establishment <- 
+  readRDS(
+    file = "cleaned/data_establishments.RDS" %>%
+    here::here()
+  )
+data_zipcode <- 
+  readRDS(
+   file =  "cleaned/data_zipcode.RDS" %>%
+    here::here()
+  )
+data_area <- 
+  readRDS(
+   file =  "cleaned/data_area.RDS" %>%
+    here::here()
+  )
+data_pref_year_minimum_wage <- 
+  readRDS(
+   file =  "cleaned/data_pref_year_minimum_wage.RDS" %>%
+    here::here()
+  )
+data_year <- 
+  readRDS(
+   file =  "cleaned/data_year.RDS" %>%
+    here::here()
+  )
+data_area_year_num_parttemp <-
+  readRDS(
+   file =  "cleaned/data_area_year_num_parttemp.RDS" %>%
+    here::here()
+  )
+data_area_year_num_firm <-
+  readRDS(
+   file =  "cleaned/data_area_year_num_firms.RDS" %>%
+    here::here()
+  )
+data_area_year_num_labor <-
+  readRDS(
+    file = "cleaned/data_area_year_num_labor.RDS" %>%
+    here::here()
+  )
+data_area_year_partwage <-
+  readRDS(
+   file =  "cleaned/data_area_year_partwage.RDS" %>%
+    here::here()
+  )
+out_dir <- here::here("draft/figuretable/descriptives/aggregate/cross_section")
+```
+
+# replication of daiji result 
+
+```{r daiji-data-construction}
+daiji_df <-
+  data_establishment %>%
+  inner_join(data_zipcode, by = "zipcode") %>%
+  inner_join(data_area, by = "area_code") %>%
+  inner_join(data_pref_year_minimum_wage, by = c("pref", "year")) %>%
+  inner_join(
+    readRDS(here::here("cleaned/data_pref_year_partwage.RDS")),
+    by = c("pref", "year")
+  ) %>%
+  inner_join(data_year, by = "year") %>%
+  mutate(
+    temptot = tempperm + tempfixed
+  ) %>%
+  group_by(year, cz) %>%
+  mutate(
+    n_cz = n(),
+    n_cz_10000 = n_cz / 10000
+  ) %>%
+  ungroup() %>%
+  mutate(
+    tot = perm + fixed,
+    staffperm = ifelse(perm - tempperm < 0, NA_real_, perm - tempperm),
+    stafffixed = ifelse(fixed - tempfixed < 0, NA_real_, fixed - tempfixed),
+    margin = ifelse((fee - wage) / fee < 0, NA_real_, (fee - wage) / fee),
+    lfee = log(fee),
+    lwage = log(wage),
+    lfee_wage = lfee - lwage
+  ) %>%
+  filter(
+    year != 2015,
+    temptot > 5,
+    !is.na(staffperm),
+    !is.na(stafffixed),
+    !is.na(wage), !is.na(fee),
+    wage <= fee,
+    !(is.na(wagedaily) & !is.na(feedaily)),
+    !(!is.na(wagedaily) & is.na(feedaily)),
+    is.na(wagedaily) | wagedaily <= feedaily
+  )
+
+cat("Daiji replication sample size:", nrow(daiji_df), "\n")
+```
+
+```{r daiji-regression}
+reg_fee <- feols(lfee ~ n_cz_10000 | cz + year, data = daiji_df, cluster = ~cz)
+reg_wage <- feols(lwage ~ n_cz_10000 | cz + year, data = daiji_df, cluster = ~cz)
+reg_margin <- feols(lfee_wage ~ n_cz_10000 | cz + year, data = daiji_df, cluster = ~cz)
+
+# Recover a reported constant from the equivalent dummy-variable
+# representation of the same FE specification.
+reg_fee_const <-
+  feols(lfee ~ n_cz_10000 + factor(cz) + factor(year), data = daiji_df, cluster = ~cz)
+reg_wage_const <-
+  feols(lwage ~ n_cz_10000 + factor(cz) + factor(year), data = daiji_df, cluster = ~cz)
+reg_margin_const <-
+  feols(
+    lfee_wage ~ n_cz_10000 + factor(cz) + factor(year),
+    data = daiji_df,
+    cluster = ~cz
+  )
+
+etable(
+  reg_fee, reg_wage, reg_margin,
+  headers = c("ln(fee)", "ln(wage)", "ln(fee) - ln(wage)"),
+  se.below = TRUE,
+  signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.1),
+  fitstat = ~ n + r2
+)
+
+```
+
+```{r daiji-binscatter, fig.width=10, fig.height=3.5}
+residualize_fe <- function(var_name, data) {
+  model <- feols(
+    stats::as.formula(paste0(var_name, " ~ 1 | cz + year")),
+    data = data
+  )
+  stats::residuals(model)
+}
+
+make_daiji_binscatter_df <- function(y_var, x_var, label, data) {
+  data_clean <-
+    data %>%
+    filter(!is.na(.data[[y_var]]), !is.na(.data[[x_var]]))
+
+  x_mean <- mean(data_clean[[x_var]], na.rm = TRUE)
+  y_mean <- mean(data_clean[[y_var]], na.rm = TRUE)
+
+  data_clean$x_resid <- residualize_fe(x_var, data_clean)
+  data_clean$y_resid <- residualize_fe(y_var, data_clean)
+
+  data_clean %>%
+    mutate(bin = ntile(x_resid, 50)) %>%
+    group_by(bin) %>%
+    summarise(
+      x = mean(x_resid, na.rm = TRUE) + x_mean,
+      y = mean(y_resid, na.rm = TRUE) + y_mean,
+      .groups = "drop"
+    ) %>%
+    mutate(panel = label)
+}
+
+plot_df <- bind_rows(
+  make_daiji_binscatter_df("lfee", "n_cz_10000", "ln(fee)", daiji_df),
+  make_daiji_binscatter_df("lwage", "n_cz_10000", "ln(wage)", daiji_df),
+  make_daiji_binscatter_df("lfee_wage", "n_cz_10000", "ln(fee) - ln(wage)", daiji_df)
+) %>%
+  mutate(
+    panel = factor(
+      panel,
+      levels = c("ln(fee)", "ln(wage)", "ln(fee) - ln(wage)")
+    )
+  )
+
+line_df <-
+  tibble(
+    panel = factor(
+      c("ln(fee)", "ln(wage)", "ln(fee) - ln(wage)"),
+      levels = c("ln(fee)", "ln(wage)", "ln(fee) - ln(wage)")
+    ),
+    slope = c(
+      unname(stats::coef(reg_fee)["n_cz_10000"]),
+      unname(stats::coef(reg_wage)["n_cz_10000"]),
+      unname(stats::coef(reg_margin)["n_cz_10000"])
+    ),
+    intercept = c(
+      mean(daiji_df$lfee[!is.na(daiji_df$lfee)], na.rm = TRUE) -
+        unname(stats::coef(reg_fee)["n_cz_10000"]) *
+        mean(daiji_df$n_cz_10000[!is.na(daiji_df$lfee)], na.rm = TRUE),
+      mean(daiji_df$lwage[!is.na(daiji_df$lwage)], na.rm = TRUE) -
+        unname(stats::coef(reg_wage)["n_cz_10000"]) *
+        mean(daiji_df$n_cz_10000[!is.na(daiji_df$lwage)], na.rm = TRUE),
+      mean(daiji_df$lfee_wage[!is.na(daiji_df$lfee_wage)], na.rm = TRUE) -
+        unname(stats::coef(reg_margin)["n_cz_10000"]) *
+        mean(daiji_df$n_cz_10000[!is.na(daiji_df$lfee_wage)], na.rm = TRUE)
+    )
+  )
+
+p_binscatter <-
+  ggplot(plot_df, aes(x = x, y = y)) +
+  geom_point(shape = 16, color = "#123b5d", size = 2.7, alpha = 0.95) +
+  geom_abline(
+    data = line_df,
+    aes(slope = slope, intercept = intercept),
+    color = "#b22222",
+    linewidth = 1.05
+  ) +
+  facet_wrap(~ panel, scales = "free_y", strip.position = "left") +
+  labs(
+    x = "Number of establishments in CZ in 10,000",
+    y = NULL
+  ) +
+  theme_bw(base_size = 11, base_family = "Times") +
+  theme(
+    panel.grid = element_blank(),
+    strip.background = element_blank(),
+    strip.placement = "outside",
+    strip.text = element_text(face = "plain"),
+    strip.text.y.left = element_text(angle = 90, face = "plain"),
+    axis.title.x = element_text(margin = margin(t = 10)),
+    legend.position = "none"
+  )
+
+ggsave(
+  filename = here::here(
+    "draft/figuretable/descriptives/aggregate/cross_section/combined_graph_daisy_replication.pdf"
+  ),
+  plot = p_binscatter,
+  width = 10,
+  height = 3.5,
+  device = grDevices::pdf
+)
+
+p_binscatter
+```
+
+# make data base
+```{r}
+data_base <-
+  make_data_base(
+    data_establishment = data_establishment,
+    data_zipcode = data_zipcode,
+    data_area = data_area,
+    data_pref_year_minimum_wage = data_pref_year_minimum_wage,
+    data_year = data_year,
+    data_area_year_num_parttemp = data_area_year_num_parttemp,
+    data_area_year_num_firm = data_area_year_num_firm,
+    data_area_year_num_labor = data_area_year_num_labor,
+    data_area_year_partwage = data_area_year_partwage
+  ) 
+
+data_base_top5 <- 
+  make_data_base_nationwide_top5(
+    data_base = data_base
+  )
+
+data_base_fringe <-
+  make_data_base_fringe_ths(
+    data_base = data_base,
+    data_base_top5 = data_base_top5
+  ) 
+
+data_base_all <- 
+  rbind(
+    data_base_top5,
+    data_base_fringe
+  )
+
+make_binscatter_long <-
+  function(
+    df,
+    x_var,
+    y_vars = c("ln_f", "ln_w", "ln_m"),
+    y_labels = c("Log fee", "Log wage", "Log margin"),
+    n_bins = 20
+  ) {
+    df$x_bin_value <- df[[x_var]]
+    df$bin_id <- dplyr::ntile(df$x_bin_value, n_bins)
+    
+    out <-
+      df %>%
+      dplyr::group_by(.data$bin_id) %>%
+      dplyr::summarise(
+        x_bin = mean(.data$x_bin_value, na.rm = TRUE),
+        dplyr::across(
+          dplyr::all_of(y_vars),
+          function(z) mean(z, na.rm = TRUE)
+        ),
+        .groups = "drop"
+      ) %>%
+      tidyr::pivot_longer(
+        cols = dplyr::all_of(y_vars),
+        names_to = "var",
+        values_to = "value"
+      ) %>%
+      dplyr::mutate(
+        var = factor(
+          var,
+          levels = y_vars,
+          labels = y_labels
+        )
+      )
+    
+    names(out)[names(out) == "x_bin"] <- x_var
+    
+    return(out)
+  }
+```
+
+
+
+# reduced form analysis
+## top5 data with number of ths
+```{r}
+# build top5 regression sample directly from data_base_top5
+panel_df_top5 <-
+  data_base_top5 %>%
+  dplyr::group_by(
+    year,
+    cz
+  ) %>%
+  dplyr::mutate(
+    n_ths = dplyr::n(),
+    n_firms = dplyr::n_distinct(firm_id)
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    margin = (f - w) / f,
+    ln_f = log(f),
+    ln_w = log(w),
+    ln_m = log(margin)
+  ) %>%
+  dplyr::filter(
+    is.finite(cz),
+    is.finite(year),
+    is.finite(n_ths),
+    is.finite(ln_f),
+    is.finite(ln_w),
+    is.finite(ln_m)
+  ) %>%
+  dplyr::select(
+    year,
+    cz,
+    firm_id,
+    n_ths,
+    n_firms,
+    w,
+    f,
+    margin,
+    ln_f,
+    ln_w,
+    ln_m
+  )
+summary(panel_df_top5)
+```
+
+```{r}
+# two-way FE regressions: log fee, log wage, log margin on number of Establishments
+reg_fee <- feols(ln_f ~ n_ths | cz + year, data = panel_df_top5)
+reg_w   <- feols(ln_w ~ n_ths | cz + year, data = panel_df_top5)
+reg_m   <- feols(ln_m ~ n_ths | cz + year, data = panel_df_top5)
+
+reg_table <-
+  list(
+    "Log fee"    = reg_fee,
+    "Log wage"   = reg_w,
+    "Log margin" = reg_m
+  )
+```
+
+```{r fig.width=12, fig.height=8}
+# bin-scatter style plot mirroring main.tex figure
+plot_df <-
+  make_binscatter_long(
+    df = panel_df_top5,
+    x_var = "n_ths"
+  )
+
+p_breaks <- pretty(plot_df$n_ths, n = 5)
+
+
+p_fee <-
+  ggplot(
+    dplyr::filter(plot_df, .data$var == "Log fee"),
+    aes(x = .data$n_ths, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = unname(stats::coef(reg_fee)["n_ths"]),
+    intercept = mean(panel_df_top5$ln_f, na.rm = TRUE) -
+      unname(stats::coef(reg_fee)["n_ths"]) * mean(panel_df_top5$n_ths, na.rm = TRUE),
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks) +
+  labs(
+    x = "Number of Establishments in commuting zone",
+    y = "Log fee"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_wage <-
+  ggplot(
+    dplyr::filter(plot_df, .data$var == "Log wage"),
+    aes(x = .data$n_ths, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = unname(stats::coef(reg_w)["n_ths"]),
+    intercept = mean(panel_df_top5$ln_w, na.rm = TRUE) -
+      unname(stats::coef(reg_w)["n_ths"]) * mean(panel_df_top5$n_ths, na.rm = TRUE),
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks) +
+  labs(
+    x = "Number of Establishments in commuting zone",
+    y = "Log wage"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_margin <-
+  ggplot(
+    dplyr::filter(plot_df, .data$var == "Log margin"),
+    aes(x = .data$n_ths, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = unname(stats::coef(reg_m)["n_ths"]),
+    intercept = mean(panel_df_top5$ln_m, na.rm = TRUE) -
+      unname(stats::coef(reg_m)["n_ths"]) * mean(panel_df_top5$n_ths, na.rm = TRUE),
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks) +
+  labs(
+    x = "Number of Establishments in commuting zone",
+    y = "Log margin"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+# save to cross_section directory (Figure 2 style)
+out_dir <- here::here("draft/figuretable/descriptives/aggregate/cross_section")
+if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+combined_plot <- (p_fee + p_wage) / (p_margin + patchwork::plot_spacer())
+ggsave(file.path(out_dir, "reduced_form_three_panel_top5_ths.pdf"), combined_plot, width = 12, height = 8)
+
+combined_plot
+```
+
+```{r}
+# regression table (similar to Table 2 in main.tex)
+tab_tex <- 
+  etable(
+    reg_table,
+    se.below = TRUE,
+    keep = "n_ths",
+    digits = 3,
+    tex = TRUE,
+    fitstat = c("r2", "n")
+  )
+
+# save table to cross_section directory (Table 2 style)
+writeLines(
+  tab_tex,
+  con = file.path(
+    here::here("draft/figuretable/descriptives/aggregate/cross_section"),
+    "regress_top5ths.tex"
+  )
+)
+
+# show in the knitted report as text output too
+tab_view <- etable(
+  reg_table,
+  se.below = TRUE,
+  keep = "n_ths",
+  digits = 3,
+  tex = FALSE,
+  fitstat = c("r2", "n")
+)
+
+knitr::kable(tab_view)
+```
+
+## top5 data with number of distinctive firm_id
+
+```{r}
+# reuse panel_df; n_firms is already computed at cz-year level
+panel_df_top5_firm <-
+  panel_df_top5 %>%
+  dplyr::select(
+    year,
+    cz,
+    n_firms,
+    w,
+    f,
+    margin,
+    ln_f,
+    ln_w,
+    ln_m
+  )
+
+summary(panel_df_top5_firm)
+```
+
+```{r}
+# two-way FE regressions: log fee, log wage, log margin on number of firms (top5 sample)
+reg_fee_top5_firm <- feols(ln_f ~ n_firms | cz + year, data = panel_df_top5_firm)
+reg_w_top5_firm   <- feols(ln_w ~ n_firms | cz + year, data = panel_df_top5_firm)
+reg_m_top5_firm   <- feols(ln_m ~ n_firms | cz + year, data = panel_df_top5_firm)
+
+reg_table_top5_firm <-
+  list(
+    "Log fee"    = reg_fee_top5_firm,
+    "Log wage"   = reg_w_top5_firm,
+    "Log margin" = reg_m_top5_firm
+  )
+```
+
+```{r fig.width=12, fig.height=8}
+# bin-scatter style plot with firm count (top5 sample)
+plot_df_top5_firm <-
+  make_binscatter_long(
+    df = panel_df_top5_firm,
+    x_var = "n_firms"
+  )
+
+p_breaks_top5_firm <- pretty(plot_df_top5_firm$n_firms, n = 5)
+
+slope_fee_top5_firm <- unname(stats::coef(reg_fee_top5_firm)["n_firms"])
+slope_wage_top5_firm <- unname(stats::coef(reg_w_top5_firm)["n_firms"])
+slope_margin_top5_firm <- unname(stats::coef(reg_m_top5_firm)["n_firms"])
+
+intercept_fee_top5_firm <- mean(panel_df_top5_firm$ln_f, na.rm = TRUE) - slope_fee_top5_firm * mean(panel_df_top5_firm$n_firms, na.rm = TRUE)
+intercept_wage_top5_firm <- mean(panel_df_top5_firm$ln_w, na.rm = TRUE) - slope_wage_top5_firm * mean(panel_df_top5_firm$n_firms, na.rm = TRUE)
+intercept_margin_top5_firm <- mean(panel_df_top5_firm$ln_m, na.rm = TRUE) - slope_margin_top5_firm * mean(panel_df_top5_firm$n_firms, na.rm = TRUE)
+
+p_fee_top5_firm <-
+  ggplot(
+    dplyr::filter(plot_df_top5_firm, .data$var == "Log fee"),
+    aes(x = .data$n_firms, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_fee_top5_firm,
+    intercept = intercept_fee_top5_firm,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_top5_firm) +
+  labs(
+    x = "Number of firms in commuting zone",
+    y = "Log fee"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_wage_top5_firm <-
+  ggplot(
+    dplyr::filter(plot_df_top5_firm, .data$var == "Log wage"),
+    aes(x = .data$n_firms, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_wage_top5_firm,
+    intercept = intercept_wage_top5_firm,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_top5_firm) +
+  labs(
+    x = "Number of firms in commuting zone",
+    y = "Log wage"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_margin_top5_firm <-
+  ggplot(
+    dplyr::filter(plot_df_top5_firm, .data$var == "Log margin"),
+    aes(x = .data$n_firms, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_margin_top5_firm,
+    intercept = intercept_margin_top5_firm,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_top5_firm) +
+  labs(
+    x = "Number of firms in commuting zone",
+    y = "Log margin"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+combined_plot_top5_firm <- (p_fee_top5_firm + p_wage_top5_firm) / (p_margin_top5_firm + patchwork::plot_spacer())
+ggsave(file.path(out_dir, "reduced_form_three_panel_top5_firms_distinct.pdf"), combined_plot_top5_firm, width = 12, height = 8)
+
+combined_plot_top5_firm
+```
+
+```{r}
+# regression table (Top5 sample with firm count)
+tab_tex_top5_firm <- 
+  etable(
+    reg_table_top5_firm,
+    se.below = TRUE,
+    keep = "n_firms",
+    digits = 3,
+    tex = TRUE,
+    fitstat = c("r2", "n")
+  )
+
+writeLines(
+  tab_tex_top5_firm,
+  con = file.path(
+    here::here("draft/figuretable/descriptives/aggregate/cross_section"),
+    "regress_top5ths_top5_firms.tex"
+  )
+)
+
+tab_view_top5_firm <- etable(
+  reg_table_top5_firm,
+  se.below = TRUE,
+  keep = "n_firms",
+  digits = 3,
+  tex = FALSE,
+  fitstat = c("r2", "n")
+)
+
+knitr::kable(tab_view_top5_firm)
+```
+
+
+## top5+fringe with number of ths 
+
+```{r}
+# build establishment-count regression sample directly from data_base_all
+panel_df_top5fringe <-
+  data_base_all %>%
+  dplyr::group_by(
+    year,
+    cz
+  ) %>%
+  dplyr::mutate(
+    n_ths = dplyr::n()
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    margin = (f - w) / f,
+    ln_f   = log(f),
+    ln_w   = log(w),
+    ln_m   = log(margin)
+  ) %>%
+  dplyr::filter(
+    is.finite(cz),
+    is.finite(year),
+    is.finite(n_ths),
+    is.finite(ln_f),
+    is.finite(ln_w),
+    is.finite(ln_m)
+  ) %>%
+  dplyr::select(
+    year,
+    cz,
+    n_ths,
+    w,
+    f,
+    margin,
+    ln_f,
+    ln_w,
+    ln_m
+  )
+summary(panel_df_top5fringe)
+```
+
+```{r}
+# two-way FE regressions: log fee, log wage, log margin on number of establishments
+reg_fee_est <- feols(ln_f ~ n_ths | cz + year, data = panel_df_top5fringe)
+reg_w_est   <- feols(ln_w ~ n_ths | cz + year, data = panel_df_top5fringe)
+reg_m_est   <- feols(ln_m ~ n_ths | cz + year, data = panel_df_top5fringe)
+
+reg_table_est <-
+  list(
+    "Log fee"    = reg_fee_est,
+    "Log wage"   = reg_w_est,
+    "Log margin" = reg_m_est
+  )
+```
+
+```{r fig.width=12, fig.height=8}
+# scatter on raw scale + fitted line slope from FE model
+plot_df_est <-
+  make_binscatter_long(
+    df = panel_df_top5fringe,
+    x_var = "n_ths"
+  )
+
+p_breaks_est <- pretty(plot_df_est$n_ths, n = 5)
+
+slope_fee_est <- unname(stats::coef(reg_fee_est)["n_ths"])
+slope_wage_est <- unname(stats::coef(reg_w_est)["n_ths"])
+slope_margin_est <- unname(stats::coef(reg_m_est)["n_ths"])
+
+intercept_fee_est <- mean(panel_df_top5fringe$ln_f, na.rm = TRUE) - slope_fee_est * mean(panel_df_top5fringe$n_ths, na.rm = TRUE)
+intercept_wage_est <- mean(panel_df_top5fringe$ln_w, na.rm = TRUE) - slope_wage_est * mean(panel_df_top5fringe$n_ths, na.rm = TRUE)
+intercept_margin_est <- mean(panel_df_top5fringe$ln_m, na.rm = TRUE) - slope_margin_est * mean(panel_df_top5fringe$n_ths, na.rm = TRUE)
+
+p_fee_est <-
+  ggplot(
+    dplyr::filter(plot_df_est, .data$var == "Log fee"),
+    aes(x = .data$n_ths, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_fee_est,
+    intercept = intercept_fee_est,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_est) +
+  labs(
+    x = "Number of establishments in commuting zone",
+    y = "Log fee"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_wage_est <-
+  ggplot(
+    dplyr::filter(plot_df_est, .data$var == "Log wage"),
+    aes(x = .data$n_ths, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_wage_est,
+    intercept = intercept_wage_est,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_est) +
+  labs(
+    x = "Number of establishments in commuting zone",
+    y = "Log wage"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_margin_est <-
+  ggplot(
+    dplyr::filter(plot_df_est, .data$var == "Log margin"),
+    aes(x = .data$n_ths, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_margin_est,
+    intercept = intercept_margin_est,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_est) +
+  labs(
+    x = "Number of establishments in commuting zone",
+    y = "Log margin"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+combined_plot_est <- (p_fee_est + p_wage_est) / (p_margin_est + patchwork::plot_spacer())
+ggsave(file.path(out_dir, "reduced_form_three_panel_top5_fringe_ths.pdf"), combined_plot_est, width = 12, height = 8)
+
+combined_plot_est
+```
+
+```{r}
+# regression table (establishment count)
+tab_tex_est <- 
+  etable(
+    reg_table_est,
+    se.below = TRUE,
+    keep = "n_ths",
+    digits = 3,
+    tex = TRUE,
+    fitstat = c("r2", "n")
+  )
+
+writeLines(
+  tab_tex_est,
+  con = file.path(
+    here::here("draft/figuretable/descriptives/aggregate/cross_section"),
+    "regress_top5fringe_establishments.tex"
+  )
+)
+
+tab_view_est <- 
+  etable(
+    reg_table_est,
+    se.below = TRUE,
+    keep = "n_ths",
+    digits = 3,
+    tex = FALSE,
+    fitstat = c("r2", "n")
+  )
+
+knitr::kable(tab_view_est)
+```
+
+## top5+fringe with number of distinct firm_id
+```{r}
+# build sample with distinct firm_id count in each cz-year
+panel_df_top5fringe_firm <-
+  data_base_all %>%
+  dplyr::group_by(
+    year,
+    cz
+  ) %>%
+  dplyr::mutate(
+    n_firms = dplyr::n_distinct(firm_id)
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    margin = (f - w) / f,
+    ln_f   = log(f),
+    ln_w   = log(w),
+    ln_m   = log(margin)
+  ) %>%
+  dplyr::filter(
+    is.finite(cz),
+    is.finite(year),
+    is.finite(n_firms),
+    is.finite(ln_f),
+    is.finite(ln_w),
+    is.finite(ln_m)
+  ) %>%
+  dplyr::select(
+    year,
+    cz,
+    n_firms,
+    w,
+    f,
+    margin,
+    ln_f,
+    ln_w,
+    ln_m
+  )
+
+summary(panel_df_top5fringe_firm)
+```
+
+```{r}
+# two-way FE regressions: log fee, log wage, log margin on number of distinct firm_id
+reg_fee_firm_distinct <- feols(ln_f ~ n_firms | cz + year, data = panel_df_top5fringe_firm)
+reg_w_firm_distinct   <- feols(ln_w ~ n_firms | cz + year, data = panel_df_top5fringe_firm)
+reg_m_firm_distinct   <- feols(ln_m ~ n_firms | cz + year, data = panel_df_top5fringe_firm)
+
+reg_table_firm_distinct <-
+  list(
+    "Log fee"    = reg_fee_firm_distinct,
+    "Log wage"   = reg_w_firm_distinct,
+    "Log margin" = reg_m_firm_distinct
+  )
+```
+
+```{r fig.width=12, fig.height=8}
+# bin-scatter style plot with distinct firm_id count
+plot_df_firm_distinct <-
+  make_binscatter_long(
+    df = panel_df_top5fringe_firm,
+    x_var = "n_firms"
+  )
+
+p_breaks_firm_distinct <- pretty(plot_df_firm_distinct$n_firms, n = 5)
+
+slope_fee_firm_distinct <- unname(stats::coef(reg_fee_firm_distinct)["n_firms"])
+slope_wage_firm_distinct <- unname(stats::coef(reg_w_firm_distinct)["n_firms"])
+slope_margin_firm_distinct <- unname(stats::coef(reg_m_firm_distinct)["n_firms"])
+
+intercept_fee_firm_distinct <- mean(panel_df_top5fringe_firm$ln_f, na.rm = TRUE) - slope_fee_firm_distinct * mean(panel_df_top5fringe_firm$n_firms, na.rm = TRUE)
+intercept_wage_firm_distinct <- mean(panel_df_top5fringe_firm$ln_w, na.rm = TRUE) - slope_wage_firm_distinct * mean(panel_df_top5fringe_firm$n_firms, na.rm = TRUE)
+intercept_margin_firm_distinct <- mean(panel_df_top5fringe_firm$ln_m, na.rm = TRUE) - slope_margin_firm_distinct * mean(panel_df_top5fringe_firm$n_firms, na.rm = TRUE)
+
+p_fee_firm_distinct <-
+  ggplot(
+    dplyr::filter(plot_df_firm_distinct, .data$var == "Log fee"),
+    aes(x = .data$n_firms, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_fee_firm_distinct,
+    intercept = intercept_fee_firm_distinct,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_firm_distinct) +
+  labs(
+    x = "Number of firms in commuting zone",
+    y = "Log fee"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_wage_firm_distinct <-
+  ggplot(
+    dplyr::filter(plot_df_firm_distinct, .data$var == "Log wage"),
+    aes(x = .data$n_firms, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_wage_firm_distinct,
+    intercept = intercept_wage_firm_distinct,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_firm_distinct) +
+  labs(
+    x = "Number of firms in commuting zone",
+    y = "Log wage"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_margin_firm_distinct <-
+  ggplot(
+    dplyr::filter(plot_df_firm_distinct, .data$var == "Log margin"),
+    aes(x = .data$n_firms, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_margin_firm_distinct,
+    intercept = intercept_margin_firm_distinct,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_firm_distinct) +
+  labs(
+    x = "Number of firms in commuting zone",
+    y = "Log margin"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+combined_plot_firm_distinct <- (p_fee_firm_distinct + p_wage_firm_distinct) / (p_margin_firm_distinct + patchwork::plot_spacer())
+ggsave(file.path(out_dir, "reduced_form_three_panel_top5_fringe_firms_distinct.pdf"), combined_plot_firm_distinct, width = 12, height = 8)
+
+combined_plot_firm_distinct
+```
+
+```{r}
+# regression table (distinct firm_id count)
+tab_tex_firm_distinct <- 
+  etable(
+    reg_table_firm_distinct,
+    se.below = TRUE,
+    keep = "n_firms",
+    digits = 3,
+    tex = TRUE,
+    fitstat = c("r2", "n")
+  )
+
+writeLines(
+  tab_tex_firm_distinct,
+  con = file.path(
+    here::here("draft/figuretable/descriptives/aggregate/cross_section"),
+    "regress_top5fringe_firms_distinct.tex"
+  )
+)
+
+tab_view_firm_distinct <- etable(
+  reg_table_firm_distinct,
+  se.below = TRUE,
+  keep = "n_firms",
+  digits = 3,
+  tex = FALSE,
+  fitstat = c("r2", "n")
+)
+
+knitr::kable(tab_view_firm_distinct)
+```
+
+```{r}
+# rebuild analysis samples used across sections
+panel_df_top5_ths_all <-
+  data_base_top5 %>%
+  dplyr::group_by(year, cz) %>%
+  dplyr::mutate(
+    n_ths = dplyr::n(),
+    n_firms = dplyr::n_distinct(firm_id)
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    margin = (f - w) / f,
+    ln_f = log(f),
+    ln_w = log(w),
+    ln_m = log(margin)
+  ) %>%
+  dplyr::filter(
+    is.finite(cz),
+    is.finite(year),
+    is.finite(n_ths),
+    is.finite(ln_f),
+    is.finite(ln_w),
+    is.finite(ln_m)
+  )
+
+panel_df_top5_firms_all <-
+  panel_df_top5_ths_all %>%
+  dplyr::filter(is.finite(n_firms))
+
+panel_df_top5_fringe_ths_all <-
+  data_base_all %>%
+  dplyr::group_by(year, cz) %>%
+  dplyr::mutate(
+    n_ths = dplyr::n()
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    margin = (f - w) / f,
+    ln_f = log(f),
+    ln_w = log(w),
+    ln_m = log(margin)
+  ) %>%
+  dplyr::filter(
+    is.finite(cz),
+    is.finite(year),
+    is.finite(n_ths),
+    is.finite(ln_f),
+    is.finite(ln_w),
+    is.finite(ln_m)
+  )
+
+panel_df_top5_fringe_firms_all <-
+  data_base_all %>%
+  dplyr::group_by(year, cz) %>%
+  dplyr::mutate(
+    n_firms = dplyr::n_distinct(firm_id)
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    margin = (f - w) / f,
+    ln_f = log(f),
+    ln_w = log(w),
+    ln_m = log(margin)
+  ) %>%
+  dplyr::filter(
+    is.finite(cz),
+    is.finite(year),
+    is.finite(n_firms),
+    is.finite(ln_f),
+    is.finite(ln_w),
+    is.finite(ln_m)
+  )
+
+panel_df_establishment_ths_all <-
+  data_base %>%
+  dplyr::group_by(year, cz) %>%
+  dplyr::mutate(
+    n_ths = dplyr::n() / 10000
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    margin = (f - w) / f,
+    ln_f = log(f),
+    ln_w = log(w),
+    ln_m = log(margin)
+  ) %>%
+  dplyr::filter(
+    is.finite(cz),
+    is.finite(year),
+    is.finite(n_ths),
+    is.finite(ln_f),
+    is.finite(ln_w),
+    is.finite(ln_m)
+  )
+
+panel_df_establishment_firms_all <-
+  data_base %>%
+  dplyr::group_by(year, cz) %>%
+  dplyr::mutate(
+    n_firms = dplyr::n_distinct(firm_id) / 10000
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    margin = (f - w) / f,
+    ln_f = log(f),
+    ln_w = log(w),
+    ln_m = log(margin)
+  ) %>%
+  dplyr::filter(
+    is.finite(cz),
+    is.finite(year),
+    is.finite(n_firms),
+    is.finite(ln_f),
+    is.finite(ln_w),
+    is.finite(ln_m)
+  )
+```
+
+## cz-year-establishment data with number of ths 
+
+```{r}
+# build establishment-count regression sample directly from data_base_all
+panel_df_est <-
+  data_base %>%
+  dplyr::group_by(
+    year,
+    cz
+  ) %>%
+  dplyr::mutate(
+    n_ths = dplyr::n()/10000
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    margin = (f - w) / f,
+    ln_f   = log(f),
+    ln_w   = log(w),
+    ln_m   = log(margin)
+  ) %>%
+  dplyr::filter(
+    is.finite(cz),
+    is.finite(year),
+    is.finite(n_ths),
+    is.finite(ln_f),
+    is.finite(ln_w),
+    is.finite(ln_m)
+  ) %>%
+  dplyr::select(
+    year,
+    cz,
+    n_ths,
+    w,
+    f,
+    margin,
+    ln_f,
+    ln_w,
+    ln_m
+  )
+summary(panel_df_est)
+```
+
+```{r}
+# two-way FE regressions: log fee, log wage, log margin on number of establishments
+reg_fee_est <- feols(ln_f ~ n_ths | cz + year, data = panel_df_est)
+reg_w_est   <- feols(ln_w ~ n_ths | cz + year, data = panel_df_est)
+reg_m_est   <- feols(ln_m ~ n_ths | cz + year, data = panel_df_est)
+
+reg_table_est <-
+  list(
+    "Log fee"    = reg_fee_est,
+    "Log wage"   = reg_w_est,
+    "Log margin" = reg_m_est
+  )
+```
+
+```{r fig.width=12, fig.height=8}
+# scatter on raw scale + fitted line slope from FE model
+plot_df_est <-
+  make_binscatter_long(
+    df = panel_df_est,
+    x_var = "n_ths"
+  )
+
+p_breaks_est <- pretty(plot_df_est$n_ths, n = 5)
+
+slope_fee_est <- unname(stats::coef(reg_fee_est)["n_ths"])
+slope_wage_est <- unname(stats::coef(reg_w_est)["n_ths"])
+slope_margin_est <- unname(stats::coef(reg_m_est)["n_ths"])
+
+intercept_fee_est <- mean(panel_df_est$ln_f, na.rm = TRUE) - slope_fee_est * mean(panel_df_est$n_ths, na.rm = TRUE)
+intercept_wage_est <- mean(panel_df_est$ln_w, na.rm = TRUE) - slope_wage_est * mean(panel_df_est$n_ths, na.rm = TRUE)
+intercept_margin_est <- mean(panel_df_est$ln_m, na.rm = TRUE) - slope_margin_est * mean(panel_df_est$n_ths, na.rm = TRUE)
+
+p_fee_est <-
+  ggplot(
+    dplyr::filter(plot_df_est, .data$var == "Log fee"),
+    aes(x = .data$n_ths, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_fee_est,
+    intercept = intercept_fee_est,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_est) +
+  labs(
+    x = "Number of establishments in commuting zone",
+    y = "Log fee"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_wage_est <-
+  ggplot(
+    dplyr::filter(plot_df_est, .data$var == "Log wage"),
+    aes(x = .data$n_ths, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_wage_est,
+    intercept = intercept_wage_est,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_est) +
+  labs(
+    x = "Number of establishments in commuting zone",
+    y = "Log wage"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_margin_est <-
+  ggplot(
+    dplyr::filter(plot_df_est, .data$var == "Log margin"),
+    aes(x = .data$n_ths, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_margin_est,
+    intercept = intercept_margin_est,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_est) +
+  labs(
+    x = "Number of establishments in commuting zone",
+    y = "Log margin"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+combined_plot_est <- (p_fee_est + p_wage_est) / (p_margin_est + patchwork::plot_spacer())
+ggsave(file.path(out_dir, "reduced_form_three_panel_establishments_ths.pdf"), combined_plot_est, width = 12, height = 8)
+
+combined_plot_est
+```
+
+```{r}
+# regression table (establishment count)
+tab_tex_est <- etable(
+  reg_table_est,
+  se.below = TRUE,
+  keep = "n_ths",
+  digits = 3,
+  tex = TRUE,
+  fitstat = c("r2", "n")
+)
+
+writeLines(
+  tab_tex_est,
+  con = file.path(
+    here::here("draft/figuretable/descriptives/aggregate/cross_section"),
+    "regress_allths_establishments.tex"
+  )
+)
+
+tab_view_est <- etable(
+  reg_table_est,
+  se.below = TRUE,
+  keep = "n_ths",
+  digits = 3,
+  tex = FALSE,
+  fitstat = c("r2", "n")
+)
+
+knitr::kable(tab_view_est)
+```
+
+## cz_year_establishment with number of distinct firm_id
+```{r}
+# build sample with distinct firm_id count in each cz-year
+panel_df_est_firm_distinct <-
+  data_base %>%
+  dplyr::group_by(
+    year,
+    cz
+  ) %>%
+  dplyr::mutate(
+    n_firms = dplyr::n_distinct(firm_id)/10000
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    margin = (f - w) / f,
+    ln_f   = log(f),
+    ln_w   = log(w),
+    ln_m   = log(margin)
+  ) %>%
+  dplyr::filter(
+    is.finite(cz),
+    is.finite(year),
+    is.finite(n_firms),
+    is.finite(ln_f),
+    is.finite(ln_w),
+    is.finite(ln_m)
+  ) %>%
+  dplyr::select(
+    year,
+    cz,
+    n_firms,
+    w,
+    f,
+    margin,
+    ln_f,
+    ln_w,
+    ln_m
+  )
+
+summary(panel_df_est_firm_distinct)
+```
+
+```{r}
+# two-way FE regressions: log fee, log wage, log margin on number of distinct firm_id
+reg_fee_firm_distinct <- feols(ln_f ~ n_firms | cz + year, data = panel_df_est_firm_distinct)
+reg_w_firm_distinct   <- feols(ln_w ~ n_firms | cz + year, data = panel_df_est_firm_distinct)
+reg_m_firm_distinct   <- feols(ln_m ~ n_firms | cz + year, data = panel_df_est_firm_distinct)
+
+reg_table_firm_distinct <-
+  list(
+    "Log fee"    = reg_fee_firm_distinct,
+    "Log wage"   = reg_w_firm_distinct,
+    "Log margin" = reg_m_firm_distinct
+  )
+```
+
+```{r fig.width=12, fig.height=8}
+# bin-scatter style plot with distinct firm_id count
+plot_df_firm_distinct <-
+  make_binscatter_long(
+    df = panel_df_est_firm_distinct,
+    x_var = "n_firms"
+  )
+
+p_breaks_firm_distinct <- pretty(plot_df_firm_distinct$n_firms, n = 5)
+
+slope_fee_firm_distinct <- unname(stats::coef(reg_fee_firm_distinct)["n_firms"])
+slope_wage_firm_distinct <- unname(stats::coef(reg_w_firm_distinct)["n_firms"])
+slope_margin_firm_distinct <- unname(stats::coef(reg_m_firm_distinct)["n_firms"])
+
+intercept_fee_firm_distinct <- mean(panel_df_est_firm_distinct$ln_f, na.rm = TRUE) - slope_fee_firm_distinct * mean(panel_df_est_firm_distinct$n_firms, na.rm = TRUE)
+intercept_wage_firm_distinct <- mean(panel_df_est_firm_distinct$ln_w, na.rm = TRUE) - slope_wage_firm_distinct * mean(panel_df_est_firm_distinct$n_firms, na.rm = TRUE)
+intercept_margin_firm_distinct <- mean(panel_df_est_firm_distinct$ln_m, na.rm = TRUE) - slope_margin_firm_distinct * mean(panel_df_est_firm_distinct$n_firms, na.rm = TRUE)
+
+p_fee_firm_distinct <-
+  ggplot(
+    dplyr::filter(plot_df_firm_distinct, .data$var == "Log fee"),
+    aes(x = .data$n_firms, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_fee_firm_distinct,
+    intercept = intercept_fee_firm_distinct,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_firm_distinct) +
+  labs(
+    x = "Number of firms in commuting zone",
+    y = "Log fee"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_wage_firm_distinct <-
+  ggplot(
+    dplyr::filter(plot_df_firm_distinct, .data$var == "Log wage"),
+    aes(x = .data$n_firms, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_wage_firm_distinct,
+    intercept = intercept_wage_firm_distinct,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_firm_distinct) +
+  labs(
+    x = "Number of firms in commuting zone",
+    y = "Log wage"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+p_margin_firm_distinct <-
+  ggplot(
+    dplyr::filter(plot_df_firm_distinct, .data$var == "Log margin"),
+    aes(x = .data$n_firms, y = .data$value)
+  ) +
+  geom_point(alpha = 0.95, size = 2, color = "#1f4e79") +
+  geom_abline(
+    slope = slope_margin_firm_distinct,
+    intercept = intercept_margin_firm_distinct,
+    color = "#7f4f5f"
+  ) +
+  scale_x_continuous(breaks = p_breaks_firm_distinct) +
+  labs(
+    x = "Number of firms in commuting zone",
+    y = "Log margin"
+  ) +
+  theme_classic(base_size = 11) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+combined_plot_firm_distinct <- (p_fee_firm_distinct + p_wage_firm_distinct) / (p_margin_firm_distinct + patchwork::plot_spacer())
+ggsave(file.path(out_dir, "reduced_form_three_panel_establishments_firms_distinct.pdf"), combined_plot_firm_distinct, width = 12, height = 8)
+
+combined_plot_firm_distinct
+```
+
+```{r}
+# regression table (distinct firm_id count)
+tab_tex_firm_distinct <- 
+  etable(
+    reg_table_firm_distinct,
+    se.below = TRUE,
+    keep = "n_firms",
+    digits = 3,
+    tex = TRUE,
+    fitstat = c("r2", "n")
+  )
+
+writeLines(
+  tab_tex_firm_distinct,
+  con = file.path(
+    here::here("draft/figuretable/descriptives/aggregate/cross_section"),
+    "regress_allths_firms_distinct.tex"
+  )
+)
+
+tab_view_firm_distinct <- etable(
+  reg_table_firm_distinct,
+  se.below = TRUE,
+  keep = "n_firms",
+  digits = 3,
+  tex = FALSE,
+  fitstat = c("r2", "n")
+)
+
+knitr::kable(tab_view_firm_distinct)
+```
+
+# summary of results
+## combined table: FE (number of THS and number of firms)
+```{r}
+reg_all_fe <-
+  list(
+    "Top5 fee (n_ths)" = feols(ln_f ~ n_ths | cz + year, data = panel_df_top5),
+    "Top5 wage (n_ths)" = feols(ln_w ~ n_ths | cz + year, data = panel_df_top5),
+    "Top5 margin (n_ths)" = feols(ln_m ~ n_ths | cz + year, data = panel_df_top5),
+    "Top5+fringe fee (n_ths)" = feols(ln_f ~ n_ths | cz + year, data = panel_df_top5fringe),
+    "Top5+fringe wage (n_ths)" = feols(ln_w ~ n_ths | cz + year, data = panel_df_top5fringe),
+    "Top5+fringe margin (n_ths)" = feols(ln_m ~ n_ths | cz + year, data = panel_df_top5fringe),
+    "Establishment fee (n_ths)" = feols(ln_f ~ n_ths | cz + year, data = panel_df_est),
+    "Establishment wage (n_ths)" = feols(ln_w ~ n_ths | cz + year, data = panel_df_est),
+    "Establishment margin (n_ths)" = feols(ln_m ~ n_ths | cz + year, data = panel_df_est),
+    "Top5 fee (n_firms)" = feols(ln_f ~ n_firms | cz + year, data = panel_df_top5_firm),
+    "Top5 wage (n_firms)" = feols(ln_w ~ n_firms | cz + year, data = panel_df_top5_firm),
+    "Top5 margin (n_firms)" = feols(ln_m ~ n_firms | cz + year, data = panel_df_top5_firm),
+    "Top5+fringe fee (n_firms)" = feols(ln_f ~ n_firms | cz + year, data = panel_df_top5fringe_firm),
+    "Top5+fringe wage (n_firms)" = feols(ln_w ~ n_firms | cz + year, data = panel_df_top5fringe_firm),
+    "Top5+fringe margin (n_firms)" = feols(ln_m ~ n_firms | cz + year, data = panel_df_top5fringe_firm),
+    "Establishment fee (n_firms)" = feols(ln_f ~ n_firms | cz + year, data = panel_df_est_firm_distinct),
+    "Establishment wage (n_firms)" = feols(ln_w ~ n_firms | cz + year, data = panel_df_est_firm_distinct),
+    "Establishment margin (n_firms)" = feols(ln_m ~ n_firms | cz + year, data = panel_df_est_firm_distinct)
+  )
+
+tab_all_fe <-
+  etable(
+    reg_all_fe,
+    se.below = TRUE,
+    digits = 3,
+    tex = FALSE,
+    fitstat = c("r2", "n")
+  )
+
+knitr::kable(tab_all_fe, caption = "Combined FE regressions: number of THS and number of firms")
+```
+
+## combined table: OLS (number of THS and number of firms)
+```{r}
+reg_all_ols_ths <-
+  list(
+    "Top5 fee (n_ths)" = feols(ln_f ~ n_ths, data = panel_df_top5),
+    "Top5 wage (n_ths)" = feols(ln_w ~ n_ths, data = panel_df_top5),
+    "Top5 margin (n_ths)" = feols(ln_m ~ n_ths, data = panel_df_top5),
+    "Top5+fringe fee (n_ths)" = feols(ln_f ~ n_ths, data = panel_df_top5fringe),
+    "Top5+fringe wage (n_ths)" = feols(ln_w ~ n_ths, data = panel_df_top5fringe),
+    "Top5+fringe margin (n_ths)" = feols(ln_m ~ n_ths, data = panel_df_top5fringe),
+    "Establishment fee (n_ths)" = feols(ln_f ~ n_ths, data = panel_df_est),
+    "Establishment wage (n_ths)" = feols(ln_w ~ n_ths, data = panel_df_est),
+    "Establishment margin (n_ths)" = feols(ln_m ~ n_ths, data = panel_df_est)
+  )
+
+tab_tex_all_ols_ths <-
+  etable(
+    reg_all_ols_ths,
+    keep = c("n_ths", "(Intercept)"),
+    order = c("n_ths", "(Intercept)"),
+    dict = c("(Intercept)" = "Constant"),
+    se.below = TRUE,
+    digits = 3,
+    tex = TRUE,
+    fitstat = c("r2", "n")
+  )
+
+writeLines(
+  tab_tex_all_ols_ths,
+  con = file.path(
+    here::here("draft/figuretable/descriptives/aggregate/cross_section"),
+    "regress_all_ols_ths.tex"
+  )
+)
+
+tab_view_all_ols_ths <-
+  etable(
+    reg_all_ols_ths,
+    keep = c("n_ths", "(Intercept)"),
+    order = c("n_ths", "(Intercept)"),
+    dict = c("(Intercept)" = "Constant"),
+    se.below = TRUE,
+    digits = 3,
+    tex = FALSE,
+    fitstat = c("r2", "n")
+  )
+
+knitr::kable(tab_view_all_ols_ths, caption = "Combined OLS regressions: number of THS")
+
+reg_all_ols_firms <-
+  list(
+    "Top5 fee (n_firms)" = feols(ln_f ~ n_firms, data = panel_df_top5_firm),
+    "Top5 wage (n_firms)" = feols(ln_w ~ n_firms, data = panel_df_top5_firm),
+    "Top5 margin (n_firms)" = feols(ln_m ~ n_firms, data = panel_df_top5_firm),
+    "Top5+fringe fee (n_firms)" = feols(ln_f ~ n_firms, data = panel_df_top5fringe_firm),
+    "Top5+fringe wage (n_firms)" = feols(ln_w ~ n_firms, data = panel_df_top5fringe_firm),
+    "Top5+fringe margin (n_firms)" = feols(ln_m ~ n_firms, data = panel_df_top5fringe_firm),
+    "Establishment fee (n_firms)" = feols(ln_f ~ n_firms, data = panel_df_est_firm_distinct),
+    "Establishment wage (n_firms)" = feols(ln_w ~ n_firms, data = panel_df_est_firm_distinct),
+    "Establishment margin (n_firms)" = feols(ln_m ~ n_firms, data = panel_df_est_firm_distinct)
+  )
+
+tab_tex_all_ols_firms <-
+  etable(
+    reg_all_ols_firms,
+    keep = c("n_firms", "(Intercept)"),
+    order = c("n_firms", "(Intercept)"),
+    dict = c("(Intercept)" = "Constant"),
+    se.below = TRUE,
+    digits = 3,
+    tex = TRUE,
+    fitstat = c("r2", "n")
+  )
+
+writeLines(
+  tab_tex_all_ols_firms,
+  con = file.path(
+    here::here("draft/figuretable/descriptives/aggregate/cross_section"),
+    "regress_all_ols_firms.tex"
+  )
+)
+
+tab_view_all_ols_firms <-
+  etable(
+    reg_all_ols_firms,
+    keep = c("n_firms", "(Intercept)"),
+    order = c("n_firms", "(Intercept)"),
+    dict = c("(Intercept)" = "Constant"),
+    se.below = TRUE,
+    digits = 3,
+    tex = FALSE,
+    fitstat = c("r2", "n")
+  )
+
+knitr::kable(tab_view_all_ols_firms, caption = "Combined OLS regressions: number of firms")
+```
+
+
+## top5 dependent only with top5+fringe explanatory variables (same FE setting)
+```{r}
+panel_df_top5_dep_top5fringe_x <-
+  data_base_top5 %>%
+  dplyr::mutate(
+    margin = (f - w) / f,
+    ln_f = log(f),
+    ln_w = log(w),
+    ln_m = log(margin)
+  ) %>%
+  dplyr::filter(
+    is.finite(cz),
+    is.finite(year),
+    is.finite(ln_f),
+    is.finite(ln_w),
+    is.finite(ln_m)
+  ) %>%
+  dplyr::select(
+    year,
+    cz,
+    firm_id,
+    ln_f,
+    ln_w,
+    ln_m
+  )
+
+market_size_top5fringe_setting <-
+  data_base_all %>%
+  dplyr::group_by(
+    year,
+    cz
+  ) %>%
+  dplyr::summarise(
+    n_ths = dplyr::n(),
+    n_firms = dplyr::n_distinct(firm_id),
+    .groups = "drop"
+  )
+
+panel_df_top5_dep_top5fringe_x <-
+  panel_df_top5_dep_top5fringe_x %>%
+  dplyr::left_join(
+    market_size_top5fringe_setting,
+    by = c("year", "cz")
+  ) %>%
+  dplyr::filter(
+    is.finite(n_ths),
+    is.finite(n_firms)
+  )
+
+reg_top5_dep_top5fringe_x <-
+  list(
+    "Top5 dep: fee (n_ths)" = feols(ln_f ~ n_ths | cz + year, data = panel_df_top5_dep_top5fringe_x),
+    "Top5 dep: wage (n_ths)" = feols(ln_w ~ n_ths | cz + year, data = panel_df_top5_dep_top5fringe_x),
+    "Top5 dep: margin (n_ths)" = feols(ln_m ~ n_ths | cz + year, data = panel_df_top5_dep_top5fringe_x),
+    "Top5 dep: fee (n_firms)" = feols(ln_f ~ n_firms | cz + year, data = panel_df_top5_dep_top5fringe_x),
+    "Top5 dep: wage (n_firms)" = feols(ln_w ~ n_firms | cz + year, data = panel_df_top5_dep_top5fringe_x),
+    "Top5 dep: margin (n_firms)" = feols(ln_m ~ n_firms | cz + year, data = panel_df_top5_dep_top5fringe_x)
+  )
+
+tab_tex_top5_dep_top5fringe_x <-
+  etable(
+    reg_top5_dep_top5fringe_x,
+    keep = c("n_ths", "n_firms"),
+    order = c("n_ths", "n_firms"),
+    se.below = TRUE,
+    digits = 3,
+    tex = TRUE,
+    fitstat = c("r2", "n"),
+    vcov = ~cz
+  )
+
+writeLines(
+  tab_tex_top5_dep_top5fringe_x,
+  con = file.path(
+    here::here("draft/figuretable/descriptives/aggregate/cross_section"),
+    "regress_top5_dep_top5fringe_x_fe.tex"
+  )
+)
+
+tab_view_top5_dep_top5fringe_x <-
+  etable(
+    reg_top5_dep_top5fringe_x,
+    keep = c("n_ths", "n_firms"),
+    order = c("n_ths", "n_firms"),
+    se.below = TRUE,
+    digits = 3,
+    tex = FALSE,
+    fitstat = c("r2", "n"),
+    vcov = ~cz
+  )
+
+knitr::kable(
+  tab_view_top5_dep_top5fringe_x,
+  caption = "Top5 dependent only with Top5+fringe explanatory variables (FE, clustered by cz)"
+)
+```
+
+## replication and modified specification (drop tokutei in dependent variables only)
+```{r}
+build_reduced_form_sample <- function(drop_tokutei_dep = FALSE) {
+  data_est <- haven::read_dta(here::here("cleaned/data_establishments.dta"))
+  data_zip <- haven::read_dta(here::here("cleaned/data_zipcode.dta"))
+  data_area <- haven::read_dta(here::here("cleaned/data_area.dta"))
+  data_mw <- haven::read_dta(here::here("cleaned/data_pref_year_minimum_wage.dta"))
+  data_pw <- haven::read_dta(here::here("cleaned/data_pref_year_partwage.dta"))
+  data_year_dta <- haven::read_dta(here::here("cleaned/data_year.dta"))
+
+  df_full <- data_est %>%
+    dplyr::inner_join(data_zip, by = "zipcode") %>%
+    dplyr::inner_join(data_area, by = "area_code") %>%
+    dplyr::inner_join(data_mw, by = c("pref", "year")) %>%
+    dplyr::inner_join(data_pw, by = c("pref", "year")) %>%
+    dplyr::inner_join(data_year_dta, by = "year") %>%
+    dplyr::mutate(
+      temptot = tempperm + tempfixed,
+      n_cz = sum(!is.na(temptot)),
+      .by = c(year, cz)
+    ) %>%
+    dplyr::mutate(
+      n_cz_10000 = n_cz / 10000,
+      staffperm = perm - tempperm,
+      stafffixed = fixed - tempfixed,
+      margin = (fee - wage) / fee,
+      margindaily = (feedaily - wagedaily) / feedaily,
+      lfee = log(fee),
+      lwage = log(wage),
+      lfee_wage = lfee - lwage
+    ) %>%
+    dplyr::mutate(
+      staffperm = dplyr::if_else(staffperm < 0, NA_real_, staffperm),
+      stafffixed = dplyr::if_else(stafffixed < 0, NA_real_, stafffixed),
+      margin = dplyr::if_else(margin < 0, NA_real_, margin),
+      margindaily = dplyr::if_else(margindaily < 0, NA_real_, margindaily)
+    )
+
+  df <- df_full %>%
+    dplyr::filter(
+      year != 2015,
+      temptot > 5,
+      !is.na(staffperm),
+      !is.na(stafffixed),
+      !is.na(wage),
+      !is.na(fee),
+      wage <= fee,
+      !((!is.na(wagedaily) & is.na(feedaily)) | (is.na(wagedaily) & !is.na(feedaily))),
+      is.na(wagedaily) | is.na(feedaily) | wagedaily <= feedaily
+    )
+
+  if (drop_tokutei_dep) {
+    df <- dplyr::filter(df, tokutei == 0)
+  }
+
+  df
+}
+
+estimate_three_outcomes <- function(df) {
+  m_fee <- fixest::feols(lfee ~ n_cz_10000 | cz + year, data = df, vcov = ~cz)
+  m_wage <- fixest::feols(lwage ~ n_cz_10000 | cz + year, data = df, vcov = ~cz)
+  m_margin <- fixest::feols(lfee_wage ~ n_cz_10000 | cz + year, data = df, vcov = ~cz)
+
+  extract <- function(model, outcome_name) {
+    tibble::tibble(
+      outcome = outcome_name,
+      beta = unname(stats::coef(model)["n_cz_10000"]),
+      se = unname(fixest::se(model)["n_cz_10000"]),
+      n = as.numeric(stats::nobs(model))
+    )
+  }
+
+  dplyr::bind_rows(
+    extract(m_fee, "lfee"),
+    extract(m_wage, "lwage"),
+    extract(m_margin, "lfee_wage")
+  )
+}
+
+result_baseline <- estimate_three_outcomes(build_reduced_form_sample(drop_tokutei_dep = FALSE)) %>%
+  dplyr::rename(
+    beta_baseline = beta,
+    se_baseline = se,
+    n_baseline = n
+  )
+
+result_drop_tokutei_dep <- estimate_three_outcomes(build_reduced_form_sample(drop_tokutei_dep = TRUE)) %>%
+  dplyr::rename(
+    beta_drop_tokutei_dep = beta,
+    se_drop_tokutei_dep = se,
+    n_drop_tokutei_dep = n
+  )
+
+comparison_tbl <- result_baseline %>%
+  dplyr::left_join(result_drop_tokutei_dep, by = "outcome") %>%
+  dplyr::mutate(
+    delta_beta = beta_drop_tokutei_dep - beta_baseline
+  )
+
+comparison_display <- comparison_tbl %>%
+  dplyr::mutate(
+    dplyr::across(
+      c(beta_baseline, se_baseline, beta_drop_tokutei_dep, se_drop_tokutei_dep, delta_beta),
+      ~ round(., 6)
+    )
+  )
+
+knitr::kable(
+  comparison_display,
+  caption = "Replication baseline vs drop tokutei in dependent variables only (n_cz_10000 counts all establishments)"
+)
+
+comparison_tex <- comparison_display %>%
+  knitr::kable(
+    format = "latex",
+    booktabs = TRUE,
+    caption = "Replication baseline vs drop tokutei in dependent variables only"
+  )
+
+writeLines(
+  comparison_tex,
+  con = here::here("draft/figuretable/descriptives/aggregate/cross_section/regress_replication_vs_drop_tokutei_dep.tex")
+)
+```
+

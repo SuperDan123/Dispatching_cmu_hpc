@@ -1,0 +1,753 @@
+---
+title: "Counterfactual: Margin constraint"
+author: "Katsuhiro Komatsu"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+
+library("magrittr")
+library("ggplot2")
+library("foreach")
+library("Dispatching")
+
+```
+
+
+```{r}
+equilibrium <- readRDS(here::here("output/estimate_structural_parameters/equilibrium_data_distance_IV.RDS"))
+result_hypo <- readRDS(here::here("output/simulate_margin_constraint/result_hypothetical_market.RDS"))
+result_act <- readRDS(here::here("output/simulate_margin_constraint/result_actual_market.RDS"))
+```
+
+
+```{r}
+
+data <- result_hypo$data_cf
+
+margin_ranking <- result_hypo$equilibrium_original %>% 
+  dplyr::mutate(margin = log(fee) - log(wage))%>%
+  dplyr::arrange(-margin) %>% 
+  dplyr::select(id_unique)
+
+margin_ranking$ranking <- 1:dim(margin_ranking)[1]
+
+data <- data %>% 
+  dplyr::left_join(margin_ranking, by = "id_unique")
+
+
+```
+
+
+
+
+```{r}
+surplus_list <- list()
+outcome_list <- list()
+
+# Loop over constraints
+for (j in 1:length(result_act$equilibrium)){
+
+  surplus_j <- result_act$surplus[[j]] %>% as.data.frame()
+  surplus_j$margin_constraint <- result_act$margin_constraint[j]
+  surplus_list[[j]] <- surplus_j
+  
+  eq_j <- result_act$equilibrium[[j]]$endogenous %>% 
+    do.call("rbind", .) %>% 
+    as.data.frame() %>% 
+    na.omit()
+  
+  outcome_list[[j]] <- eq_j %>% 
+    dplyr::summarise(
+      wage = mean(wage),
+      fee = mean(fee),
+      s_W = mean(s_W),
+      s_F = mean(s_F),
+      negative_profit = mean(profit < 0)
+    ) %>% 
+    dplyr::mutate(margin_constraint = result_act$margin_constraint[j])
+  
+}
+
+surplus_all <- do.call("rbind", surplus_list)
+
+# surplus_baseline <- compute_surplus(equilibrium) %>% as.data.frame()
+surplus_baseline <- surplus_list[[1]] %>% dplyr::select(-margin_constraint)
+
+surplus_all <- surplus_all %>% 
+  dplyr::left_join(surplus_baseline, by = c("year", "cz")) %>% 
+  dplyr::mutate(
+    WS = WS.x - WS.y,
+    FS = FS.x - FS.y,
+    profit = profit.x - profit.y
+  ) %>% 
+  dplyr::select(cz, year, margin_constraint, WS, FS, profit)
+
+
+outcome_mean <- do.call("rbind", outcome_list)
+
+
+```
+
+
+```{r}
+# Margin constraint vs. fraction of establishments with binding constraint
+margin <- equilibrium$generate_dataframe() %>% 
+  dplyr::mutate(margin = log(fee) - log(wage)) %>% 
+  dplyr::pull(margin)
+frac <- rep(0, 5)
+
+frac[1] <- mean(margin >= 0.1)
+frac[2] <- mean(margin >= 0.2)
+frac[3] <- mean(margin >= 0.3)
+frac[4] <- mean(margin >= 0.4)
+frac[5] <- mean(margin >= 0.5)
+
+frac_constrained <- data.frame(margin_constraint = pracma::linspace(0.1, 0.5, 5),
+                               frac = frac)
+
+```
+
+
+
+
+
+# Simulation in a hypothetical market
+- Construct a hypothetical market with two establishments.
+  - One has $a^W$ that is at +1 s.d. of the empirical distribution. The other has $a^W$ that is at -1 s.d.
+  
+```{r}
+limits <- c(0, 0)
+limits[1] <- max(data$margin_constraint)
+limits[2] <- min(data$margin_constraint)
+height <- 3
+width <- 4
+
+color <- "#440154FF"
+
+```
+
+
+
+
+:::: {style="display: grid; grid-template-columns: 1fr 1fr; grid-column-gap: 10px; "}
+
+::: {}
+
+## Wage
+
+```{r}
+data %>% 
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = wage,
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(wage, 2), y = wage - 0.1), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Wage (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/wage.png"),
+  width = width,
+  height = height
+)
+
+
+```
+
+
+
+:::
+
+::: {}
+
+## Fee
+```{r}
+data %>% 
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = fee,
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(fee, 2), y = fee - 0.15), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Fee (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/fee.png"),
+  width = width,
+  height = height
+)
+
+```
+
+
+:::
+
+::::
+
+:::: {style="display: grid; grid-template-columns: 1fr 1fr; grid-column-gap: 10px; "}
+
+::: {}
+
+## Worker share
+```{r}
+data %>% 
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = s_W,
+      color = "all",
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(s_W, 4), y = s_W * 1.1), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Worker shares"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/worker_share.png"),
+  width = width,
+  height = height
+)
+
+```
+
+:::
+
+::: {}
+
+## Firm share
+```{r}
+data %>% 
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = s_F,
+      color = "all",
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(s_F, 6), y = s_F * 0.9), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Client firm shares"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/firm_share.png"),
+  width = width,
+  height = height
+)
+```
+
+:::
+
+::::
+
+
+
+## Match
+
+```{r}
+data %>% 
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = Q,
+      color = "all",
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(Q, 5), y = Q * 0.9), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Matches"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/match.png"),
+  width = width,
+  height = height
+)
+
+```
+
+
+## Margin
+
+```{r, out.width = "60%"}
+data %>% 
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = log(fee) - log(wage),
+      color = "all",
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(log(fee) - log(wage), 2), y = log(fee) - log(wage) - 0.05), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Margin"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/margin.png"),
+  width = width,
+  height = height
+)
+```
+
+
+## Profit
+
+```{r}
+data %>% 
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = profit,
+      color = "all",
+      linetype = factor(ranking),
+      shape = factor(ranking)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(profit, 4), y = profit  * 0.9), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Profit"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/profit.png"),
+  width = width,
+  height = height
+)
+
+```
+
+
+
+# Simulation in actual markets
+
+## Fraction of constrained establishments
+
+```{r}
+frac_constrained %>% 
+  dplyr::mutate(group = "all") %>% 
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = frac,
+      color = "all"
+    )
+  ) +
+  geom_point() + 
+  geom_text(aes(label = round(frac, 2), y = frac - 0.05), size = 3) +
+  geom_line() +
+  ylim(0, 1) +
+  scale_x_reverse() +
+  labs(
+    x = "Margin",
+    y = "Fraction of establishments"
+  ) +
+  scale_color_viridis_d() +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/constrained_fraction.png"),
+  width = width,
+  height = height
+)
+
+```
+
+
+
+## Average outcomes
+
+### Wage
+```{r}
+outcome_mean %>% 
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = wage,
+      color = "all"
+    )
+  ) +
+  geom_text(aes(label = round(wage, 2), y = wage * 0.98), size = 3) +
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  scale_x_reverse() +
+  labs(
+    x = "Margin constraint",
+    y = "Wage (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/wage_actual_market.png"),
+  width = width,
+  height = height
+)  
+
+
+```
+
+### Fee
+```{r}
+outcome_mean %>% 
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = fee,
+      color = "all"
+    )
+  ) +
+  geom_text(aes(label = round(fee, 2), y = fee * 0.98), size = 3) +
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  scale_x_reverse() +
+  labs(
+    x = "Margin constraint",
+    y = "Fee (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/fee_actual_market.png"),
+  width = width,
+  height = height
+)  
+
+
+```
+
+
+### Worker share
+
+```{r}
+outcome_mean %>% 
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = s_W,
+      color = "all"
+    )
+  ) +
+  geom_text(aes(label = round(s_W, 4), y = s_W * 1.05), size = 3) +
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  scale_x_reverse() +
+  labs(
+    x = "Margin constraint",
+    y = "Worker share"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/worker_share_actual_market.png"),
+  width = width,
+  height = height
+)  
+
+
+```
+
+
+### Firm share
+
+```{r}
+outcome_mean %>% 
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = s_F,
+      color = "all"
+    )
+  ) +
+  geom_text(aes(label = round(s_F, 6), y = s_F * 1.05), size = 3) +
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  scale_x_reverse() +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    x = "Margin constraint",
+    y = "Client firm share"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/firm_share_actual_market.png"),
+  width = width,
+  height = height
+)  
+
+
+```
+
+
+### Fraction of establishments with negative profits
+
+```{r}
+outcome_mean %>% 
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = negative_profit,
+      color = "all"
+    )
+  ) +
+  geom_text(aes(label = round(negative_profit, 4), y = negative_profit + 0.005), size = 3) +
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  scale_x_reverse() +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    x = "Margin constraint",
+    y = "Fraction of establishments \n with negative profits"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/fraction_negative_profits.png"),
+  width = width,
+  height = height
+)  
+
+
+```
+
+
+
+## Surplus
+
+### Median
+
+```{r}
+surplus_all %>% 
+  dplyr::group_by(margin_constraint) %>% 
+  dplyr::summarise(
+    WS = median(WS),
+    FS = median(FS),
+    profit = median(profit),
+    total = median(WS + FS + profit)
+  ) %>% 
+  dplyr::ungroup() %>% 
+  tidyr::pivot_longer(cols = WS:total) %>%
+  dplyr::mutate(
+    name = dplyr::case_when(
+      name == "WS" ~ "Worker",
+      name == "FS" ~ "Client firm",
+      name == "profit" ~ "THS",
+      name == "total" ~ "Total"
+    )
+  ) %>%  
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = value,
+      color = name,
+      linetype = name
+    )
+  ) + 
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  scale_x_reverse(limits = c(0.5, 0.2)) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    x = "Margin constraint",
+    y = "Median Surplus (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.title = element_blank(),
+    legend.position = "bottom"
+  )
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/surplus_median.png"),
+  width = width,
+  height = height
+)
+```
+
+
+### Mean
+
+```{r}
+surplus_all %>% 
+  dplyr::group_by(margin_constraint) %>% 
+  dplyr::summarise(
+    WS = mean(WS),
+    FS = mean(FS),
+    profit = mean(profit),
+    total = mean(WS + FS + profit)
+  ) %>% 
+  dplyr::ungroup() %>% 
+  tidyr::pivot_longer(cols = WS:total) %>%
+  dplyr::mutate(
+    name = dplyr::case_when(
+      name == "WS" ~ "Worker",
+      name == "FS" ~ "Client firm",
+      name == "profit" ~ "THS",
+      name == "total" ~ "Total"
+    )
+  ) %>%  
+  ggplot(
+    aes(
+      x = margin_constraint,
+      y = value,
+      color = name,
+      linetype = name
+    )
+  ) + 
+  geom_line() +
+  geom_point() +
+  scale_color_viridis_d() +
+  scale_x_reverse(limits = c(0.5, 0.2)) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    x = "Margin constraint",
+    y = "Mean Surplus (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.title = element_blank(),
+    legend.position = "bottom"
+  )
+
+ggsave(
+  filename = here::here("figuretable/simulate_margin_constraint/surplus_mean.png"),
+  width = width,
+  height = height
+)
+```
+
+
+

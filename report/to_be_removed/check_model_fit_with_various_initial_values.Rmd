@@ -1,0 +1,299 @@
+---
+title: "Check model fit with various initial values"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+  number_sections: true
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 3, fig.width = 6)
+```
+
+- Use ${\color{red} c} \times price$ as a starting point when solving for equilibrium.
+- Use exact residuals, so all the points should be on the 45 degree line if successfully solved.
+- Convergence status:
+  1. Function criterion is near zero.
+  2. x-values within tolerance.
+  3. No better point found.
+  
+# {.tabset}
+
+## Linear
+
+### $c=0.5$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear/0.5/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear/0.5/fee.png")
+```
+
+
+### $c=1.2$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear/1.2/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear/1.2/fee.png")
+```
+
+
+
+### $c=1.5$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear/1.5/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear/1.5/fee.png")
+```
+
+
+
+
+### $c=3.0$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear/3.0/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear/3.0/fee.png")
+```
+
+## Log
+
+### $c=0.5$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log/0.5/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log/0.5/fee.png")
+```
+
+
+### $c=1.2$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log/1.2/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log/1.2/fee.png")
+```
+
+
+
+### $c=1.5$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log/1.5/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log/1.5/fee.png")
+```
+
+
+
+
+### $c=3.0$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log/3.0/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log/3.0/fee.png")
+```
+
+
+
+## Log-linear
+
+### $c=0.5$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear/0.5/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear/0.5/fee.png")
+```
+
+
+### $c=1.2$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear/1.2/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear/1.2/fee.png")
+```
+
+
+
+### $c=1.5$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear/1.5/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear/1.5/fee.png")
+```
+
+
+
+
+### $c=3.0$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear/3.0/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear/3.0/fee.png")
+```
+
+
+
+## Linear (ridge)
+
+### $c=0.5$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear_ridge/0.5/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear_ridge/0.5/fee.png")
+```
+
+
+### $c=1.2$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear_ridge/1.2/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear_ridge/1.2/fee.png")
+```
+
+
+
+### $c=1.5$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear_ridge/1.5/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear_ridge/1.5/fee.png")
+```
+
+
+
+
+### $c=3.0$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear_ridge/3.0/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/linear_ridge/3.0/fee.png")
+```
+
+## Log (ridge)
+
+### $c=0.5$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_ridge/0.5/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_ridge/0.5/fee.png")
+```
+
+
+### $c=1.2$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_ridge/1.2/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_ridge/1.2/fee.png")
+```
+
+
+
+### $c=1.5$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_ridge/1.5/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_ridge/1.5/fee.png")
+```
+
+
+
+
+### $c=3.0$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_ridge/3.0/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_ridge/3.0/fee.png")
+```
+
+
+
+## Log-linear (ridge)
+
+### $c=0.5$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear_ridge/0.5/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear_ridge/0.5/fee.png")
+```
+
+
+### $c=1.2$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear_ridge/1.2/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear_ridge/1.2/fee.png")
+```
+
+
+
+### $c=1.5$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear_ridge/1.5/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear_ridge/1.5/fee.png")
+```
+
+
+
+
+### $c=3.0$
+
+#### Wage and Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear_ridge/3.0/wage.png")
+knitr::include_graphics("../figuretable/model_fit/various_initial_values/log_linear_ridge/3.0/fee.png")
+```
+
+
+
+
+
+

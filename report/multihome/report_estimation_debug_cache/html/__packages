@@ -1,0 +1,11 @@
+Dispatching
+foreach
+magrittr
+codetools
+ggplot2
+kableExtra
+purrr
+latex2exp
+iterators
+doParallel
+gridExtra

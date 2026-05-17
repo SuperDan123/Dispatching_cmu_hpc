@@ -1,0 +1,301 @@
+---
+title: "Estimate of Matching Function"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+---
+
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 4, fig.width = 8)
+
+library(magrittr)
+```
+
+
+```{css, echo = FALSE}
+
+table, td, th {
+  border: none;
+  padding-left: 1em;
+  padding-right: 1em;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+```
+
+
+
+```{r}
+# Read data
+result_firmFE <- readRDS(here::here("output/estimate_matching_function/matching_function_firmFE.RDS"))
+result_estFE <- readRDS(here::here("output/estimate_matching_function/matching_function_establishmentFE.RDS"))
+
+result_1st_dist <- readRDS(here::here("output/estimate_matching_function/dist_IV_first_stage.RDS"))
+result_1st_dist_selected <- readRDS(here::here("output/estimate_matching_function/dist_IV_selected_first_stage.RDS"))
+result_1st_dist_agg <- readRDS(here::here("output/estimate_matching_function/dist_aggregate_IV_first_stage.RDS"))
+result_1st_rival <- readRDS(here::here("output/estimate_matching_function/rivals_IV_first_stage.RDS"))
+result_1st_hausman <- readRDS(here::here("output/estimate_matching_function/hausman_IV_first_stage.RDS"))
+
+
+```
+
+
+
+# Estimate Matching Function
+
+- The total match on THS establishment $i$ in year $t$ is given by the Cobb-Douglas function of the number of workers registered on the platform $D_{it}^W$ and the number of client establishments $D_{it}^F$:
+$$
+Q_{it} = \mu_{it} [D_{it}^W]^\alpha [D_{it}^F]^\beta
+$$
+
+Regression specification:
+$$
+\log{Q_{it}} = \alpha \log{D_{it}^W} + \beta\log{D_{it}^F} + \text{Fixed Effects} + \epsilon_{it}
+$$
+
+Three set of instruments:
+
+- Differentiation IV: For each establishment $i$ and characteristic $k$, calculate the mean and the s.d. of the empirical distribution of $|x_{i,m,t}-x_{j,m,t}|$.
+  - Aggregated version: calculate the distance in the characteristics space (not for each $k$)
+  - Selected: select instruments that are significant at 10\% level in the reduced-form estimation of the demand function
+- Num rivals IV: For each establishment $i$, count the number of other establishments in the same market that are within distance $d$ for various $d$.
+- Hausman IV: For each establishment, use the average wage and fee of the establishments belonging to the same firm but in other commuting zones. For establishments that do not have other establishments belonging to the same firm, assume that all of them belong to the same firm.
+
+```{r}
+gm <- tibble::tribble(
+  ~raw, ~clean, ~fmt,
+  "nobs", "Obs.", 0,
+  "r.squared", "R-sq.", 3)
+
+
+```
+
+
+## Firm FE
+
+```{r}
+
+rows <- c("IV", "", "Dist agg.", "Dist", "Dist no sd", "Dist selected", "Num rivals", "Hausman") %>% 
+  matrix(nrow = 1) %>% 
+  as.data.frame()
+
+colnames(rows) <- c("term", paste("Model", as.character(1:6), sep = " "))
+
+names(result_firmFE) <- paste("(", 1:length(result_firmFE), ")", sep = "")
+
+modelsummary::modelsummary(result_firmFE, 
+                           output = "html",
+                           stars = c("*" = .1, "**" = .05, "***" = .01),
+                           gof_map = gm,
+                           escape = T,
+                           add_rows = rows) %>% 
+  kableExtra::add_header_above(c(" ", "Log Matches" = 7)) 
+
+
+```
+
+
+```{r}
+rows <- c("p-val: CRS", as.character(result_firmFE[[3]]$pval_CRS)) %>% 
+  matrix(nrow = 1) %>% 
+  as.data.frame()
+
+colnames(rows) <- c("term", "Model 1")
+
+modelsummary::modelsummary(list("(1)" = result_firmFE[[3]]), 
+                      		 booktabs = TRUE,
+                           stars = c("$^{*}$" = .1, "$^{**}$" = .05, "$^{***}$" = .01),
+                           output = "latex_tabular",
+                      		 escape = T,
+                           gof_map = gm,
+                      		 add_rows = rows) %>%
+  kableExtra::add_header_above(c(" ", "Log Matches" = 1)) %>% 
+  kableExtra::save_kable(
+    file = here::here("figuretable/estimate_matching_function/result_firmFE.tex")
+  )
+
+```
+
+
+
+## Establishment FE
+
+```{r}
+rows <- c("IV", "", "Dist agg.", "Dist", "Dist no sd", "Dist selected", "Num rivals", "Hausman") %>% 
+  matrix(nrow = 1) %>% 
+  as.data.frame()
+colnames(rows) <- c("term", paste("Model", as.character(1:6), sep = " "))
+
+names(result_estFE) <- paste("(", 1:length(result_firmFE), ")", sep = "")
+
+modelsummary::modelsummary(result_estFE, 
+                           output = "html",
+                           stars = c("*" = .1, "**" = .05, "***" = .01),
+                           gof_map = gm,
+                           escape = T,
+                           add_rows = rows) %>% 
+  kableExtra::add_header_above(c(" ", "Log Matches" = 7)) 
+
+```
+
+
+
+
+
+# First stage of matching function estimation {.tabset}
+
+
+
+## Distance IV
+
+```{r}
+
+
+var_name <- rep("", times = 60)
+names(var_name) <- rownames(result_1st_dist[[1]]$coefficients)[1:60]
+var_name[1:26] <- paste("Dist Avg: worktype ", 1:26, sep = "")
+var_name[27:30] <- paste("Dist Avg: ", c("Daily", "Temp to perm", "Oversea", "Cocurrent"), sep = "")
+var_name[31:56] <- paste("Dist SD: worktype ", 1:26, sep = "")
+var_name[57:60] <- paste("Dist SD: ", c("Daily", "Temp to perm", "Oversea", "Cocurrent"), sep = "")
+
+rows <- c("FE", rep("Firm", 4), rep("Estab.", 4)) %>% 
+  matrix(nrow = 1) %>% 
+  as.data.frame()
+colnames(rows) <- c("term", paste("Model", as.character(1:8), sep = " "))
+
+
+header <- c(" ", "Log Workers" = 1, "Log Client Firms" = 1, "Log Workers" = 1, "Log Client Firms" = 1,
+            "Log Workers" = 1, "Log Client Firms" = 1, "Log Workers" = 1, "Log Client Firms" = 1)
+
+names(result_1st_dist) <- paste("(", 1:length(result_1st_dist), ")", sep = "")
+modelsummary::modelsummary(result_1st_dist, 
+                           output = "html",
+                           stars = c("*" = .1, "**" = .05, "***" = .01),
+                           gof_map = gm,
+                           coef_map = var_name,
+                           escape = T,
+                           add_rows = rows) %>% 
+  kableExtra::add_header_above(header) 
+
+```
+
+## Distance IV (selected)
+
+```{r}
+
+
+rows <- c("FE", rep("Firm", 2), rep("Estab.", 2)) %>% 
+  matrix(nrow = 1) %>% 
+  as.data.frame()
+colnames(rows) <- c("term", paste("Model", as.character(1:4), sep = " "))
+
+
+header <- c(" ", "Log Workers" = 1, "Log Client Firms" = 1, "Log Workers" = 1, "Log Client Firms" = 1)
+
+names(result_1st_dist_selected) <- paste("(", 1:length(result_1st_dist_selected), ")", sep = "")
+modelsummary::modelsummary(result_1st_dist_selected, 
+                           output = "html",
+                           stars = c("*" = .1, "**" = .05, "***" = .01),
+                           gof_map = gm,
+                           escape = T,
+                           add_rows = rows) %>% 
+  kableExtra::add_header_above(header) 
+
+```
+
+
+## Distance IV (each)
+
+```{r}
+
+var_name <- c("dist_mean" = "Distance: Mean",
+              "dist_sd" = "Distance: S.D.")
+
+rows <- c("FE", rep("Firm", 2), rep("Estab.", 2)) %>% 
+  matrix(nrow = 1) %>% 
+  as.data.frame()
+colnames(rows) <- c("term", paste("Model", as.character(1:4), sep = " "))
+
+header <- c(" ", "Log Workers" = 1, "Log Client Firms" = 1, "Log Workers" = 1, "Log Client Firms" = 1)
+
+names(result_1st_dist_agg) <- paste("(", 1:length(result_1st_dist_agg), ")", sep = "")
+modelsummary::modelsummary(result_1st_dist_agg, 
+                           output = "html",
+                           stars = c("*" = .1, "**" = .05, "***" = .01),
+                           gof_map = gm,
+                           coef_map = var_name,
+                           escape = T,
+                           add_rows = rows) %>% 
+  kableExtra::add_header_above(header) 
+```
+
+
+
+## Number of rivals 
+
+```{r}
+var_name <- c("num_rivals_1" = "Log number of rivals: distance 0",
+              "num_rivals_2" = "Log number of rivals: distance 1-4",
+              "num_rivals_3" = "Log number of rivals: distance 5-8",
+              "num_rivals_4" = "Log number of rivals: distance 9-12",
+              "num_rivals_5" = "Log number of rivals: distance 13-16",
+              "num_rivals_6" = "Log number of rivals: distance 17+"
+              )
+
+rows <- c("FE", rep("Firm", 2), rep("Estab.", 2)) %>% 
+  matrix(nrow = 1) %>% 
+  as.data.frame()
+colnames(rows) <- c("term", paste("Model", as.character(1:4), sep = " "))
+
+header <- c(" ", "Log Workers" = 1, "Log Client Firms" = 1, "Log Workers" = 1, "Log Client Firms" = 1)
+
+names(result_1st_rival) <- paste("(", 1:length(result_1st_rival), ")", sep = "")
+modelsummary::modelsummary(result_1st_rival, 
+                           output = "html",
+                           stars = c("*" = .1, "**" = .05, "***" = .01),
+                           gof_map = gm,
+                           coef_map = var_name,
+                           escape = T,
+                           add_rows = rows) %>% 
+  kableExtra::add_header_above(header) 
+
+```
+
+
+
+## Hausman IV
+
+```{r}
+
+var_name <- c("wage_iv" = "Wage",
+            "fee_iv"  = "Fee")
+
+rows <- c("FE", rep("Firm", 2), rep("Estab.", 2)) %>% 
+  matrix(nrow = 1) %>% 
+  as.data.frame()
+colnames(rows) <- c("term", paste("Model", as.character(1:4), sep = " "))
+
+header <- c(" ", "Log Workers" = 1, "Log Client Firms" = 1, "Log Workers" = 1, "Log Client Firms" = 1)
+
+names(result_1st_hausman) <- paste("(", 1:length(result_1st_hausman), ")", sep = "")
+modelsummary::modelsummary(result_1st_hausman, 
+                           output = "html",
+                           stars = c("*" = .1, "**" = .05, "***" = .01),
+                           gof_map = gm,
+                           coef_map = var_name,
+                           escape = T,
+                           add_rows = rows) %>% 
+  kableExtra::add_header_above(header) 
+```
+
+
+

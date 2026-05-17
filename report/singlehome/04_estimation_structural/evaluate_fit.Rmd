@@ -1,0 +1,122 @@
+---
+title: "Model fit"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 4, fig.width = 8)
+
+library(magrittr)
+library(ggplot2)
+library(Dispatching)
+```
+
+```{css, echo = FALSE}
+
+table, td, th {
+  border: none;
+  padding-left: 1em;
+  padding-right: 1em;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+```
+
+# Model Fit {.tabset}
+
+- Replace the cost side residuals with zero.
+
+## Distance IV
+
+### Wage
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/evaluate_fit/no_residuals/dist_IV/wage.png"))
+```
+
+### Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/evaluate_fit/no_residuals/dist_IV/fee.png"))
+```
+
+### Worker share
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/evaluate_fit/no_residuals/dist_IV/share_worker.png"))
+```
+
+
+### Client firm share
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/evaluate_fit/no_residuals/dist_IV/share_firm.png"))
+```
+
+
+## Distance IV (selected)
+
+### Wage
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/evaluate_fit/no_residuals/dist_IV_selected/wage.png"))
+```
+
+### Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/evaluate_fit/no_residuals/dist_IV_selected/fee.png"))
+```
+
+### Worker share
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/evaluate_fit/no_residuals/dist_IV_selected/share_worker.png"))
+```
+
+
+### Client firm share
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/evaluate_fit/no_residuals/dist_IV_selected/share_firm.png"))
+```
+
+
+
+## Rivals
+
+### Wage
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/evaluate_fit/no_residuals/rivals_IV/wage.png"))
+```
+
+### Fee
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/evaluate_fit/no_residuals/rivals_IV/fee.png"))
+```
+
+### Worker share
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/evaluate_fit/no_residuals/rivals_IV/share_worker.png"))
+```
+
+
+### Client firm share
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/evaluate_fit/no_residuals/rivals_IV/share_firm.png"))
+```
+
+
+

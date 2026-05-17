@@ -1,0 +1,56 @@
+---
+title: 'Counterfactual: Merger Example'
+author: "Katsuhiro Komatsu"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+```
+
+
+
+
+- Pick a single market where the number of establishments is not large.
+- Equilibrium outcomes before merger
+
+```{r, out.width = "90%"}
+htmltools::includeHTML(here::here("figuretable/counterfactual/merger/test/linear/equilibrium_pre.html"))
+```
+
+### Merger simulation
+
+- Consider a merger between firm A \& B
+
+
+```{r, out.width = "90%"}
+htmltools::includeHTML(here::here("figuretable/counterfactual/merger/test/linear/equilibrium_post.html"))
+```
+
+
+
+##### Prices and shares
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/counterfactual/merger/test/linear/price_share_impact.png"))
+```
+
+#### Matches and net prices
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/counterfactual/merger/test/linear/match_netprice_impact.png"))
+
+```
+
+
+#### Profit
+
+```{r, out.width = "50%"}
+knitr::include_graphics(here::here("figuretable/counterfactual/merger/test/linear/profit_impact.png"))
+
+```
+
+
+

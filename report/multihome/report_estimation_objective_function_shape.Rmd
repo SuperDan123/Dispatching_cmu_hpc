@@ -1,0 +1,236 @@
+---
+title: "report_estimation_objective_function_shape"
+author: "Daisy Dan Song"
+date: "2024-06-26"
+output: html_document
+---
+
+# initialize
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+library(purrr)
+```
+
+# generate the baseline equilibrium
+```{r}
+equilibrium <-
+  readRDS(
+    file = "output/multihome/simulate/equilibrium.rds" %>%
+    here::here()
+  )
+```
+
+# delete market with non-zero foc
+```{r}
+df <-
+  check_equilibrium(
+    equilibrium = equilibrium
+  )
+
+index <- 
+  df %>%
+    dplyr::filter(
+      i != 0,
+      i != 1,
+      abs(foc_f) > 1e-7 | 
+      abs(foc_w) > 1e-7
+    ) %>%
+    dplyr::select(
+      t,
+      j
+    ) %>%
+    dplyr::distinct()
+index <- 
+  index[
+    order(
+        index$t,
+        index$j,
+      decreasing = TRUE
+      ), 
+  ]
+
+for (
+  i in 1:nrow(index)
+) {
+  equilibrium$shock[[index$t[i]]][[index$j[i]]] <- NULL
+  equilibrium$endogenous[[index$t[i]]][[index$j[i]]] <- NULL
+  equilibrium$exogenous[[index$t[i]]][[index$j[i]]] <- NULL
+}
+
+equilibrium <- 
+  purrr::map(
+    equilibrium, 
+    ~ purrr::discard(
+        .x, 
+        ~ length(.x) == 0
+      )
+    )
+
+df <-
+  check_equilibrium(
+    equilibrium = equilibrium
+  )
+
+df %>%
+  dplyr::filter(
+    i != 0,
+    i != 1,
+    abs(foc_f) > 1e-7 | 
+    abs(foc_w) > 1e-7
+  ) %>%
+  dplyr::select(
+    t,
+    j
+  ) %>%
+  dplyr::distinct()
+
+```
+
+# compute demand objective 
+```{r}
+
+instrument_demand <- 
+  make_instrument_demand(
+    equilibrium = equilibrium
+  )
+weighting_matrix_demand <- 
+  compute_demand_weighting_matrix(
+    instrument_demand = instrument_demand
+  )
+
+theta <-
+  transform_parameter_to_theta_optim(
+    mu_p = equilibrium$parameter$mu_p,
+    mu_ths = equilibrium$parameter$mu_ths,
+    m_f = equilibrium$parameter$m_f,
+    lambda_w = equilibrium$parameter$lambda_w,
+    lambda_f = equilibrium$parameter$lambda_f
+  )
+target_list <- 
+  list(
+    mu_p = 
+      seq(
+        theta[1] - 0.1, 
+        theta[1] + 0.1, 
+        by = 0.01
+      ),
+    mu_ths = 
+      seq(
+        theta[2] - 0.05, 
+        theta[2] + 0.05, 
+        by = 0.01
+      ),
+    m_f = 
+      seq(
+        theta[3] - 0.1, 
+        theta[3] + 0.1, 
+        by = 0.01
+      ),
+    lambda_w = 
+      seq(
+        theta[4] - 0.1, 
+        theta[4] + 0.1, 
+        by = 0.01
+      ),
+    lambda_f = 
+      seq(
+        theta[5] - 0.1, 
+        theta[5] + 0.1, 
+        by = 0.01
+      )
+  )
+
+objective_values <- 
+  foreach(
+    i = seq_along(target_list)
+  ) %do% {
+    foreach(
+      param_value = target_list[[i]],
+      .combine = "rbind"
+    ) %do% {
+      theta_temp <- theta
+      theta_temp[i] <- param_value
+      
+      obj <- 
+        compute_demand_objective_nonlinear(
+          theta_demand_nonlinear = theta_temp,
+          instrument_demand = instrument_demand,
+          weighting_matrix_demand = weighting_matrix_demand,
+          equilibrium = equilibrium
+        )
+      return(
+        data.frame(
+          parameter = names(target_list)[i],
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+  }
+
+g <-
+  foreach (
+    i = seq_along(target_list)
+  ) %do% {
+    ggplot(
+      objective_values[[i]], 
+      aes(
+        x = value, 
+        y = objective
+      )
+    ) +
+    geom_point() +
+    geom_line() +
+    geom_vline(
+      xintercept = theta[i], 
+      linetype = "dashed", 
+      color = "red"
+    ) +
+    theme_classic() +
+    labs(
+      x = "Parameter Value",
+      y = "Objective Function Value",
+      title = 
+        paste(
+          "Objective Function Values for", 
+          names(target_list)[i]
+        )
+    )
+  }
+```
+
+# mu_p
+```{r}
+g[[1]]
+```
+
+# mu_ths
+```{r}
+g[[2]]
+```
+
+# m_f
+```{r}
+g[[3]]
+```
+
+# lambda_w
+```{r}
+g[[4]]
+```
+ 
+# lambda_f
+```{r}
+g[[5]]
+```

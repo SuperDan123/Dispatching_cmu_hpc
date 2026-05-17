@@ -1,0 +1,4389 @@
+---
+title: "report_estimation_costs_patterns"
+author: "Daisy Dan Song"
+date: "2025-05-14"
+output: html_document
+---
+
+# initialize
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+library(purrr)
+library(doParallel)
+registerDoParallel()
+```
+
+# import estimation equilibrium
+```{r}
+equilibrium <-
+  readRDS(
+    file = "output/multihome/estimate_data_initial/equilibrium_updated_initial.rds" %>%
+    here::here()
+  )
+
+equilibrium_simulate <-
+  readRDS(
+    file = "output/multihome/simulate/equilibrium.rds" %>%
+    here::here()
+  )
+equilibrium_simulate$constant$use_exp <- FALSE
+```
+
+# actual data {.tabset}
+## problematic ths {.tabset}
+### not eliciting demand shocks
+
+```{r}
+equilibrium$constant$method_s_w <- "exact"
+t <- 1
+j <- 42
+i <- 2
+```
+
+#### c_w
+##### check s_w_d_w
+
+```{r}
+target_list <- 
+  list(
+    lambda_w = 
+      seq(
+        0.05, 
+        30,
+        by = 0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      s_w_d_w_tj <- 
+        solve_s_w_d_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = param_value,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        ) 
+      s_w_d_w_tj <-  
+          diag(s_w_d_w_tj)
+      obj <- s_w_d_w_tj[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point() +
+  geom_line() +
+  theme_classic() +
+  labs(
+    x = "Lambda_w",
+    y = "s_w_d_w ths 1"
+  ) +
+  ylim(
+    0, 
+    max(objective_values$objective)
+    )  
+g_1
+
+```
+
+##### -s_w/s_w_d_w
+
+```{r}
+target_list <- 
+  list(
+    lambda_w = 
+      seq(
+        0.05, 
+        30,
+        by = 0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      s_w_d_w_tj <- 
+        solve_s_w_d_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = param_value,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        ) 
+      s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+      s_w_d_w_tj <-  
+          diag(s_w_d_w_tj)
+      obj <- 
+        -s_w[i]/s_w_d_w_tj[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point() +
+  geom_line() +
+  theme_classic() +
+  labs(
+    x = "Lambda_w",
+    y = "-s_w/s_w_d_w"
+  ) +
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+
+```
+
+##### all together
+
+```{r}
+target_list <- 
+  list(
+    lambda_w = 
+      seq(
+        0.05, 
+        30,
+        by = 0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      s_w_d_w_tj <- 
+        solve_s_w_d_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = param_value,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        ) 
+      s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+      f <- equilibrium$endogenous[[t]][[j]]$f
+      w <- equilibrium$endogenous[[t]][[j]]$w
+      s_w_d_w_tj <-  
+          diag(s_w_d_w_tj)
+      obj <- 
+        -s_w[i]/s_w_d_w_tj[i] + f[i] - w[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point(
+    size = 0.1
+  ) +
+  geom_line() +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_w",
+    y = "c_w"
+  )
+g_1
+```
+
+#### c_f
+##### check s_f_d_f
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        obj <- s_f_d_f_tj[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "s_f_d_f"
+  )+
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+```
+
+##### check q_d_f
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+        s_f_d_f <- 
+          solve_s_f_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_f = param_value,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+        meeting_number_d_f <- 
+          compute_meeting_number_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            s_f_d_f = s_f_d_f
+          )
+        meeting_number_d_f <-  
+            diag(meeting_number_d_f) %>% as.matrix()
+
+        obj <- meeting_number_d_f[i]
+
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q_d_f"
+  )+
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+```
+
+##### check s_w_d_f
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+        s_w_d_f_tj <- 
+          solve_s_w_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_w = equilibrium$parameter$lambda_w,
+            lambda_f = param_value,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+            ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          ) 
+        s_w_d_f_tj <-  
+            diag(s_w_d_f_tj)
+
+        obj <- s_w_d_f_tj[i]
+
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point() +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "s_w_d_f"
+  )
+g_1
+
+```
+
+##### q * s_w / (size_f * s_f_d_f)
+
+```{r}
+
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        q <- 
+          compute_meeting_number_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+        s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+        size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+        obj <- 
+          q[i] * s_w[i] /( s_f_d_f_tj[i] * size_f)
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q * s_w / (size_f * s_f_d_f)"
+  ) +
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+```
+
+##### q_d_f * s_w / (size_f * s_f_d_f)
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+
+        q_d_f <- 
+          compute_meeting_number_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            s_f_d_f = s_f_d_f_tj
+          )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        q_d_f <-  
+            diag(q_d_f) %>% as.matrix()
+        s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+        size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+        obj <- 
+          q_d_f[i] * s_w[i] /( s_f_d_f_tj[i] * size_f)
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj,
+          s_f_d_f_tj = s_f_d_f_tj[i],
+          q_d_f = q_d_f[i]
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q_d_f * s_w / (size_f * s_f_d_f)"
+  ) +
+  ylim(
+    0, 
+    max(objective_values$objective)
+    ) 
+g_1
+```
+
+##### q * s_w_d_f / (size_f * s_f_d_f)
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        s_w_d_f_tj <- 
+          solve_s_w_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_w = equilibrium$parameter$lambda_w,
+            lambda_f = param_value,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+            ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          )  
+        s_w_d_f_tj <-  
+          diag(s_w_d_f_tj)
+        q <- 
+          compute_meeting_number_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+        size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+        obj <- 
+          q[i] * s_w_d_f_tj[i] /( s_f_d_f_tj[i] * size_f)
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q * s_w_d_f / (size_f * s_f_d_f)"
+  )
+g_1
+```
+
+##### all together
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+
+        q_d_f <- 
+          compute_meeting_number_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            s_f_d_f = s_f_d_f_tj
+          )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        q_d_f <-  
+            diag(q_d_f) %>% as.matrix()
+        s_w_d_f_tj <- 
+          solve_s_w_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_w = equilibrium$parameter$lambda_w,
+            lambda_f = param_value,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+            ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          )  
+        s_w_d_f_tj <-  
+          diag(s_w_d_f_tj)
+        q <- 
+          compute_meeting_number_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+        size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+        s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+        f <- equilibrium$endogenous[[t]][[j]]$f
+        w <- equilibrium$endogenous[[t]][[j]]$w
+        c_w <- 
+            compute_supply_shock_c_w_tj(
+              m_w = equilibrium$parameter$m_w,
+              m_f = equilibrium$parameter$m_f,
+              beta_w = equilibrium$parameter$beta_w,
+              lambda_w = equilibrium$parameter$lambda_w,
+              x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+              size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+              size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+              mu = equilibrium$shock[[t]][[j]]$mu,
+              ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+              f = equilibrium$endogenous[[t]][[j]]$f,
+              w = equilibrium$endogenous[[t]][[j]]$w,
+              s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+              s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+              owner = equilibrium$exogenous[[t]][[j]]$owner,
+              method_s_w = equilibrium$constant$method_s_w,
+              margin = equilibrium$constant$margin,
+              quadrature_size = equilibrium$constant$quadrature_size,
+              tol = equilibrium$constant$tol
+            )
+        obj <- 
+          q[i] * s_w[i] /( s_f_d_f_tj[i] * size_f) +
+          (
+            q_d_f[i] * s_w[i] /( s_f_d_f_tj[i] * size_f) +
+            q[i] * s_w_d_f_tj[i] /( s_f_d_f_tj[i] * size_f)
+          ) * (f[i] - w[i] - c_w[i])
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "c_f"
+  )
+g_1
+```
+
+### eliciting demand shocks
+#### c_w
+##### check s_w_d_w
+
+```{r}
+target_list <- 
+  list(
+    lambda_w = 
+      seq(
+        0.05, 
+        30,
+        by = 0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = param_value,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      beta_w <- equilibrium$parameter$beta_w
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+        
+      s_w_d_w_tj <- 
+        solve_s_w_d_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = param_value,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = ea_w,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        ) 
+      s_w_d_w_tj <-  
+          diag(s_w_d_w_tj)
+      obj <- s_w_d_w_tj[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point() +
+  geom_line() +
+  theme_classic() +
+  labs(
+    x = "Lambda_w",
+    y = "s_w_d_w ths 1"
+  ) +
+  ylim(
+    0, 
+    max(objective_values$objective)
+    ) 
+g_1
+
+```
+
+##### -s_w/s_w_d_w
+
+```{r}
+target_list <- 
+  list(
+    lambda_w = 
+      seq(
+        0.05, 
+        30,
+        by = 0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = param_value,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      beta_w <- equilibrium$parameter$beta_w
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+        
+      s_w_d_w_tj <- 
+        solve_s_w_d_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = param_value,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = ea_w,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        ) 
+      s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+      s_w_d_w_tj <-  
+          diag(s_w_d_w_tj)
+      obj <- 
+        -s_w[i]/s_w_d_w_tj[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point() +
+  geom_line() +
+  theme_classic() +
+  labs(
+    x = "Lambda_w",
+    y = "-s_w/s_w_d_w"
+  )  +
+  ylim(
+    -4e6,
+    0
+    )
+g_1
+
+```
+
+##### all together
+
+```{r}
+target_list <- 
+  list(
+    lambda_w = 
+      seq(
+        0.05, 
+        30,
+        by = 0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = param_value,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      beta_w <- equilibrium$parameter$beta_w
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+        
+      s_w_d_w_tj <- 
+        solve_s_w_d_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = param_value,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = ea_w,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        ) 
+      s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+      f <- equilibrium$endogenous[[t]][[j]]$f
+      w <- equilibrium$endogenous[[t]][[j]]$w
+      s_w_d_w_tj <-  
+          diag(s_w_d_w_tj)
+      obj <- 
+        -s_w[i]/s_w_d_w_tj[i] + f[i] - w[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point(
+    size = 0.1
+  ) +
+  geom_line() +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_w",
+    y = "c_w"
+  )
+g_1
+```
+
+#### c_f
+##### check s_f_d_f
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        obj <- s_f_d_f_tj[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "s_f_d_f"
+  ) +
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+```
+
+##### check q_d_f
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      meeting_number_d_f <- 
+        compute_meeting_number_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_f_d_f = s_f_d_f_tj
+        )
+        meeting_number_d_f <-  
+            diag(meeting_number_d_f) %>% as.matrix()
+
+        obj <- meeting_number_d_f[i]
+
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q_d_f"
+  ) +
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+```
+
+##### check s_w_d_f
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+
+        s_w_d_f_tj <- 
+          solve_s_w_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_w = equilibrium$parameter$lambda_w,
+            lambda_f = param_value,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = ea_w,
+            ea_f = ea_f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          ) 
+        s_w_d_f_tj <-  
+            diag(s_w_d_f_tj)
+
+        obj <- s_w_d_f_tj[i]
+
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point() +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "s_w_d_f"
+  )
+g_1
+
+```
+
+##### q * s_w / (size_f * s_f_d_f)
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      s_f_d_f_tj <-  
+          diag(s_f_d_f_tj)
+      q <- 
+        compute_meeting_number_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        ) 
+      s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+      size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+      obj <- 
+        q[i] * s_w[i] /( s_f_d_f_tj[i] * size_f)
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q * s_w / (size_f * s_f_d_f)"
+  )  +
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+```
+
+##### q_d_f * s_w / (size_f * s_f_d_f)
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+
+      q_d_f <- 
+        compute_meeting_number_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_f_d_f = s_f_d_f_tj
+        )
+      s_f_d_f_tj <-  
+          diag(s_f_d_f_tj)
+      q_d_f <-  
+          diag(q_d_f) %>% as.matrix()
+      s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+      size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+      obj <- 
+        q_d_f[i] * s_w[i] /( s_f_d_f_tj[i] * size_f)
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj,
+          s_f_d_f_tj = s_f_d_f_tj[i],
+          q_d_f = q_d_f[i]
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q_d_f * s_w / (size_f * s_f_d_f)"
+  ) +
+  ylim(
+    0, 
+    max(objective_values$objective)
+    )  
+g_1
+```
+
+##### q * s_w_d_f / (size_f * s_f_d_f)
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        s_w_d_f_tj <- 
+          solve_s_w_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_w = equilibrium$parameter$lambda_w,
+            lambda_f = param_value,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = ea_w,
+            ea_f = ea_f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          )  
+        s_w_d_f_tj <-  
+          diag(s_w_d_f_tj)
+        q <- 
+          compute_meeting_number_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+        size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+        obj <- 
+          q[i] * s_w_d_f_tj[i] /( s_f_d_f_tj[i] * size_f)
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q * s_w_d_f / (size_f * s_f_d_f)"
+  )
+g_1
+```
+
+##### all together
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+        s_w_d_f_tj <- 
+          solve_s_w_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_w = equilibrium$parameter$lambda_w,
+            lambda_f = param_value,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = ea_w,
+            ea_f = ea_f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          )  
+
+        q_d_f <- 
+          compute_meeting_number_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            s_f_d_f = s_f_d_f_tj
+          )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        q_d_f <-  
+            diag(q_d_f) %>% as.matrix()
+        s_w_d_f_tj <-  
+          diag(s_w_d_f_tj)
+        q <- 
+          compute_meeting_number_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+        size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+        s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+        f <- equilibrium$endogenous[[t]][[j]]$f
+        w <- equilibrium$endogenous[[t]][[j]]$w
+        c_w <- 
+          compute_supply_shock_c_w_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            lambda_w = equilibrium$parameter$lambda_w,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = ea_w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+            owner = equilibrium$exogenous[[t]][[j]]$owner,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          )
+        obj <- 
+          q[i] * s_w[i] /( s_f_d_f_tj[i] * size_f) +
+          (
+            q_d_f[i] * s_w[i] /( s_f_d_f_tj[i] * size_f) +
+            q[i] * s_w_d_f_tj[i] /( s_f_d_f_tj[i] * size_f)
+          ) * (f[i] - w[i] - c_w[i])
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "c_f"
+  )
+g_1
+```
+
+## normal ths {.tabset}
+### not eliciting demand shocks
+
+```{r}
+t <- 1
+j <- 1
+i <- 2
+```
+
+#### c_w
+##### check s_w_d_w
+
+```{r}
+target_list <- 
+  list(
+    lambda_w = 
+      seq(
+        0.05, 
+        30,
+        by = 0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      s_w_d_w_tj <- 
+        solve_s_w_d_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = param_value,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        ) 
+      s_w_d_w_tj <-  
+          diag(s_w_d_w_tj)
+      obj <- s_w_d_w_tj[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point() +
+  geom_line() +
+  theme_classic() +
+  labs(
+    x = "Lambda_w",
+    y = "s_w_d_w ths 1"
+  ) +
+  ylim(
+    0, 
+    max(objective_values$objective)
+    )  
+g_1
+
+```
+
+##### -s_w/s_w_d_w
+
+```{r}
+target_list <- 
+  list(
+    lambda_w = 
+      seq(
+        0.05, 
+        30,
+        by = 0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      s_w_d_w_tj <- 
+        solve_s_w_d_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = param_value,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        ) 
+      s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+      s_w_d_w_tj <-  
+          diag(s_w_d_w_tj)
+      obj <- 
+        -s_w[i]/s_w_d_w_tj[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point() +
+  geom_line() +
+  theme_classic() +
+  labs(
+    x = "Lambda_w",
+    y = "-s_w/s_w_d_w"
+  ) +
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+
+```
+
+##### all together
+
+```{r}
+target_list <- 
+  list(
+    lambda_w = 
+      seq(
+        0.05, 
+        30,
+        by = 0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      s_w_d_w_tj <- 
+        solve_s_w_d_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = param_value,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        ) 
+      s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+      f <- equilibrium$endogenous[[t]][[j]]$f
+      w <- equilibrium$endogenous[[t]][[j]]$w
+      s_w_d_w_tj <-  
+          diag(s_w_d_w_tj)
+      obj <- 
+        -s_w[i]/s_w_d_w_tj[i] + f[i] - w[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point(
+    size = 0.1
+  ) +
+  geom_line() +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_w",
+    y = "c_w"
+  )
+g_1
+```
+
+#### c_f
+##### check s_f_d_f
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        obj <- s_f_d_f_tj[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "s_f_d_f"
+  )+
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+```
+
+##### check q_d_f
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+        s_f_d_f <- 
+          solve_s_f_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_f = param_value,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+        meeting_number_d_f <- 
+          compute_meeting_number_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            s_f_d_f = s_f_d_f
+          )
+        meeting_number_d_f <-  
+            diag(meeting_number_d_f) %>% as.matrix()
+
+        obj <- meeting_number_d_f[i]
+
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q_d_f"
+  )+
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+```
+
+##### check s_w_d_f
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+        s_w_d_f_tj <- 
+          solve_s_w_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_w = equilibrium$parameter$lambda_w,
+            lambda_f = param_value,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+            ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          ) 
+        s_w_d_f_tj <-  
+            diag(s_w_d_f_tj)
+
+        obj <- s_w_d_f_tj[i]
+
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point() +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "s_w_d_f"
+  )
+g_1
+
+```
+
+##### q * s_w / (size_f * s_f_d_f)
+
+```{r}
+
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        q <- 
+          compute_meeting_number_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+        s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+        size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+        obj <- 
+          q[i] * s_w[i] /( s_f_d_f_tj[i] * size_f)
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q * s_w / (size_f * s_f_d_f)"
+  ) +
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+```
+
+##### q_d_f * s_w / (size_f * s_f_d_f)
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+
+        q_d_f <- 
+          compute_meeting_number_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            s_f_d_f = s_f_d_f_tj
+          )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        q_d_f <-  
+            diag(q_d_f) %>% as.matrix()
+        s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+        size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+        obj <- 
+          q_d_f[i] * s_w[i] /( s_f_d_f_tj[i] * size_f)
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj,
+          s_f_d_f_tj = s_f_d_f_tj[i],
+          q_d_f = q_d_f[i]
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q_d_f * s_w / (size_f * s_f_d_f)"
+  ) +
+  ylim(
+    0, 
+    max(objective_values$objective)
+    ) 
+g_1
+```
+
+##### q * s_w_d_f / (size_f * s_f_d_f)
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        s_w_d_f_tj <- 
+          solve_s_w_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_w = equilibrium$parameter$lambda_w,
+            lambda_f = param_value,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+            ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          )  
+        s_w_d_f_tj <-  
+          diag(s_w_d_f_tj)
+        q <- 
+          compute_meeting_number_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+        size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+        obj <- 
+          q[i] * s_w_d_f_tj[i] /( s_f_d_f_tj[i] * size_f)
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q * s_w_d_f / (size_f * s_f_d_f)"
+  )
+g_1
+```
+
+##### all together
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+
+        q_d_f <- 
+          compute_meeting_number_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            s_f_d_f = s_f_d_f_tj
+          )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        q_d_f <-  
+            diag(q_d_f) %>% as.matrix()
+        s_w_d_f_tj <- 
+          solve_s_w_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_w = equilibrium$parameter$lambda_w,
+            lambda_f = param_value,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+            ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          )  
+        s_w_d_f_tj <-  
+          diag(s_w_d_f_tj)
+        q <- 
+          compute_meeting_number_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+        size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+        s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+        f <- equilibrium$endogenous[[t]][[j]]$f
+        w <- equilibrium$endogenous[[t]][[j]]$w
+        c_w <- 
+            compute_supply_shock_c_w_tj(
+              m_w = equilibrium$parameter$m_w,
+              m_f = equilibrium$parameter$m_f,
+              beta_w = equilibrium$parameter$beta_w,
+              lambda_w = equilibrium$parameter$lambda_w,
+              x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+              size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+              size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+              mu = equilibrium$shock[[t]][[j]]$mu,
+              ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+              f = equilibrium$endogenous[[t]][[j]]$f,
+              w = equilibrium$endogenous[[t]][[j]]$w,
+              s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+              s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+              owner = equilibrium$exogenous[[t]][[j]]$owner,
+              method_s_w = equilibrium$constant$method_s_w,
+              margin = equilibrium$constant$margin,
+              quadrature_size = equilibrium$constant$quadrature_size,
+              tol = equilibrium$constant$tol
+            )
+        obj <- 
+          q[i] * s_w[i] /( s_f_d_f_tj[i] * size_f) +
+          (
+            q_d_f[i] * s_w[i] /( s_f_d_f_tj[i] * size_f) +
+            q[i] * s_w_d_f_tj[i] /( s_f_d_f_tj[i] * size_f)
+          ) * (f[i] - w[i] - c_w[i])
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "c_f"
+  )
+g_1
+```
+
+### eliciting demand shocks
+#### c_w
+##### check s_w_d_w
+
+```{r}
+target_list <- 
+  list(
+    lambda_w = 
+      seq(
+        0.05, 
+        30,
+        by = 0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = param_value,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      beta_w <- equilibrium$parameter$beta_w
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+        
+      s_w_d_w_tj <- 
+        solve_s_w_d_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = param_value,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = ea_w,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        ) 
+      s_w_d_w_tj <-  
+          diag(s_w_d_w_tj)
+      obj <- s_w_d_w_tj[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point() +
+  geom_line() +
+  theme_classic() +
+  labs(
+    x = "Lambda_w",
+    y = "s_w_d_w ths 1"
+  ) +
+  ylim(
+    0, 
+    max(objective_values$objective)
+    ) 
+g_1
+
+```
+
+##### -s_w/s_w_d_w
+
+```{r}
+target_list <- 
+  list(
+    lambda_w = 
+      seq(
+        0.05, 
+        30,
+        by = 0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = param_value,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      beta_w <- equilibrium$parameter$beta_w
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+        
+      s_w_d_w_tj <- 
+        solve_s_w_d_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = param_value,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = ea_w,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        ) 
+      s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+      s_w_d_w_tj <-  
+          diag(s_w_d_w_tj)
+      obj <- 
+        -s_w[i]/s_w_d_w_tj[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point() +
+  geom_line() +
+  theme_classic() +
+  labs(
+    x = "Lambda_w",
+    y = "-s_w/s_w_d_w"
+  )  +
+  ylim(
+    -4e6,
+    0
+    )
+g_1
+
+```
+
+##### all together
+
+```{r}
+target_list <- 
+  list(
+    lambda_w = 
+      seq(
+        0.05, 
+        30,
+        by = 0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = param_value,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      beta_w <- equilibrium$parameter$beta_w
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+        
+      s_w_d_w_tj <- 
+        solve_s_w_d_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = param_value,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = ea_w,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        ) 
+      s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+      f <- equilibrium$endogenous[[t]][[j]]$f
+      w <- equilibrium$endogenous[[t]][[j]]$w
+      s_w_d_w_tj <-  
+          diag(s_w_d_w_tj)
+      obj <- 
+        -s_w[i]/s_w_d_w_tj[i] + f[i] - w[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point(
+    size = 0.1
+  ) +
+  geom_line() +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_w",
+    y = "c_w"
+  )
+g_1
+```
+
+#### c_f
+##### check s_f_d_f
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        obj <- s_f_d_f_tj[i]
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "s_f_d_f"
+  ) +
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+```
+
+##### check q_d_f
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      meeting_number_d_f <- 
+        compute_meeting_number_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_f_d_f = s_f_d_f_tj
+        )
+        meeting_number_d_f <-  
+            diag(meeting_number_d_f) %>% as.matrix()
+
+        obj <- meeting_number_d_f[i]
+
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q_d_f"
+  ) +
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+```
+
+##### check s_w_d_f
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+
+        s_w_d_f_tj <- 
+          solve_s_w_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_w = equilibrium$parameter$lambda_w,
+            lambda_f = param_value,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = ea_w,
+            ea_f = ea_f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          ) 
+        s_w_d_f_tj <-  
+            diag(s_w_d_f_tj)
+
+        obj <- s_w_d_f_tj[i]
+
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point() +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "s_w_d_f"
+  )
+g_1
+
+```
+
+##### q * s_w / (size_f * s_f_d_f)
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      s_f_d_f_tj <-  
+          diag(s_f_d_f_tj)
+      q <- 
+        compute_meeting_number_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        ) 
+      s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+      size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+      obj <- 
+        q[i] * s_w[i] /( s_f_d_f_tj[i] * size_f)
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q * s_w / (size_f * s_f_d_f)"
+  )  +
+  ylim(
+    min(objective_values$objective),
+    0
+    )
+g_1
+```
+
+##### q_d_f * s_w / (size_f * s_f_d_f)
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+
+      q_d_f <- 
+        compute_meeting_number_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_f_d_f = s_f_d_f_tj
+        )
+      s_f_d_f_tj <-  
+          diag(s_f_d_f_tj)
+      q_d_f <-  
+          diag(q_d_f) %>% as.matrix()
+      s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+      size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+      obj <- 
+        q_d_f[i] * s_w[i] /( s_f_d_f_tj[i] * size_f)
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj,
+          s_f_d_f_tj = s_f_d_f_tj[i],
+          q_d_f = q_d_f[i]
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q_d_f * s_w / (size_f * s_f_d_f)"
+  ) +
+  ylim(
+    0, 
+    max(objective_values$objective)
+    )  
+g_1
+```
+
+##### q * s_w_d_f / (size_f * s_f_d_f)
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        s_w_d_f_tj <- 
+          solve_s_w_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_w = equilibrium$parameter$lambda_w,
+            lambda_f = param_value,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = ea_w,
+            ea_f = ea_f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          )  
+        s_w_d_f_tj <-  
+          diag(s_w_d_f_tj)
+        q <- 
+          compute_meeting_number_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+        size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+        obj <- 
+          q[i] * s_w_d_f_tj[i] /( s_f_d_f_tj[i] * size_f)
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "q * s_w_d_f / (size_f * s_f_d_f)"
+  )
+g_1
+```
+
+##### all together
+
+```{r}
+target_list <- 
+  list(
+    lambda_f = 
+      seq(
+        -0.5, 
+        -30,
+        by = -0.1
+      )
+  )
+
+objective_values <- 
+  foreach(
+    param_value = target_list[[1]],
+    .combine = "rbind",
+    .packages = 
+      c(
+        "Dispatching",
+        "foreach",
+        "magrittr"
+      )
+    ) %dopar% {
+      a_f <- 
+        compute_demand_shock_a_f_tj_rcpp(
+          m_f = equilibrium$parameter$m_f,
+          m_w = equilibrium$parameter$m_w,
+          lambda_f = param_value,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+      a_w <- 
+        compute_demand_shock_nleqslv_a_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+      x_a_w <-  equilibrium$exogenous[[t]][[j]]$x_a_w
+      x_a_f <-  equilibrium$exogenous[[t]][[j]]$x_a_f
+      beta_w <- equilibrium$parameter$beta_w
+      beta_f <- equilibrium$parameter$beta_f
+      ea_w <-
+        a_w - x_a_w %*% beta_w
+      ea_w <-
+        ea_w %>% as.matrix()
+      
+      ea_f <-
+        a_f - x_a_f %*% beta_f
+      ea_f <-
+        ea_f %>% as.matrix()
+      s_f_d_f_tj <- 
+        solve_s_f_d_f_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_f = param_value,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_f = ea_f,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f
+        )
+        s_w_d_f_tj <- 
+          solve_s_w_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            beta_f = equilibrium$parameter$beta_f,
+            lambda_w = equilibrium$parameter$lambda_w,
+            lambda_f = param_value,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = ea_w,
+            ea_f = ea_f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          )  
+
+        q_d_f <- 
+          compute_meeting_number_d_f_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            s_f_d_f = s_f_d_f_tj
+          )
+        s_f_d_f_tj <-  
+            diag(s_f_d_f_tj)
+        q_d_f <-  
+            diag(q_d_f) %>% as.matrix()
+        s_w_d_f_tj <-  
+          diag(s_w_d_f_tj)
+        q <- 
+          compute_meeting_number_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+        size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+        s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+        f <- equilibrium$endogenous[[t]][[j]]$f
+        w <- equilibrium$endogenous[[t]][[j]]$w
+        c_w <- 
+          compute_supply_shock_c_w_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            lambda_w = equilibrium$parameter$lambda_w,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = ea_w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+            owner = equilibrium$exogenous[[t]][[j]]$owner,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          )
+        obj <- 
+          q[i] * s_w[i] /( s_f_d_f_tj[i] * size_f) +
+          (
+            q_d_f[i] * s_w[i] /( s_f_d_f_tj[i] * size_f) +
+            q[i] * s_w_d_f_tj[i] /( s_f_d_f_tj[i] * size_f)
+          ) * (f[i] - w[i] - c_w[i])
+      return(
+        data.frame(
+          value = param_value,
+          objective = obj
+        )
+      )
+    }
+
+
+g_1 <-
+  ggplot(
+    objective_values, 
+    aes(
+      x = value, 
+      y = objective
+    )
+  ) +
+  geom_point()  +
+  geom_hline(
+    yintercept = 0,
+    color = "red"
+  ) +
+  theme_classic() +
+  labs(
+    x = "Lambda_f",
+    y = "c_f"
+  )
+g_1
+```

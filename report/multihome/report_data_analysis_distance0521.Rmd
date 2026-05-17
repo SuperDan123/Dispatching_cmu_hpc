@@ -1,0 +1,2191 @@
+---
+title: "report data analysis (use difference data)"
+author: "Chiho Taniguchi"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 3, fig.width = 4)
+
+library("magrittr")
+library("kableExtra")
+library("ggplot2")
+
+height <- 6
+width <- 8
+
+```
+
+```{r }
+ 
+ data_cz_establishments <- 
+   here::here(file = "output/data_cz_establishments.rds") %>% 
+   readRDS()
+ 
+ data_area_area_distance <- 
+   here::here(file = "cleaned/data_area_area_distance.rds") %>% 
+   readRDS()
+ 
+ ## there are two establishments whose firm_id are NA in data_cz_establishments
+ 
+ data_cz_establishments_distance <- 
+   here::here(file = "output/data_cz_establishments_distance.rds") %>% 
+   readRDS()
+ 
+```
+
+```{r}
+
+data_cz_establishments_distance_na_10 <- 
+  data_cz_establishments_distance %>% 
+  tidyr::drop_na(
+    distance_min_r
+  ) %>% 
+  dplyr::filter(
+    year == 2010 
+  ) %>% 
+  dplyr::group_by(
+    cz
+  ) %>% 
+  dplyr::mutate(
+    N_j2010 = N_jt,
+    n_j2010 = dplyr::n(),
+    distance_min_avr_dropna_2010 = mean(distance_min_r),
+    distance_min_med_dropna_2010 = stats::median(distance_min_r),
+    distance_min_10_dropna_2010 = stats::quantile(distance_min_r, 0.1),
+    distance_min_25_dropna_2010 = stats::quantile(distance_min_r, 0.25),
+    distance_min_75_dropna_2010 = stats::quantile(distance_min_r, 0.75),
+    distance_min_90_dropna_2010 = stats::quantile(distance_min_r, 0.9),
+    wage_avr_2010 = mean(wage),
+    fee_avr_2010 = mean(fee)
+  ) %>% 
+  dplyr::mutate(
+    log_wage_avr_2010 = log(wage_avr_2010),
+    log_fee_avr_2010 = log(fee_avr_2010)
+  ) %>% 
+  dplyr::select(
+    cz,
+    n_j2010,
+    N_j2010,
+    distance_min_avr_dropna_2010,
+    distance_min_med_dropna_2010,
+    distance_min_10_dropna_2010,
+    distance_min_25_dropna_2010,
+    distance_min_75_dropna_2010,
+    distance_min_90_dropna_2010,
+    log_wage_avr_2010,
+    log_fee_avr_2010
+  ) %>% 
+  dplyr::distinct()
+
+data_cz_establishments_distance_na_11 <- 
+  data_cz_establishments_distance %>% 
+  tidyr::drop_na(
+    distance_min_r
+  ) %>% 
+  dplyr::filter(
+    year == 2011 
+  ) %>% 
+  dplyr::group_by(
+    cz
+  ) %>% 
+  dplyr::mutate(
+    N_j2011 = N_jt,
+    n_j2011 = dplyr::n(),
+    distance_min_avr_dropna_2011 = mean(distance_min_r),
+    wage_avr_2011 = mean(wage),
+    fee_avr_2011 = mean(fee)
+  ) %>% 
+  dplyr::mutate(
+    log_wage_avr_2011 = log(wage_avr_2011),
+    log_fee_avr_2011 = log(fee_avr_2011)
+  ) %>% 
+  dplyr::select(
+    cz,
+    year,
+    n_j2011,
+    N_j2011,
+    distance_min_avr_dropna_2011,
+    log_wage_avr_2011,
+    log_fee_avr_2011
+  ) %>% 
+  dplyr::distinct()
+
+data_cz_establishments_distance_na_12 <- 
+  data_cz_establishments_distance %>% 
+  tidyr::drop_na(
+    distance_min_r
+  ) %>% 
+  dplyr::filter(
+    year == 2012 
+  ) %>% 
+  dplyr::group_by(
+    cz
+  ) %>% 
+  dplyr::mutate(
+    N_j2012 = N_jt,
+    n_j2012 = dplyr::n(),
+    distance_min_avr_dropna_2012 = mean(distance_min_r),
+    wage_avr_2012 = mean(wage),
+    fee_avr_2012 = mean(fee)
+  ) %>% 
+  dplyr::mutate(
+    log_wage_avr_2012 = log(wage_avr_2012),
+    log_fee_avr_2012 = log(fee_avr_2012)
+  ) %>% 
+  dplyr::select(
+    cz,
+    year,
+    n_j2012,
+    N_j2012,
+    distance_min_avr_dropna_2012,
+    log_wage_avr_2012,
+    log_fee_avr_2012
+  ) %>% 
+  dplyr::distinct()
+
+data_cz_establishments_distance_na_13 <- 
+  data_cz_establishments_distance %>% 
+  tidyr::drop_na(
+    distance_min_r
+  ) %>% 
+  dplyr::filter(
+    year == 2013 
+  ) %>% 
+  dplyr::group_by(
+    cz
+  ) %>% 
+  dplyr::mutate(
+    N_j2013 = N_jt,
+    n_j2013 = dplyr::n(),
+    distance_min_avr_dropna_2013 = mean(distance_min_r),
+    wage_avr_2013 = mean(wage),
+    fee_avr_2013 = mean(fee)
+  ) %>% 
+  dplyr::mutate(
+    log_wage_avr_2013 = log(wage_avr_2013),
+    log_fee_avr_2013 = log(fee_avr_2013)
+  ) %>% 
+  dplyr::select(
+    cz,
+    year,
+    n_j2013,
+    N_j2013,
+    distance_min_avr_dropna_2013,
+    log_wage_avr_2013,
+    log_fee_avr_2013
+  ) %>% 
+  dplyr::distinct()
+  
+ data_cz_establishments_distance_na_14 <- 
+  data_cz_establishments_distance %>% 
+  tidyr::drop_na(
+    distance_min_r
+  ) %>% 
+   dplyr::filter(
+    year == 2014 
+  ) %>% 
+  dplyr::group_by(
+    cz
+  ) %>% 
+  dplyr::mutate(
+    N_j2014 = N_jt,
+    n_j2014 = dplyr::n(),
+    distance_min_avr_dropna_2014 = mean(distance_min_r),
+    wage_avr_2014 = mean(wage),
+    fee_avr_2014 = mean(fee)
+  ) %>% 
+   dplyr::mutate(
+     log_wage_avr_2014 = log(wage_avr_2014),
+     log_fee_avr_2014 = log(fee_avr_2014)
+   ) %>% 
+   dplyr::select(
+    cz,
+    year,
+    N_j2014,
+    n_j2014,
+    distance_min_avr_dropna_2014,
+    log_wage_avr_2014,
+    log_fee_avr_2014
+  ) %>% 
+  dplyr::distinct()
+ 
+ data_cz_establishments_distance_na_11_10 <- 
+   dplyr::full_join(
+     data_cz_establishments_distance_na_10,
+     data_cz_establishments_distance_na_11,
+     by = "cz"
+   )
+ 
+ data_cz_establishments_distance_na_11_10 <- 
+   data_cz_establishments_distance_na_11_10 %>% 
+   tidyr::drop_na(
+     N_j2010,
+     N_j2011,
+     n_j2010,
+     n_j2011,
+     log_wage_avr_2010,
+     log_wage_avr_2011,
+     log_fee_avr_2010,
+     log_fee_avr_2011,
+     distance_min_avr_dropna_2010
+   ) %>% 
+   dplyr::mutate(
+     N_j1110 = N_j2011 - N_j2010,
+     n_j1110 = n_j2011 - n_j2010,
+     log_wage_1110 = log_wage_avr_2011 - log_wage_avr_2010,
+     log_fee_1110 = log_fee_avr_2011 - log_fee_avr_2010
+   ) %>% 
+   dplyr::mutate(
+     distance_min_avr_dropna_2010_100000 = distance_min_avr_dropna_2010 / 100000,
+     log_wage_diff = log_wage_1110,
+     log_fee_diff = log_fee_1110,
+     Nj_diff = N_j1110
+   ) 
+ 
+  data_cz_establishments_distance_na11 <- 
+    data_cz_establishments_distance_na_11_10 %>% 
+    dplyr::select(
+      cz,
+      year,
+      log_wage_diff,
+      log_fee_diff,
+      Nj_diff,
+      distance_min_avr_dropna_2010,
+      distance_min_avr_dropna_2010_100000,
+      distance_min_med_dropna_2010,
+      distance_min_10_dropna_2010,
+      distance_min_25_dropna_2010,
+      distance_min_75_dropna_2010,
+      distance_min_90_dropna_2010
+    )
+ 
+ 
+ data_cz_establishments_distance_na_12_10 <- 
+   dplyr::full_join(
+     data_cz_establishments_distance_na_10,
+     data_cz_establishments_distance_na_12,
+     by = "cz"
+   )
+ 
+ data_cz_establishments_distance_na_12_10 <- 
+   data_cz_establishments_distance_na_12_10 %>% 
+   tidyr::drop_na(
+     N_j2010,
+     N_j2012,
+     n_j2010,
+     n_j2012,
+     log_wage_avr_2010,
+     log_wage_avr_2012,
+     log_fee_avr_2010,
+     log_fee_avr_2012,
+     distance_min_avr_dropna_2010
+   ) %>% 
+   dplyr::mutate(
+     N_j1210 = N_j2012 - N_j2010,
+     n_j1210 = n_j2012 - n_j2010,
+     log_wage_1210 = log_wage_avr_2012 - log_wage_avr_2010,
+     log_fee_1210 = log_fee_avr_2012 - log_fee_avr_2010
+   ) %>% 
+   dplyr::mutate(
+     distance_min_avr_dropna_2010_100000 = distance_min_avr_dropna_2010 / 100000,
+     log_wage_diff = log_wage_1210 / 2,
+     log_fee_diff = log_fee_1210 / 2,
+     Nj_diff = N_j1210 / 2
+   )
+ 
+ data_cz_establishments_distance_na12 <- 
+    data_cz_establishments_distance_na_12_10 %>% 
+    dplyr::select(
+      cz,
+      year,
+      log_wage_diff,
+      log_fee_diff,
+      Nj_diff,
+      distance_min_avr_dropna_2010,
+      distance_min_avr_dropna_2010_100000,
+      distance_min_med_dropna_2010,
+      distance_min_10_dropna_2010,
+      distance_min_25_dropna_2010,
+      distance_min_75_dropna_2010,
+      distance_min_90_dropna_2010
+    )
+ 
+ data_cz_establishments_distance_na_13_10 <- 
+   dplyr::full_join(
+     data_cz_establishments_distance_na_10,
+     data_cz_establishments_distance_na_13,
+     by = "cz"
+   )
+ 
+ data_cz_establishments_distance_na_13_10 <- 
+   data_cz_establishments_distance_na_13_10 %>% 
+   tidyr::drop_na(
+     N_j2010,
+     N_j2013,
+     n_j2010,
+     n_j2013,
+     log_wage_avr_2010,
+     log_wage_avr_2013,
+     log_fee_avr_2010,
+     log_fee_avr_2013,
+     distance_min_avr_dropna_2010
+   ) %>% 
+   dplyr::mutate(
+     N_j1310 = N_j2013 - N_j2010,
+     n_j1310 = n_j2013 - n_j2010,
+     log_wage_1310 = log_wage_avr_2013 - log_wage_avr_2010,
+     log_fee_1310 = log_fee_avr_2013 - log_fee_avr_2010
+   ) %>% 
+   dplyr::mutate(
+     distance_min_avr_dropna_2010_100000 = distance_min_avr_dropna_2010 / 100000,
+     log_wage_diff = log_wage_1310 / 3,
+     log_fee_diff = log_fee_1310 / 3,
+     Nj_diff = N_j1310 / 3
+   )
+ 
+ data_cz_establishments_distance_na13 <- 
+    data_cz_establishments_distance_na_13_10 %>% 
+    dplyr::select(
+      cz,
+      year,
+      log_wage_diff,
+      log_fee_diff,
+      Nj_diff,
+      distance_min_avr_dropna_2010,
+      distance_min_avr_dropna_2010_100000,
+      distance_min_med_dropna_2010,
+      distance_min_10_dropna_2010,
+      distance_min_25_dropna_2010,
+      distance_min_75_dropna_2010,
+      distance_min_90_dropna_2010
+    )
+ 
+ data_cz_establishments_distance_na_14_10 <- 
+   dplyr::full_join(
+     data_cz_establishments_distance_na_10,
+     data_cz_establishments_distance_na_14,
+     by = "cz"
+   )
+ 
+ data_cz_establishments_distance_na_14_10 <- 
+   data_cz_establishments_distance_na_14_10 %>% 
+   tidyr::drop_na(
+     N_j2010,
+     N_j2014,
+     n_j2010,
+     n_j2014,
+     log_wage_avr_2010,
+     log_wage_avr_2014,
+     log_fee_avr_2010,
+     log_fee_avr_2014,
+     distance_min_avr_dropna_2010
+   ) %>% 
+   dplyr::mutate(
+     N_j1410 = N_j2014 - N_j2010,
+     n_j1410 = n_j2014 - n_j2010,
+     log_wage_1410 = log_wage_avr_2014 - log_wage_avr_2010,
+     log_fee_1410 = log_fee_avr_2014 - log_fee_avr_2010
+   ) %>% 
+   dplyr::mutate(
+     distance_min_avr_dropna_2010_100000 = distance_min_avr_dropna_2010 / 100000,
+     log_wage_diff = log_wage_1410 / 4,
+     log_fee_diff = log_fee_1410 / 4,
+     Nj_diff = N_j1410 / 4
+   )
+ 
+ data_cz_establishments_distance_na14 <- 
+    data_cz_establishments_distance_na_14_10 %>% 
+    dplyr::select(
+      cz,
+      year,
+      log_wage_diff,
+      log_fee_diff,
+      Nj_diff,
+      distance_min_avr_dropna_2010,
+      distance_min_avr_dropna_2010_100000,
+      distance_min_med_dropna_2010,
+      distance_min_10_dropna_2010,
+      distance_min_25_dropna_2010,
+      distance_min_75_dropna_2010,
+      distance_min_90_dropna_2010
+    )
+ 
+ data_cz_establishments_distance_na_all <- 
+   rbind(data_cz_establishments_distance_na11,
+         data_cz_establishments_distance_na12) %>% 
+   rbind(data_cz_establishments_distance_na13) %>% 
+   rbind(data_cz_establishments_distance_na14)
+ 
+ data_cz_establishments_distance_na_all <- 
+   data_cz_establishments_distance_na_all %>% 
+   dplyr::mutate(
+     log_wage_diff_100 = log_wage_diff*100,
+     log_fee_diff_100 = log_fee_diff*100,
+     distance_min_avr_dropna_2010_1000 = distance_min_avr_dropna_2010 / 1000,
+     margin = log_fee_diff - log_wage_diff,
+     distance_min_med_dropna_2010_100000 = distance_min_med_dropna_2010 / 100000,
+     distance_min_10_dropna_2010_100000 = distance_min_10_dropna_2010 / 100000,
+     distance_min_25_dropna_2010_100000 = distance_min_25_dropna_2010 / 100000,
+     distance_min_75_dropna_2010_100000 = distance_min_75_dropna_2010 / 100000,
+     distance_min_90_dropna_2010_100000 = distance_min_90_dropna_2010 / 100000
+   )
+ 
+ 
+```
+
+
+
+```{r}
+
+binscatter_mean <- function(res, v, title){
+
+  df = data_cz_establishments_distance_na_all
+  
+  
+  fitted <- as.data.frame(res$fitted.values) 
+  fitted <- set_colnames(x = fitted, value = c("fitted"))
+  
+  
+  df <- 
+    cbind(df,
+          fitted) 
+  
+  residuals = df[,v] - df[, "fitted"] 
+  
+  residuals <- set_colnames(x = residuals, value = c("residuals"))
+  
+  df <- 
+    cbind(df,
+          residuals)
+  
+  df_mean <- 
+    df %>% 
+    dplyr::select(
+      cz,
+      distance_min_avr_dropna_2010_100000,
+      residuals
+      ) %>% 
+    dplyr::distinct() %>%
+    dplyr::arrange(
+      cz
+      ) 
+  
+  id_1 <- c(1:nrow(df_mean)) 
+  
+  df_mean <-
+    cbind(
+      id_1,
+      df_mean
+      ) %>% 
+    dplyr::rename(
+      num = "...1"
+    )
+  
+num_groups <- 30
+group_names <- paste0("Group ", 1:num_groups)
+
+df_mean$group <- 
+  cut(
+    df_mean$num, 
+    breaks = num_groups, 
+    labels = group_names, 
+    include.lowest = TRUE
+    )
+
+  df_mean <-
+    df_mean %>% 
+    dplyr::group_by(
+      group
+      ) %>% 
+    dplyr::mutate(
+      distance_min_avr_dropna_2010_100000_med = stats::median(distance_min_avr_dropna_2010_100000),
+      residuals_avr = mean(residuals)
+      ) %>% 
+    dplyr::ungroup()
+ 
+ df_mean_avr <- 
+   df_mean %>% 
+   dplyr::select(
+     distance_min_avr_dropna_2010_100000_med,
+     residuals_avr
+   ) %>% 
+   dplyr::distinct()
+ 
+ g <- ggplot() +
+   geom_point(
+     data = df_mean_avr,
+     mapping = aes(x = distance_min_avr_dropna_2010_100000_med, y = residuals_avr),
+     size = 0.1
+   ) +
+   stat_smooth(
+   method = "lm",
+   data = df_mean_avr,
+   mapping = aes(x = distance_min_avr_dropna_2010_100000_med, y = residuals_avr),
+    se = FALSE,
+    size = 0.1
+   ) +
+   xlab("distance_min_avr_dropna_2010_100000") +
+   ylab("residuals") +　
+   ggtitle(title) +
+   theme_classic()
+ 
+ print(g)
+}
+
+
+
+```
+
+# use all years' data
+全ての年度のデータを使用するため、Nj_diff =（N_jt ー N_j(2010)）/(t-2010)及び、log_wage_diff = （ln(wage)_jt ー ln(fee)_j(2010)）/(t-2010)、log_fee_diff（ln(fee)_jt ー ln(wage)_j(2010)）/(t-2010)を作成して回帰する。<b>
+distance_min_avr_dropna_2010_100000は、kmを100で割った値。元データの距離の単位がメートルで、まず1000で除して、キロメートルに修正。その後、一括で100で割っている。
+
+# mean
+
+## summary of distance_min_avr_dropna_2010_100000
+```{r}
+
+summary(data_cz_establishments_distance_na_all$distance_min_avr_dropna_2010_100000)
+```
+
+```{r}
+
+plot_average <- 
+  data_cz_establishments_distance_na_all %>% 
+  dplyr::filter(
+    year == 2011
+  ) %>% 
+  dplyr::select(
+    distance_min_avr_dropna_2010_100000,
+    cz
+  ) %>% 
+  ggplot() +
+  geom_histogram(
+    aes(x = distance_min_avr_dropna_2010_100000),
+    size = 0.5
+  ) +
+  labs(
+    x = "mean"
+    ) +
+  theme_classic()
+
+print(plot_average)
+
+
+```
+
+## first stage (mean)
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   estimatr::lm_robust(
+     formula = Nj_diff ~ distance_min_avr_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+
+```{r}
+
+binscatter_mean(results[[1]], "Nj_diff", "mean first stage")
+
+```
+
+## reduced form (mean)
+
+```{r}
+
+resultr <- list()
+ 
+ resultr[[1]] <- 
+   estimatr::lm_robust(
+     formula = log_wage_diff ~ distance_min_avr_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+ 
+ resultr[[2]] <- 
+   estimatr::lm_robust(
+     formula = log_fee_diff ~ distance_min_avr_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+ 
+resultr[[3]] <- 
+   estimatr::lm_robust(
+     formula = margin ~ distance_min_avr_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr[[1]],
+     "log_fee_diff" = resultr[[2]],
+     "log_diff_fee - log_diff_wage" = resultr[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+```{r}
+binscatter_mean(resultr[[1]], "log_wage_diff", "mean wage reduced form")
+
+```
+
+```{r}
+binscatter_mean(resultr[[2]], "log_fee_diff", "mean fee reduced form")
+```
+
+```{r}
+binscatter_mean(resultr[[3]], "margin", "mean (fee - wage) reduced form")
+```
+
+## structural form (mean){.tabset}
+
+### 2nd stage
+
+```{r}
+
+resultss <- list()
+
+resultss[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | Nj_diff ~ distance_min_avr_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+resultss[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | Nj_diff ~ distance_min_avr_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+resultss[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | Nj_diff ~ distance_min_avr_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+results_s <- 
+  list(
+    "log_diff_wage" = resultss[[1]],
+    "log_diff_fee" = resultss[[2]],
+    "log_diff_fee - log_diff_wage" = resultss[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+```{r}
+binscatter_mean(resultss[[1]], "log_wage_diff", "mean wage structural form")
+```
+
+```{r}
+binscatter_mean(resultss[[2]], "log_fee_diff", "mean wage structural form")
+```
+
+```{r}
+binscatter_mean(resultss[[3]], "margin", "mean (fee - wage) structural form")
+```
+
+### 1st stage
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+# median
+```{r}
+
+binscatter_med <- function(res, v, title){
+
+  df = data_cz_establishments_distance_na_all
+  
+  
+  fitted <- as.data.frame(res$fitted.values) 
+  fitted <- set_colnames(x = fitted, value = c("fitted"))
+  
+  
+  df <- 
+    cbind(df,
+          fitted) 
+  
+  residuals = df[,v] - df[, "fitted"] 
+  
+  residuals <- set_colnames(x = residuals, value = c("residuals"))
+  
+  df <- 
+    cbind(df,
+          residuals)
+  
+  df_mean <- 
+    df %>% 
+    dplyr::select(
+      cz,
+      distance_min_med_dropna_2010_100000,
+      residuals
+      ) %>% 
+    dplyr::distinct() %>%
+    dplyr::arrange(
+      cz
+      ) 
+  
+  id_1 <- c(1:nrow(df_mean)) 
+  
+  df_mean <-
+    cbind(
+      id_1,
+      df_mean
+      ) %>% 
+    dplyr::rename(
+      num = "...1"
+    )
+  
+num_groups <- 30
+group_names <- paste0("Group ", 1:num_groups)
+
+df_mean$group <- cut(df_mean$num, breaks = num_groups, labels = group_names, include.lowest = TRUE)
+
+  df_mean <-
+    df_mean %>% 
+    dplyr::group_by(
+      group
+      ) %>% 
+    dplyr::mutate(
+      distance_min_med_dropna_2010_100000_med = stats::median(distance_min_med_dropna_2010_100000),
+      residuals_avr = mean(residuals)
+      ) %>% 
+    dplyr::ungroup()
+ 
+ df_mean_avr <- 
+   df_mean %>% 
+   dplyr::select(
+     distance_min_med_dropna_2010_100000_med,
+     residuals_avr
+   ) %>% 
+   dplyr::distinct()
+ 
+ g <- ggplot() +
+   geom_point(
+     data = df_mean_avr,
+     mapping = aes(x = distance_min_med_dropna_2010_100000_med, y = residuals_avr),
+     size = 0.1
+   ) +
+   stat_smooth(
+   method = "lm",
+   data = df_mean_avr,
+   mapping = aes(x = distance_min_med_dropna_2010_100000_med, y = residuals_avr),
+    se = FALSE,
+    size = 0.1
+   ) +
+   xlab("distance_min_med_dropna_2010_100000") +
+   ylab("residuals") +　
+   ggtitle(title) +
+   theme_classic()
+ 
+ print(g)
+}
+
+
+```
+
+## summary of distance_min_med_dropna_2010_100000
+```{r}
+
+summary(data_cz_establishments_distance_na_all$distance_min_med_dropna_2010_100000)
+```
+
+```{r}
+
+plot_med <- 
+  data_cz_establishments_distance_na_all %>% 
+  dplyr::filter(
+    year == 2011
+  ) %>% 
+  dplyr::select(
+    distance_min_med_dropna_2010_100000,
+    cz
+  ) %>% 
+  ggplot() +
+  geom_histogram(
+    aes(x = distance_min_med_dropna_2010_100000),
+    size = 0.5
+  ) +
+  labs(
+    x = "median"
+    ) +
+  theme_classic()
+
+print(plot_med)
+
+
+```
+
+## first stage (median)
+
+```{r}
+
+resultsmed <- list()
+ 
+ resultsmed[[1]] <- 
+   estimatr::lm_robust(
+     formula = Nj_diff ~ distance_min_med_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = resultsmed[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+```{r}
+binscatter_med(resultsmed[[1]], "Nj_diff", "median first stage")
+```
+## reduced form (median)
+
+```{r}
+
+resultrmed <- list()
+ 
+ resultrmed[[1]] <- 
+   estimatr::lm_robust(
+     formula = log_wage_diff ~ distance_min_med_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+ 
+ resultrmed[[2]] <- 
+   estimatr::lm_robust(
+     formula = log_fee_diff ~ distance_min_med_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+ 
+ resultrmed[[3]] <- 
+   estimatr::lm_robust(
+     formula = margin ~ distance_min_med_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultrmed[[1]],
+     "log_fee_diff" = resultrmed[[2]],
+     "log_diff_fee - log_diff_wage" = resultrmed[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+```{r}
+binscatter_med(resultrmed[[1]], "log_wage_diff", "median wage reduced form")
+```
+```{r}
+binscatter_med(resultrmed[[2]], "log_fee_diff", "median fee reduced form")
+```
+
+```{r}
+binscatter_med(resultrmed[[3]], "margin", "median (fee - wage) reduced form")
+```
+## structural form (median){.tabset}
+
+### 2nd stage
+
+```{r}
+
+resultssmed <- list()
+
+resultssmed[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | Nj_diff ~ distance_min_med_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+resultssmed[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | Nj_diff ~ distance_min_med_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+resultssmed[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | Nj_diff ~ distance_min_med_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+results_s <- 
+  list(
+    "log_diff_wage" = resultssmed[[1]],
+    "log_diff_fee" = resultssmed[[2]],
+    "log_diff_fee - log_diff_wage" = resultssmed[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+```{r}
+binscatter_med(resultssmed[[1]], "log_wage_diff", "median wage structural form")
+```
+
+```{r}
+binscatter_med(resultssmed[[2]], "log_fee_diff", "median wage structural form")
+```
+
+```{r}
+binscatter_med(resultssmed[[3]], "margin", "median (fee - wage) structural form")
+```
+### 1st stage
+
+```{r}
+
+modelsummary::modelsummary(
+  resultssmed[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+# 10 percentile
+
+```{r}
+
+binscatter_10 <- function(res, v, title){
+
+  df = data_cz_establishments_distance_na_all
+  
+  
+  fitted <- as.data.frame(res$fitted.values) 
+  fitted <- set_colnames(x = fitted, value = c("fitted"))
+  
+  
+  df <- 
+    cbind(df,
+          fitted) 
+  
+  residuals = df[,v] - df[, "fitted"] 
+  
+  residuals <- set_colnames(x = residuals, value = c("residuals"))
+  
+  df <- 
+    cbind(df,
+          residuals)
+  
+  df_mean <- 
+    df %>% 
+    dplyr::select(
+      cz,
+      distance_min_10_dropna_2010_100000,
+      residuals
+      ) %>% 
+    dplyr::distinct() %>%
+    dplyr::arrange(
+      cz
+      ) 
+  
+  id_1 <- c(1:nrow(df_mean)) 
+  
+  df_mean <-
+    cbind(
+      id_1,
+      df_mean
+      ) %>% 
+    dplyr::rename(
+      num = "...1"
+    )
+  
+num_groups <- 30
+group_names <- paste0("Group ", 1:num_groups)
+
+df_mean$group <- cut(df_mean$num, breaks = num_groups, labels = group_names, include.lowest = TRUE)
+
+  df_mean <-
+    df_mean %>% 
+    dplyr::group_by(
+      group
+      ) %>% 
+    dplyr::mutate(
+      distance_min_10_dropna_2010_100000_med = stats::median(distance_min_10_dropna_2010_100000),
+      residuals_avr = mean(residuals)
+      ) %>% 
+    dplyr::ungroup()
+ 
+ df_mean_avr <- 
+   df_mean %>% 
+   dplyr::select(
+     distance_min_10_dropna_2010_100000_med,
+     residuals_avr
+   ) %>% 
+   dplyr::distinct()
+ 
+ g <- ggplot() +
+   geom_point(
+     data = df_mean_avr,
+     mapping = aes(x = distance_min_10_dropna_2010_100000_med, y = residuals_avr),
+     size = 0.1
+   ) +
+   stat_smooth(
+   method = "lm",
+   data = df_mean_avr,
+   mapping = aes(x = distance_min_10_dropna_2010_100000_med, y = residuals_avr),
+    se = FALSE,
+    size = 0.1
+   ) +
+   xlab("distance_min_10_dropna_2010_100000") +
+   ylab("residuals") +　
+   ggtitle(title) +
+   theme_classic()
+ 
+ print(g)
+}
+
+
+```
+
+## summary of distance_min_10_dropna_2010_100000
+
+```{r}
+
+summary(data_cz_establishments_distance_na_all$distance_min_10_dropna_2010_100000)
+```
+
+```{r}
+
+plot_10 <- 
+  data_cz_establishments_distance_na_all %>% 
+  dplyr::filter(
+    year == 2011
+  ) %>% 
+  dplyr::select(
+    distance_min_10_dropna_2010_100000,
+    cz
+  ) %>% 
+  ggplot() +
+  geom_histogram(
+    aes(x = distance_min_10_dropna_2010_100000),
+    size = 0.5
+  ) +
+  labs(
+    x = "10 pernentile"
+    ) +
+  theme_classic()
+
+print(plot_10)
+
+
+```
+
+
+## first stage (10 percentile)
+
+```{r}
+
+results10 <- list()
+ 
+ results10[[1]] <- 
+   estimatr::lm_robust(
+     formula = Nj_diff ~ distance_min_10_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results10[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+```{r}
+binscatter_10(results10[[1]], "Nj_diff", "10 percentile first stage")
+
+
+```
+## reduced form (10 percentile)
+
+```{r}
+
+resultr10 <- list()
+ 
+ resultr10[[1]] <- 
+   estimatr::lm_robust(
+     formula = log_wage_diff ~ distance_min_10_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+ 
+ resultr10[[2]] <- 
+   estimatr::lm_robust(
+     formula = log_fee_diff ~ distance_min_10_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+ 
+ resultr10[[3]] <- 
+   estimatr::lm_robust(
+     formula = margin ~ distance_min_10_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr10[[1]],
+     "log_fee_diff" = resultr10[[2]],
+     "log_diff_fee - log_diff_wage" = resultr10[[3]]
+   )
+ 
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+```{r}
+binscatter_10(resultr10[[1]], "log_wage_diff", "10 percentile wage reduced form")
+```
+```{r}
+binscatter_10(resultr10[[2]], "log_fee_diff", "percentile fee reduced form")
+```
+
+```{r}
+binscatter_10(resultr10[[3]], "margin", "percentile (fee - wage) reduced form")
+```
+## structural form (10 percentile){.tabset}
+
+### 2nd stage
+
+```{r}
+
+resultss10 <- list()
+
+resultss10[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | Nj_diff ~ distance_min_10_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+resultss10[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | Nj_diff ~ distance_min_10_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+resultss10[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | Nj_diff ~ distance_min_10_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+results_s <- 
+  list(
+    "log_diff_wage" = resultss10[[1]],
+    "log_diff_fee" = resultss10[[2]],
+    "log_diff_fee - log_diff_wage" = resultss10[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+```{r}
+binscatter_10(resultss10[[1]], "log_wage_diff", "10 percentile wage structural form")
+```
+
+```{r}
+binscatter_10(resultss10[[2]], "log_fee_diff", "10 percentile wage structural form")
+```
+
+```{r}
+binscatter_10(resultss10[[3]], "margin", "10 percentile (fee - wage) structural form")
+```
+
+### 1st stage
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss10[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+
+# 25 percentile
+```{r}
+
+binscatter_25 <- function(res, v, title){
+
+  df = data_cz_establishments_distance_na_all
+  
+  
+  fitted <- as.data.frame(res$fitted.values) 
+  fitted <- set_colnames(x = fitted, value = c("fitted"))
+  
+  
+  df <- 
+    cbind(df,
+          fitted) 
+  
+  residuals = df[,v] - df[, "fitted"] 
+  
+  residuals <- set_colnames(x = residuals, value = c("residuals"))
+  
+  df <- 
+    cbind(df,
+          residuals)
+  
+  df_mean <- 
+    df %>% 
+    dplyr::select(
+      cz,
+      distance_min_25_dropna_2010_100000,
+      residuals
+      ) %>% 
+    dplyr::distinct() %>%
+    dplyr::arrange(
+      cz
+      ) 
+  
+  id_1 <- c(1:nrow(df_mean)) 
+  
+  df_mean <-
+    cbind(
+      id_1,
+      df_mean
+      ) %>% 
+    dplyr::rename(
+      num = "...1"
+    )
+  
+num_groups <- 30
+group_names <- paste0("Group ", 1:num_groups)
+
+df_mean$group <- cut(df_mean$num, breaks = num_groups, labels = group_names, include.lowest = TRUE)
+
+  df_mean <-
+    df_mean %>% 
+    dplyr::group_by(
+      group
+      ) %>% 
+    dplyr::mutate(
+      distance_min_25_dropna_2010_100000_med = stats::median(distance_min_25_dropna_2010_100000),
+      residuals_avr = mean(residuals)
+      ) %>% 
+    dplyr::ungroup()
+ 
+ df_mean_avr <- 
+   df_mean %>% 
+   dplyr::select(
+     distance_min_25_dropna_2010_100000_med,
+     residuals_avr
+   ) %>% 
+   dplyr::distinct()
+ 
+ g <- ggplot() +
+   geom_point(
+     data = df_mean_avr,
+     mapping = aes(x = distance_min_25_dropna_2010_100000_med, y = residuals_avr),
+     size = 0.1
+   ) +
+   stat_smooth(
+   method = "lm",
+   data = df_mean_avr,
+   mapping = aes(x = distance_min_25_dropna_2010_100000_med, y = residuals_avr),
+    se = FALSE,
+    size = 0.1
+   ) +
+   xlab("distance_min_25_dropna_2010_100000") +
+   ylab("residuals") +　
+   ggtitle(title) +
+   theme_classic()
+ 
+ print(g)
+}
+
+
+```
+
+## summary of distance_min_25_dropna_2010_100000
+```{r}
+
+summary(data_cz_establishments_distance_na_all$distance_min_25_dropna_2010_100000)
+```
+
+```{r}
+
+plot_25 <- 
+  data_cz_establishments_distance_na_all %>% 
+  dplyr::filter(
+    year == 2011
+  ) %>% 
+  dplyr::select(
+    distance_min_25_dropna_2010_100000,
+    cz
+  ) %>% 
+  ggplot() +
+  geom_histogram(
+    aes(x = distance_min_25_dropna_2010_100000),
+    size = 0.5
+  ) +
+  labs(
+    x = "25 pernentile"
+    ) +
+  theme_classic()
+
+print(plot_25)
+
+
+```
+
+
+## first stage (25 percentile)
+
+```{r}
+
+results25 <- list()
+ 
+ results25[[1]] <- 
+   estimatr::lm_robust(
+     formula = Nj_diff ~ distance_min_25_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results25[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+```{r}
+
+binscatter_25(results25[[1]], "Nj_diff", "25 percentile first stage")
+```
+## reduced form (25 percentile)
+
+```{r}
+
+resultr25 <- list()
+ 
+ resultr25[[1]] <- 
+   estimatr::lm_robust(
+     formula = log_wage_diff ~ distance_min_25_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+ 
+ resultr25[[2]] <- 
+   estimatr::lm_robust(
+     formula = log_fee_diff ~ distance_min_25_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+ 
+ resultr25[[3]] <- 
+   estimatr::lm_robust(
+     formula = margin ~ distance_min_25_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr25[[1]],
+     "log_fee_diff" = resultr25[[2]],
+     "llog_diff_fee - log_diff_wage" = resultr25[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+```{r}
+binscatter_25(resultr25[[1]], "log_wage_diff", "25 percentile wage reduced form")
+```
+
+```{r}
+binscatter_25(resultr25[[2]], "log_fee_diff", "25 percentile wage reduced form")
+```
+
+```{r}
+binscatter_25(resultr25[[3]], "margin", "25 percentile (fee - wage) reduced form")
+```
+## structural form (25 percentile){.tabset}
+
+### 2nd stage
+
+```{r}
+
+resultss25 <- list()
+
+resultss25[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | Nj_diff ~ distance_min_25_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+resultss25[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | Nj_diff ~ distance_min_25_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+resultss25[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | Nj_diff ~ distance_min_25_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+results_s <- 
+  list(
+    "log_diff_wage" = resultss25[[1]],
+    "log_diff_fee" = resultss25[[2]],
+    "log_diff_fee - log_diff_wage" = resultss25[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+```{r}
+binscatter_25(resultss25[[1]], "log_wage_diff", "25 percentile wage structural form")
+```
+
+```{r}
+binscatter_25(resultss25[[2]], "log_fee_diff", "25 percentile wage structural form")
+```
+
+```{r}
+binscatter_25(resultss25[[3]], "margin", "25 percentile (fee - wage) structural form")
+```
+
+### 1st stage
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss25[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+# 75 percentile
+
+```{r}
+
+binscatter_75 <- function(res, v, title){
+
+  df = data_cz_establishments_distance_na_all
+  
+  
+  fitted <- as.data.frame(res$fitted.values) 
+  fitted <- set_colnames(x = fitted, value = c("fitted"))
+  
+  
+  df <- 
+    cbind(df,
+          fitted) 
+  
+  residuals = df[,v] - df[, "fitted"] 
+  
+  residuals <- set_colnames(x = residuals, value = c("residuals"))
+  
+  df <- 
+    cbind(df,
+          residuals)
+  
+  df_mean <- 
+    df %>% 
+    dplyr::select(
+      cz,
+      distance_min_75_dropna_2010_100000,
+      residuals
+      ) %>% 
+    dplyr::distinct() %>%
+    dplyr::arrange(
+      cz
+      ) 
+  
+  id_1 <- c(1:nrow(df_mean)) 
+  
+  df_mean <-
+    cbind(
+      id_1,
+      df_mean
+      ) %>% 
+    dplyr::rename(
+      num = "...1"
+    )
+  
+num_groups <- 30
+group_names <- paste0("Group ", 1:num_groups)
+
+df_mean$group <- cut(df_mean$num, breaks = num_groups, labels = group_names, include.lowest = TRUE)
+
+  df_mean <-
+    df_mean %>% 
+    dplyr::group_by(
+      group
+      ) %>% 
+    dplyr::mutate(
+      distance_min_75_dropna_2010_100000_med = stats::median(distance_min_75_dropna_2010_100000),
+      residuals_avr = mean(residuals)
+      ) %>% 
+    dplyr::ungroup()
+ 
+ df_mean_avr <- 
+   df_mean %>% 
+   dplyr::select(
+     distance_min_75_dropna_2010_100000_med,
+     residuals_avr
+   ) %>% 
+   dplyr::distinct()
+ 
+ g <- ggplot() +
+   geom_point(
+     data = df_mean_avr,
+     mapping = aes(x = distance_min_75_dropna_2010_100000_med, y = residuals_avr),
+     size = 0.1
+   ) +
+   stat_smooth(
+   method = "lm",
+   data = df_mean_avr,
+   mapping = aes(x = distance_min_75_dropna_2010_100000_med, y = residuals_avr),
+    se = FALSE,
+    size = 0.1
+   ) +
+   xlab("distance_min_75_dropna_2010_100000") +
+   ylab("residuals") +　
+   ggtitle(title) +
+   theme_classic()
+ 
+ print(g)
+}
+
+
+```
+
+## summary of distance_min_75_dropna_2010_100000
+
+```{r}
+
+summary(data_cz_establishments_distance_na_all$distance_min_75_dropna_2010_100000)
+```
+
+```{r}
+
+plot_75 <- 
+  data_cz_establishments_distance_na_all %>% 
+  dplyr::filter(
+    year == 2011
+  ) %>% 
+  dplyr::select(
+    distance_min_75_dropna_2010_100000,
+    cz
+  ) %>% 
+  ggplot() +
+  geom_histogram(
+    aes(x = distance_min_75_dropna_2010_100000),
+    size = 0.5
+  ) +
+  labs(
+    x = "75 pernentile"
+    ) +
+  theme_classic()
+
+print(plot_75)
+
+
+```
+
+## first stage (75 percentile)
+
+```{r}
+
+results75 <- list()
+ 
+ results75[[1]] <- 
+   estimatr::lm_robust(
+     formula = Nj_diff ~ distance_min_75_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results75[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+```{r}
+
+binscatter_75(results75[[1]], "Nj_diff", "75 percentile first stage")
+```
+## reduced form (75 percentile)
+
+```{r}
+
+resultr75 <- list()
+ 
+ resultr75[[1]] <- 
+   estimatr::lm_robust(
+     formula = log_wage_diff ~ distance_min_75_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+ 
+ resultr75[[2]] <- 
+   estimatr::lm_robust(
+     formula = log_fee_diff ~ distance_min_75_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+ 
+ resultr75[[3]] <- 
+   estimatr::lm_robust(
+     formula = margin ~ distance_min_75_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr75[[1]],
+     "log_fee_diff" = resultr75[[2]],
+     "log_diff_fee - log_diff_wage" = resultr75[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+```{r}
+binscatter_75(resultr75[[1]], "log_wage_diff", "75 percentile wage reduced form")
+```
+
+```{r}
+binscatter_75(resultr75[[2]], "log_fee_diff", "75 percentile wage reduced form")
+```
+
+```{r}
+binscatter_75(resultr75[[3]], "margin", "75 percentile (fee - wage) reduced form")
+```
+## structural form (75 percentile){.tabset}
+
+### 2nd stage
+
+```{r}
+
+resultss75 <- list()
+
+resultss75[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | Nj_diff ~ distance_min_75_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+resultss75[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | Nj_diff ~ distance_min_75_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+resultss75[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | Nj_diff ~ distance_min_75_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+results_s <- 
+  list(
+    "log_diff_wage" = resultss75[[1]],
+    "log_diff_fee" = resultss75[[2]],
+    "log_diff_fee - log_diff_wage" = resultss75[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+```{r}
+binscatter_75(resultss75[[1]], "log_wage_diff", "75 percentile wage structural form")
+```
+
+```{r}
+binscatter_75(resultss75[[2]], "log_fee_diff", "75 percentile wage structural form")
+```
+
+```{r}
+binscatter_75(resultss75[[3]], "margin", "75 percentile (fee - wage) structural form")
+```
+### 1st stage
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss75[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+# 90 percentile
+
+```{r}
+
+binscatter_90 <- function(res, v, title){
+
+  df = data_cz_establishments_distance_na_all
+  
+  
+  fitted <- as.data.frame(res$fitted.values) 
+  fitted <- set_colnames(x = fitted, value = c("fitted"))
+  
+  
+  df <- 
+    cbind(df,
+          fitted) 
+  
+  residuals = df[,v] - df[, "fitted"] 
+  
+  residuals <- set_colnames(x = residuals, value = c("residuals"))
+  
+  df <- 
+    cbind(df,
+          residuals)
+  
+  df_mean <- 
+    df %>% 
+    dplyr::select(
+      cz,
+      distance_min_90_dropna_2010_100000,
+      residuals
+      ) %>% 
+    dplyr::distinct() %>%
+    dplyr::arrange(
+      cz
+      ) 
+  
+  id_1 <- c(1:nrow(df_mean)) 
+  
+  df_mean <-
+    cbind(
+      id_1,
+      df_mean
+      ) %>% 
+    dplyr::rename(
+      num = "...1"
+    )
+  
+num_groups <- 30
+group_names <- paste0("Group ", 1:num_groups)
+
+df_mean$group <- cut(df_mean$num, breaks = num_groups, labels = group_names, include.lowest = TRUE)
+
+  df_mean <-
+    df_mean %>% 
+    dplyr::group_by(
+      group
+      ) %>% 
+    dplyr::mutate(
+      distance_min_90_dropna_2010_100000_med = stats::median(distance_min_90_dropna_2010_100000),
+      residuals_avr = mean(residuals)
+      ) %>% 
+    dplyr::ungroup()
+ 
+ df_mean_avr <- 
+   df_mean %>% 
+   dplyr::select(
+     distance_min_90_dropna_2010_100000_med,
+     residuals_avr
+   ) %>% 
+   dplyr::distinct()
+ 
+ g <- ggplot() +
+   geom_point(
+     data = df_mean_avr,
+     mapping = aes(x = distance_min_90_dropna_2010_100000_med, y = residuals_avr),
+     size = 0.1
+   ) +
+   stat_smooth(
+   method = "lm",
+   data = df_mean_avr,
+   mapping = aes(x = distance_min_90_dropna_2010_100000_med, y = residuals_avr),
+    se = FALSE,
+    size = 0.1
+   ) +
+   xlab("distance_min_90_dropna_2010_100000") +
+   ylab("residuals") +　
+   ggtitle(title) +
+   theme_classic()
+ 
+ print(g)
+}
+
+
+```
+## summary of distance_min_90_dropna_2010_100000
+
+```{r}
+
+summary(data_cz_establishments_distance_na_all$distance_min_90_dropna_2010_100000)
+```
+
+```{r}
+
+plot_90 <- 
+  data_cz_establishments_distance_na_all %>% 
+  dplyr::filter(
+    year == 2011
+  ) %>% 
+  dplyr::select(
+    distance_min_90_dropna_2010_100000,
+    cz
+  ) %>% 
+  ggplot() +
+  geom_histogram(
+    aes(x = distance_min_90_dropna_2010_100000),
+    size = 0.5
+  ) +
+  labs(
+    x = "90 pernentile"
+    ) +
+  theme_classic()
+
+print(plot_90)
+
+
+```
+
+## first stage (90 percentile)
+
+```{r}
+
+results90 <- list()
+ 
+ results90[[1]] <- 
+   estimatr::lm_robust(
+     formula = Nj_diff ~ distance_min_90_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+
+ 
+ result <- 
+   list(
+     "Nj_diff" = results90[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+
+```{r}
+
+binscatter_90(results90[[1]], "Nj_diff", "90 percentile first stage")
+
+```
+
+## reduced form (90 percentile)
+
+```{r}
+
+resultr90 <- list()
+ 
+ resultr90[[1]] <- 
+   estimatr::lm_robust(
+     formula = log_wage_diff ~ distance_min_90_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+ 
+ resultr90[[2]] <- 
+   estimatr::lm_robust(
+     formula = log_fee_diff ~ distance_min_90_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+
+ resultr90[[3]] <- 
+   estimatr::lm_robust(
+     formula = margin ~ distance_min_90_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_all
+   )
+
+ result_r <- 
+   list(
+     "log_wage_diff" = resultr90[[1]],
+     "log_fee_diff" = resultr90[[2]],
+     "log_diff_wage - log_diff_fee" = resultr90[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+```{r}
+binscatter_90(resultr90[[1]], "log_wage_diff", "90 percentile wage reduced form")
+```
+
+```{r}
+binscatter_90(resultr90[[2]], "log_fee_diff", "90 percentile wage reduced form")
+```
+
+```{r}
+binscatter_90(resultr90[[3]], "margin", "90 percentile (fee - wage) reduced form")
+```
+## structural form (90 percentile){.tabset}
+
+### 2nd stage
+
+```{r}
+
+resultss90 <- list()
+
+resultss90[[1]] <- 
+  fixest::feols(
+    fml = log_wage_diff ~ 1 | Nj_diff ~ distance_min_90_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+resultss90[[2]] <- 
+  fixest::feols(
+    fml = log_fee_diff ~ 1 | Nj_diff ~ distance_min_90_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+resultss90[[3]] <- 
+  fixest::feols(
+    fml = margin ~ 1 | Nj_diff ~ distance_min_90_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_all,
+    se = "hetero"
+  )
+
+results_s <- 
+  list(
+    "log_diff_wage" = resultss90[[1]],
+    "log_diff_fee" = resultss90[[2]],
+    "log_diff_fee - log_diff_wage" = resultss90[[3]]
+  )
+
+modelsummary::modelsummary(
+  results_s,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+```{r}
+binscatter_90(resultss90[[1]], "log_wage_diff", "90 percentile wage structural form")
+```
+
+```{r}
+binscatter_90(resultss90[[2]], "log_fee_diff", "90 percentile wage structural form")
+```
+
+```{r}
+binscatter_90(resultss90[[3]], "margin", "90 percentile (fee - wage) structural form")
+```
+
+### 1st stage
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss90[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+
+
+
+
+
+
+
+

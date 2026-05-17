@@ -1,0 +1,164 @@
+---
+title: "check_variation"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = F, warning = F, include = F}
+rm(list = ls())
+gc()
+
+library(magrittr)
+library(ggplot2)
+library(stargazer)
+library(lfe)
+library(gtools)
+library(knitr)
+library(psych)
+```
+
+
+```{r, include = F}
+load("../data/data_2010_2014_cleaned.RData")
+load("../data/num_platforms.RData")
+```
+
+# Variations across commuting zones
+
+
+```{r, include = F}
+
+num_platforms <- num_platforms %>% 
+  dplyr::arrange(cz, year) %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::mutate(N_ldif = log(N) - log(N_lag),
+                N_tokutei_ldif = log(N_tokutei) - log(N_tokutei_lag),
+                N_ippan_ldif = log(N_ippan) - log(N_ippan_lag)) %>% 
+  dplyr::ungroup()
+
+```
+
+- Left: Histogram of the number of ippan platforms
+- Right: Histogram of the growth of the number of ippan platforms
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+# g1 <- ggplot(num_platforms, aes(x = log(N))) +
+#   geom_histogram()
+# 
+# g2 <- ggplot(num_platforms, aes(x = log(N_tokutei))) +
+#   geom_histogram()
+
+
+g3 <- ggplot(num_platforms, aes(x = log(N_ippan))) +
+  geom_histogram() + xlab("log(N)")
+
+g4 <- ggplot(num_platforms, aes(x = N_ippan_ldif)) +
+  geom_histogram() + xlab("Dif in log(N)")
+
+gridExtra::grid.arrange(g3, g4, nrow = 1)
+```
+
+
+```{r, include = F}
+data <- data %>% 
+  dplyr::filter(tokutei == 0)  # restricted to ippan
+
+data_cz <- data %>% 
+  dplyr::mutate() %>% 
+  dplyr::group_by(cz, year) %>% 
+  dplyr::summarize(client = mean(client),
+                   fee = mean(fee),
+                   wage = mean(wage),
+                   margin = mean(margin),
+                   sales = mean(sales),
+                   oversea = mean(oversea),
+                   shokai = mean(shokai),
+                   training = mean(training),
+                   register = mean(register),
+                   staff = mean(staff),
+                   tempperm = mean(tempperm),
+                   tempdaily = mean(tempdaily),
+                   tempfixed = mean(tempfixed),
+                   N_ippan = mean(N_ippan)) %>% 
+  dplyr::ungroup()
+```
+
+
+```{r, include = F}
+ds <- data_cz %>% 
+  dplyr::select(-(cz:year)) %>% 
+  describe(skew = F,
+           ranges = F,
+           trim = 0,
+         quant = c(.05, .25, .5, .75, .95))
+
+ds$vars <- NULL
+ds$se <- NULL
+
+```
+
+
+```{r, include = F}
+
+compute_r2 <- function(y, xmat){
+  
+  formula1 <- as.formula(paste(yvar, "~ 1 | 0 ", sep = ""))
+  formula2 <- as.formula(paste(yvar, "~ 1 | cz_year ", sep = ""))
+  formula3 <- as.formula(paste(yvar, "~ 1 | cz + year "))
+  resid1 <- felm(formula1, data = data)$residuals
+  resid2 <- felm(formula2, data = data)$residuals
+  resid3 <- felm(formula3, data = data)$residuals
+
+  r2_1 <- 1 - sum(resid2 ^ 2) / sum(resid1 ^ 2)
+  r2_2 <- 1 - sum(resid3 ^ 2) / sum(resid1 ^ 2)
+  
+  # formula1 <- as.formula(paste(yvar, "~ as.factor(cz_year) ", sep = ""))
+  # formula2 <- as.formula(paste(yvar, "~ as.factor(cz) + as.factor(year)", sep = ""))
+  # r2_1 <- summary(lm(formula1, data = data))$r.squared
+  # r2_2 <- summary(lm(formula2, data = data))$r.squared
+  
+  
+  return(c(r2_1, r2_2))
+}
+
+```
+
+
+
+
+```{r, include = F}
+
+
+data$cz_year <- dplyr::group_indices(data, cz, year)
+yvars <- rownames(ds)
+r2_vec_1 <- c()
+r2_vec_2 <- c()
+for (yvar in yvars){
+  
+  r2 <- compute_r2(yvar, data)
+  r2_vec_1 <- c(r2_vec_1, r2[1])
+  r2_vec_2 <- c(r2_vec_2, r2[2])
+}
+
+ds$R2_prod <- r2_vec_1
+ds$R2_sum <- r2_vec_2
+
+
+```
+
+### Descriptives of variables averaged within each location
+- 一般事業所のみ
+- R2_prod: 各変数を地域x年のダミーに回帰したときのR-squared
+- R2_sum: 各変数を地域ダミーと年ダミーに回帰したときのR-squared
+- oversea: 海外派遣の有無
+- shokai: 紹介予定派遣の有無
+- training: 教育訓練の有無
+- staff: 労働者の総数-派遣労働者の数
+```{r, echo = F, results = "asis"}
+kable(ds, digits = 3)
+```
+

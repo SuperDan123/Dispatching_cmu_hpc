@@ -1,0 +1,431 @@
+---
+title: "Estimate structural parameters"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: 
+  html_document
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 4, fig.width = 8)
+
+library(magrittr)
+library(ggplot2)
+library(kableExtra)
+library(Dispatching)
+```
+
+```{css, echo = FALSE}
+
+table, td, th {
+  border: none;
+  padding-left: 1em;
+  padding-right: 1em;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+```
+
+```{r}
+result_dist_IV <- readRDS(here::here("output/estimate_structural_parameters/result_distance_IV.RDS"))
+result_dist_IV_selected <- readRDS(here::here("output/estimate_structural_parameters/result_distance_IV_selected.RDS"))
+result_rivals_IV <- readRDS(here::here("output/estimate_structural_parameters/result_rivals_IV.RDS"))
+equilibrium_dist_IV <- readRDS(here::here("output/estimate_structural_parameters/equilibrium_data_distance_IV.RDS"))
+equilibrium_dist_IV_selected <- readRDS(here::here("output/estimate_structural_parameters/equilibrium_data_distance_IV_selected.RDS"))
+equilibrium_rivals_IV <- readRDS(here::here("output/estimate_structural_parameters/equilibrium_data_rivals_IV.RDS"))
+share_data <- readRDS(here::here("output/share_data_small_markets.RDS"))
+```
+
+```{r}
+equilibrium_iv_dist <- readRDS(here::here("output/estimate_model/equilibrium_iv_dist.rds"))
+equilibrium_iv_dist_selected <- readRDS(here::here("output/estimate_model/equilibrium_iv_dist_selected.rds"))
+equilibrium_iv_rivals <- readRDS(here::here("output/estimate_model/equilibrium_iv_rivals.rds"))
+```
+
+
+- For parameters of the matching function, use $\alpha = 0.566$ and $\beta=0.360$.
+
+### Distribution of match efficiency
+```{r}
+
+# mp <- equilibrium_iv_dist$parameters$matching_params
+# mu <- share_data$Q / (share_data$D_W ^ mp[1] * share_data$D_F ^ mp[2])
+mu <- equilibrium_iv_dist$dataframe$mu
+
+data.frame(mu = mu) %>% 
+  ggplot(
+    aes(
+      x = log(mu),
+      fill = "all"
+    )
+  ) +
+  geom_histogram() +
+  scale_fill_viridis_d() +
+  theme_classic() +
+  labs(
+    x = "log of match efficiency"
+  ) +
+  theme(
+    legend.position = "none"
+  )
+
+
+```
+
+
+# Parameters {.tabset}
+
+## Distance IV
+
+### Demand parameters
+
+```{r}
+result_table <- make_coefficient_table_demand_side(equilibrium_iv_dist)
+
+result_table %>%
+  kbl() %>%
+  add_header_above(
+    c(
+      "",
+      "Worker" = 2,
+      "Client firm" = 2
+    ) 
+  ) %>%
+  kable_classic()
+
+result_table %>%
+  kbl(
+    escape = FALSE,
+    align = rep("r", ncol(result_table)),
+    linesep = "",
+    format = "latex",
+    booktabs = TRUE
+  ) %>%
+  add_header_above(
+    c(
+      "",
+      "Worker" = 2,
+      "Client firm" = 2
+    ) 
+  ) %>%
+  save_kable(table, file = here::here("figuretable/estimate_structural_parameters/parameters_demand_dist_IV.tex"))
+```
+
+
+### Cost parameters
+
+```{r}
+
+result_table <- make_coefficient_table_supply_side(equilibrium_iv_dist)
+
+result_table %>%
+  kbl() %>%
+  add_header_above(
+    c(
+      "",
+      "Worker" = 2,
+      "Client firm" = 2
+    ) 
+  ) %>%
+  kable_classic()
+
+result_table %>%
+  kbl(
+    escape = FALSE,
+    align = rep("r", ncol(result_table)),
+    linesep = "",
+    format = "latex",
+    booktabs = TRUE
+  ) %>%
+  add_header_above(
+    c(
+      "",
+      "Worker" = 2,
+      "Client firm" = 2
+    ) 
+  ) %>%
+  save_kable(table, file = here::here("figuretable/estimate_structural_parameters/parameters_cost_dist_IV.tex"))
+```
+
+
+### Converted to reduced-form
+
+
+```{r}
+result_table <- make_coefficient_table_demand_side_converted_to_reduced_form(equilibrium_iv_dist)
+
+result_table %>%
+  kbl() %>%
+  kable_classic()
+
+result_table %>%
+  kbl(
+    escape = FALSE,
+    align = rep("r", ncol(result_table)),
+    linesep = "",
+    format = "latex",
+    booktabs = TRUE
+  ) %>%
+  save_kable(table, file = here::here("figuretable/estimate_structural_parameters/parameters_demand_side_converted_to_reduced_form_dist_IV.tex"))
+```
+
+
+### Decompose network effects
+
+```{r}
+result_table <- make_elasticity_table_detailed(equilibrium_iv_dist)
+
+result_table %>%
+  kbl() %>%
+  kable_classic()
+
+result_table %>%
+  kbl(
+    escape = FALSE,
+    align = rep("r", ncol(result_table)),
+    linesep = "",
+    format = "latex",
+    booktabs = TRUE
+  ) %>%
+  save_kable(table, file = here::here("figuretable/estimate_structural_parameters/elasticity_decomposition_dist_IV.tex"))
+```
+
+
+## Distance IV (selected)
+
+### Demand parameters
+
+```{r}
+result_table <- make_coefficient_table_demand_side(equilibrium_iv_dist_selected)
+
+result_table %>%
+  kbl() %>%
+  add_header_above(
+    c(
+      "",
+      "Worker" = 2,
+      "Client firm" = 2
+    ) 
+  ) %>%
+  kable_classic()
+
+result_table %>%
+  kbl(
+    escape = FALSE,
+    align = rep("r", ncol(result_table)),
+    linesep = "",
+    format = "latex",
+    booktabs = TRUE
+  ) %>%
+  add_header_above(
+    c(
+      "",
+      "Worker" = 2,
+      "Client firm" = 2
+    ) 
+  ) %>%
+  save_kable(table, file = here::here("figuretable/estimate_structural_parameters/parameters_demand_dist_IV_selected.tex"))
+```
+
+
+### Cost parameters
+
+```{r}
+
+result_table <- make_coefficient_table_supply_side(equilibrium_iv_dist_selected)
+
+result_table %>%
+  kbl() %>%
+  add_header_above(
+    c(
+      "",
+      "Worker" = 2,
+      "Client firm" = 2
+    ) 
+  ) %>%
+  kable_classic()
+
+result_table %>%
+  kbl(
+    escape = FALSE,
+    align = rep("r", ncol(result_table)),
+    linesep = "",
+    format = "latex",
+    booktabs = TRUE
+  ) %>%
+  add_header_above(
+    c(
+      "",
+      "Worker" = 2,
+      "Client firm" = 2
+    ) 
+  ) %>%
+  save_kable(table, file = here::here("figuretable/estimate_structural_parameters/parameters_cost_dist_IV_selected.tex"))
+```
+
+
+### Converted to reduced-form
+
+
+```{r}
+result_table <- make_coefficient_table_demand_side_converted_to_reduced_form(equilibrium_iv_dist_selected)
+
+result_table %>%
+  kbl() %>%
+  kable_classic()
+
+result_table %>%
+  kbl(
+    escape = FALSE,
+    align = rep("r", ncol(result_table)),
+    linesep = "",
+    format = "latex",
+    booktabs = TRUE
+  ) %>%
+  save_kable(table, file = here::here("figuretable/estimate_structural_parameters/parameters_demand_side_converted_to_reduced_form_dist_IV_selected.tex"))
+```
+
+
+### Decompose network effects
+
+```{r}
+result_table <- make_elasticity_table_detailed(equilibrium_iv_dist_selected)
+
+result_table %>%
+  kbl() %>%
+  kable_classic()
+
+result_table %>%
+  kbl(
+    escape = FALSE,
+    align = rep("r", ncol(result_table)),
+    linesep = "",
+    format = "latex",
+    booktabs = TRUE
+  ) %>%
+  save_kable(table, file = here::here("figuretable/estimate_structural_parameters/elasticity_decomposition_dist_IV_selected.tex"))
+```
+
+
+
+
+## Num rivals IV
+
+
+### Demand parameters
+
+```{r}
+result_table <- make_coefficient_table_demand_side(equilibrium_iv_rivals)
+
+result_table %>%
+  kbl() %>%
+  add_header_above(
+    c(
+      "",
+      "Worker" = 2,
+      "Client firm" = 2
+    ) 
+  ) %>%
+  kable_classic()
+
+result_table %>%
+  kbl(
+    escape = FALSE,
+    align = rep("r", ncol(result_table)),
+    linesep = "",
+    format = "latex",
+    booktabs = TRUE
+  ) %>%
+  add_header_above(
+    c(
+      "",
+      "Worker" = 2,
+      "Client firm" = 2
+    ) 
+  ) %>%
+  save_kable(table, file = here::here("figuretable/estimate_structural_parameters/parameters_demand_rivals_IV.tex"))
+```
+
+
+### Cost parameters
+
+```{r}
+
+result_table <- make_coefficient_table_supply_side(equilibrium_iv_rivals)
+
+result_table %>%
+  kbl() %>%
+  add_header_above(
+    c(
+      "",
+      "Worker" = 2,
+      "Client firm" = 2
+    ) 
+  ) %>%
+  kable_classic()
+
+result_table %>%
+  kbl(
+    escape = FALSE,
+    align = rep("r", ncol(result_table)),
+    linesep = "",
+    format = "latex",
+    booktabs = TRUE
+  ) %>%
+  add_header_above(
+    c(
+      "",
+      "Worker" = 2,
+      "Client firm" = 2
+    ) 
+  ) %>%
+  save_kable(table, file = here::here("figuretable/estimate_structural_parameters/parameters_cost_rivals_IV.tex"))
+```
+
+
+### Converted to reduced-form
+
+
+```{r}
+result_table <- make_coefficient_table_demand_side_converted_to_reduced_form(equilibrium_iv_rivals)
+
+result_table %>%
+  kbl() %>%
+  kable_classic()
+
+result_table %>%
+  kbl(
+    escape = FALSE,
+    align = rep("r", ncol(result_table)),
+    linesep = "",
+    format = "latex",
+    booktabs = TRUE
+  ) %>%
+  save_kable(table, file = here::here("figuretable/estimate_structural_parameters/parameters_demand_side_converted_to_reduced_form_rivals_IV.tex"))
+```
+
+
+### Decompose network effects
+
+```{r}
+result_table <- make_elasticity_table_detailed(equilibrium_iv_rivals)
+
+result_table %>%
+  kbl() %>%
+  kable_classic()
+
+result_table %>%
+  kbl(
+    escape = FALSE,
+    align = rep("r", ncol(result_table)),
+    linesep = "",
+    format = "latex",
+    booktabs = TRUE
+  ) %>%
+  save_kable(table, file = here::here("figuretable/estimate_structural_parameters/elasticity_decomposition_rivals_IV.tex"))
+```

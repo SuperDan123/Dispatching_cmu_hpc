@@ -1,0 +1,70 @@
+---
+title: "report_estimation_time_zip_aggregate_data"
+author: "Daisy Dan Song"
+date: "2024-10-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(ggplot2)
+library(doParallel)
+```
+
+# Set constant
+
+```{r}
+seed <- 1
+set.seed(seed)
+n <- 5
+```
+
+# load data
+```{r}
+equilibrium_origin <- 
+  readRDS(
+    "output/multihome/make_equilibrium_zipcode_firm_from_data/equilibrium.rds" %>%
+    here::here()
+  )
+equilibrium_origin$constant$method_s_w <- "approximate"
+```
+
+# partition market
+```{r}
+  
+df <- 
+  foreach (
+    i =  seq(2,20),
+    .combine = rbind
+  ) %do% {
+    equilibrium_sample <- 
+      sample_data_zip_code(
+        n = n,
+        seed = seed,
+        num_ths_max = i,
+        equilibrium = equilibrium_origin
+      )
+    time <- 
+      t(
+        system.time(
+          estimate_parameter(
+            equilibrium = equilibrium_sample
+          ) 
+        ) %>% as.vector()
+      )
+    return(time)
+  }
+
+cbind(
+  num_ths_max = seq(2,20),
+  df
+)
+```

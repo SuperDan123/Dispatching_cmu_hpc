@@ -1,0 +1,57 @@
+---
+title: "Marginal costs"
+author: "Katsuhiro Komatsu"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+
+library(Dispatching)
+library(magrittr)
+```
+
+
+
+
+### Worker side and clint firm side marginal costs
+
+#### Linear
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/estimation_result/small_markets/mc_residual_linear.png"))
+```
+
+#### Linear ridge
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/estimation_result/small_markets/mc_residual_linear_ridge.png"))
+```
+
+#### Log
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/estimation_result/small_markets/mc_residual_log.png"))
+```
+
+#### Log ridge
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/estimation_result/small_markets/mc_residual_log_ridge.png"))
+```
+
+#### Log linear
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/estimation_result/small_markets/mc_residual_log_linear.png"))
+```
+
+#### Log linear ridge
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/estimation_result/small_markets/mc_residual_log_linear_ridge.png"))
+```
+

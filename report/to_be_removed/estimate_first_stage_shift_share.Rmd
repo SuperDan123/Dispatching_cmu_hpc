@@ -1,0 +1,76 @@
+---
+title: "Estimate first stage using shift share"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{css, echo = FALSE}
+
+table, td, th {
+  border: none;
+  padding-left: 1em;
+  padding-right: 1em;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+```
+
+
+
+- Construct the predicted growth of the number of THS establishments by Bartik type instrument:
+$$
+z_{m,t} = \sum_{i} s_{i,m,t-1} \times (\log{N_{i, -m, t}} - \log{N_{i,-m, t-1}})
+$$
+where 
+- $s_{i,t-1}$ is the share of firm $i$ in market $m$ in year $t-1$.
+  1. Weight based on the number of establishments of firms in market $m$
+      - E.g. In market $m$, firm A has 2 establishments while firm B has 1 establishment -> $s_A=2/3$, $s_B=1/3$.
+  2. Weight based on the number of establishments of firms in market $m$ and its adjacent markets.
+      - To put a positive weight on firms that newly enter in year $t$
+- $N_{i,-m,t}$ is the number of establishments of firm $i$ in year $t$ located in markets other than $m$.
+      - For case 2, I exclude adjacent markets when calculating $N_{i,-m,t}$.
+
+
+
+### First stage regression
+$$
+  y_{m,t} = \beta \tilde z_{m,t} + x_{m,t}'\gamma + \lambda_m + \eta_t + \epsilon_{m,t}
+$$
+where 
+
+- $y_{m,t}$: (i) $\Delta \log{N_{m,t}}$ or (ii)  $\log{N_{m,t}}$
+- $\tilde z_{m,t}$: (i) $z_{m,t}$ or (ii) $N_{m, t-1} (1 + z_{m,t})$
+- $x_{m,t}$: Log of labor force in each age category, log of number of firms in each industry
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 4, fig.width = 8)
+```
+
+
+#### Log difference
+
+```{r}
+htmltools::includeHTML(here::here("figuretable/first_stage/first_stage_logdif_logdif.html"))
+```
+
+
+#### Log
+
+```{r}
+htmltools::includeHTML(here::here("figuretable/first_stage/first_stage_log_log.html"))
+```
+
+
+
+
+

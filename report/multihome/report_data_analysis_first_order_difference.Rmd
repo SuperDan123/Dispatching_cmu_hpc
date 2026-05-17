@@ -1,0 +1,2014 @@
+---
+title: "report data analysis (first order difference)"
+author: "Chiho Taniguchi"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 3, fig.width = 4)
+
+library("magrittr")
+library("kableExtra")
+library("ggplot2")
+
+height <- 6
+width <- 8
+
+```
+
+```{r }
+
+ data_establishments <- 
+  here::here(file = "cleaned/data_establishments.rds") %>% 
+  readRDS()
+
+ data_zipcode <- 
+   here::here(file = "cleaned/data_zipcode.rds") %>% 
+   readRDS()
+ 
+ data_area <- 
+   here::here(file = "cleaned/data_area.rds") %>% 
+   readRDS()
+ 
+ data_zip_establishments <- 
+   here::here(file = "output/data_zip_establishments.rds") %>% 
+   readRDS()
+ 
+ data_cz_establishments <- 
+   here::here(file = "output/data_cz_establishments.rds") %>% 
+   readRDS()
+ 
+ data_cz_establishments_all_ippann <- 
+   here::here(file = "output/data_cz_establishments_all_ippann.rds") %>% 
+   readRDS()
+ 
+ data_zip_establishments_all_ippann <- 
+   here::here(file = "output/data_zip_establishments_all_ippann.rds") %>% 
+   readRDS()
+ 
+ data_cz_establishments_all_ippann_unique <- 
+   here::here(file = "output/data_cz_establishments_all_ippann_unique.rds") %>% 
+   readRDS()
+ 
+ data_zip_establishments_all_ippann_unique <- 
+   here::here(file = "output/data_zip_establishments_all_ippann_unique.rds") %>% 
+   readRDS()
+ 
+ data_cz_establishments_all_ippann_unique_wage <- 
+   here::here(file = "output/data_cz_establishments_all_ippann_unique_wage.rds") %>% 
+   readRDS()
+ 
+ data_zip_establishments_all_ippann_unique_wage <- 
+   here::here(file = "output/data_zip_establishments_all_ippann_unique_wage.rds") %>% 
+   readRDS()
+ 
+ data_cz_establishments_all_ippann_unique_fee <- 
+   here::here(file = "output/data_cz_establishments_all_ippann_unique_fee.rds") %>%
+   readRDS()
+ 
+ data_zip_establishments_all_ippann_unique_fee <- 
+   here::here(file = "output/data_zip_establishments_all_ippann_unique_fee.rds") %>% 
+   readRDS()
+ 
+ data_cz_establishments_all_ippann_unique_weights <- 
+   here::here(file = "output/data_cz_establishments_all_ippann_unique_weights.rds") %>%
+   readRDS()
+ 
+ data_zip_establishments_all_ippann_unique_weights <- 
+   here::here(file = "output/data_zip_establishments_all_ippann_unique_weights.rds") %>% 
+   readRDS()
+ 
+
+```
+
+# cz data
+
+## First stage (cz)
+Regress the difference between 2014 and 2010 in the number of general establishments (log_diff_10_14) on the percentage of tokutei establishments at the initial period(share_cz_2010). "log_diff_10_14" is the natural logarithm of the number of general establishments in 2014 minus the natural logarithm of the number of general establishments in 2010.
+
+### log_diff_10_14
+
+log_diff_10_14 =  (ln(Nj_2014) - ln(Nj_2010))
+
+```{r}
+
+results_diff_cz <- list()
+
+summary(data_cz_establishments_all_ippann_unique$log_diff_10_14)
+
+
+ results_diff_cz[[1]] <- 
+   lm(formula = log_diff_10_14 ~  share_cz_2010 ,
+      data = data_cz_establishments_all_ippann_unique
+   )
+ 
+ result_diffcz <- 
+   list(
+     "log_diff_10_14" = results_diff_cz[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_diffcz,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+### diff_14_10
+
+diff_14_10 = Nj_2014 - Nj_2010
+
+```{r}
+
+results_diff_cz_a <- list()
+
+summary(data_cz_establishments_all_ippann_unique$diff_14_10)
+
+
+ results_diff_cz_a[[1]] <- 
+   lm(formula = diff_14_10_1000 ~  share_cz_2010 ,
+      data = data_cz_establishments_all_ippann_unique
+   )
+ 
+ result_diffcza <- 
+   list(
+     "diff_14_10" = results_diff_cz_a[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_diffcza,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+## First stage (weighted by the number of general establishments in 2010)
+
+### log_diff_10_14
+
+```{r}
+
+results_diff_cz_w <- list()
+
+results_diff_cz_w[[1]] <- 
+  lm(formula = log_diff_10_14 ~  share_cz_2010 ,
+     data = data_cz_establishments_all_ippann_unique,
+     weights = weights
+  )
+
+result_diffczw <- 
+  list(
+    "log_diff_10_14(weighted)" = results_diff_cz_w[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_diffczw,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### diff_14_10
+
+```{r}
+
+results_diff_cz_wa <- list()
+
+results_diff_cz_wa[[1]] <- 
+  lm(formula = diff_14_10_1000 ~  share_cz_2010 ,
+     data = data_cz_establishments_all_ippann_unique,
+     weights = weights
+  )
+
+result_diffczwa <- 
+  list(
+    "diff_14_10(weighted)" = results_diff_cz_wa[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_diffczwa,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+## Plot for first stage
+
+"estab." represents establishments. y represents "log(#general establishments in 2014) - log(#general establishments in 2010)".
+
+```{r}
+
+id_1 <- c(1:198)
+
+data_cz_establishments_all_ippann_share <-
+   data_cz_establishments_all_ippann_unique %>% 
+   dplyr::select(
+     cz,
+     share_cz_2010,
+     log_diff_10_14
+   ) %>% 
+   unique() %>% 
+  dplyr::arrange(
+    cz
+  ) 
+
+data_cz_establishments_all_ippann_share <-
+  cbind(
+    id_1,
+    data_cz_establishments_all_ippann_share
+  )
+ 
+data_cz_establishments_all_ippann_share <-
+  data_cz_establishments_all_ippann_share %>% 
+  dplyr::mutate(
+    cz_bin = cut(id_1, 
+                 breaks = 30)
+  ) %>% 
+  dplyr::group_by(
+    cz_bin
+  ) %>% 
+  dplyr::mutate(
+    log_diff_10_14_avr = mean(log_diff_10_14),
+    share_cz_2010_avr = mean(share_cz_2010)
+  ) %>% 
+  dplyr::ungroup()
+ 
+ data_cz_establishments_all_ippann_share_avr <- 
+   data_cz_establishments_all_ippann_share %>% 
+   dplyr::select(
+     share_cz_2010_avr,
+     log_diff_10_14_avr
+   ) %>% 
+   dplyr::distinct()
+   
+
+ g13 <- ggplot() +
+   geom_point(
+     data = data_cz_establishments_all_ippann_share,
+     mapping = aes(x = share_cz_2010, y = log_diff_10_14),
+     size = 0.3
+   ) +
+   xlab("Ratio of # tokutei estab. to # total estab. in 2010") +
+   ylab("y") 
+ 
+ print(g13)
+ 
+ 
+```
+
+## binscatter plot for first stage 
+
+```{r}
+
+ g23 <- ggplot() +
+   geom_point(
+     data = data_cz_establishments_all_ippann_share_avr,
+     mapping = aes(x = share_cz_2010_avr, y = log_diff_10_14_avr),
+     size = 0.3
+   ) +
+   stat_smooth(
+   method = "lm",
+   data = data_cz_establishments_all_ippann_share_avr,
+   mapping = aes(x = share_cz_2010_avr, y = log_diff_10_14_avr),
+    se = FALSE,
+    size = 0.3
+   ) +
+   xlab("Ratio of # tokutei estab. to # total estab. in 2010") +
+   ylab("y") 
+ 
+ print(g23)
+ 
+ 
+```
+
+## Reduced form (cz)
+
+Regress first order difference of the natural logarithm of the average wage and the average fee(log_diffwage_14_10 / flog_difffee_14_10) on the percentage of tokutei establishments at the initial period(share_cz_2010). The natural logarithm of the average wage and average fee are calculated by creating panel data by making the average of each cz level year by year.
+log_diffwage_14_10 / flog_difffee_14_10 is log(average wage / fee in 2014) - log(average wage / fee in 2010).
+
+### wage (log_diffwage_14_10)
+
+log_diffwage_14_10
+
+```{r}
+
+### wage
+
+results_growth_cz <- list()
+
+results_growth_cz[[1]] <- 
+  lm(formula = log_diffwage_14_10 ~  share_cz_2010,
+    data = data_cz_establishments_all_ippann_unique_wage
+    )
+
+result_growthcz <- 
+  list(
+    "log_diffwage_14_10" = results_growth_cz[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_growthcz,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+### wage (wage_growth_14_10)
+
+wage_growth_14_10 = (wage_2014-wage_2010)/wage_2010
+
+```{r}
+
+### wage
+
+results_growth_cza <- list()
+
+results_growth_cza[[1]] <- 
+  lm(formula = wage_growth_14_10 ~  share_cz_2010,
+    data = data_cz_establishments_all_ippann_unique_wage
+    )
+
+result_growthcza <- 
+  list(
+    "wage_growth_14_10" = results_growth_cza[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_growthcza,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### wage(weighted / log_diffwage_14_10)
+
+```{r}
+
+### wage
+
+results_growth_cz_w <- list()
+
+results_growth_cz_w[[1]] <- 
+  lm(formula = log_diffwage_14_10 ~  share_cz_2010,
+     data = data_cz_establishments_all_ippann_unique_wage,
+     weights = weights
+     )
+
+result_growthczw <- 
+  list(
+    "log_diffwage_14_10(weighted)" = results_growth_cz_w[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_growthczw,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### wage(weighted / wage_growth_14_10)
+
+```{r}
+
+### wage
+
+results_growth_cz_wa <- list()
+
+results_growth_cz_wa[[1]] <- 
+  lm(formula = wage_growth_14_10 ~  share_cz_2010,
+     data = data_cz_establishments_all_ippann_unique_wage,
+     weights = weights
+     )
+
+result_growthczwa <- 
+  list(
+    "wage_growth_14_10(weighted)" = results_growth_cz_wa[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_growthczwa,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### Plot for reduced form (wage)
+
+```{r}
+
+id_2 <- c(1:198)
+
+data_cz_establishments_all_ippann_wage <-
+   data_cz_establishments_all_ippann_unique_wage %>% 
+   dplyr::select(
+     cz,
+     share_cz_2010,
+     log_diffwage_14_10
+   ) %>% 
+   unique() %>% 
+  dplyr::arrange(
+    cz
+  ) 
+ 
+data_cz_establishments_all_ippann_wage <-
+  data_cz_establishments_all_ippann_wage %>% 
+  dplyr::mutate(
+    cz_bin = cut(id_2, 
+                 breaks = 20)
+  ) %>% 
+  dplyr::group_by(
+    cz_bin
+  ) %>% 
+  dplyr::mutate(
+    log_diffwage_14_10_avr = mean(log_diffwage_14_10),
+    share_cz_2010_med = median(share_cz_2010)
+  ) %>% 
+  dplyr::ungroup()
+ 
+ data_cz_establishments_all_ippann_wage_avr <- 
+   data_cz_establishments_all_ippann_wage %>% 
+   dplyr::select(
+     share_cz_2010_med,
+     log_diffwage_14_10_avr
+   ) %>% 
+   dplyr::distinct()
+   
+ 
+
+ g14 <- ggplot() +
+   geom_point(
+     data = data_cz_establishments_all_ippann_wage,
+     mapping = aes(x = share_cz_2010, y = log_diffwage_14_10),
+     size = 0.3
+   ) +
+   xlab("Ratio of # tokutei estab. to # total estab. in 2010") +
+   ylab("Difference of log(the average wage)") 
+ 
+ print(g14)
+
+```
+
+### binscatter plot for reduced form (wage)
+
+```{r}
+
+ g24 <- ggplot() +
+   geom_point(
+     data = data_cz_establishments_all_ippann_wage_avr,
+     mapping = aes(x = share_cz_2010_med, y = log_diffwage_14_10_avr),
+     size = 0.5
+   ) +
+   stat_smooth(
+     data = data_cz_establishments_all_ippann_wage_avr,
+     method = "lm",
+     mapping = aes(x = share_cz_2010_med, y = log_diffwage_14_10_avr),
+     se = FALSE,
+     size = 0.5
+   ) +
+   xlab("Ratio of # tokutei estab. to # total estab. in 2010") +
+   ylab("Difference of log(the average wage)")
+ 
+ print(g24)
+
+```
+
+### fee (log_difffee_14_10)
+
+```{r}
+
+### fee
+
+results_feegrowth_cz <- list()
+
+results_feegrowth_cz[[1]] <- 
+  lm(formula = log_difffee_14_10 ~  share_cz_2010,
+     data = data_cz_establishments_all_ippann_unique_fee
+     )
+
+
+result_feegrowthcz <- 
+  list(
+    "log_difffee_14_10" = results_feegrowth_cz[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_feegrowthcz,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### fee (fee_growth_14_10)
+
+```{r}
+
+### fee
+
+results_feegrowth_cza <- list()
+
+results_feegrowth_cza[[1]] <- 
+  lm(formula = fee_growth_14_10 ~  share_cz_2010,
+     data = data_cz_establishments_all_ippann_unique_fee
+     )
+
+
+result_feegrowthcza <- 
+  list(
+    "fee_growth_14_10" = results_feegrowth_cza[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_feegrowthcza,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### fee(log_difffee_14_10 / weighted)
+
+```{r}
+
+### fee
+
+results_feegrowth_cz_w <- list()
+
+results_feegrowth_cz_w[[1]] <- 
+  lm(formula = log_difffee_14_10 ~  share_cz_2010,
+     data = data_cz_establishments_all_ippann_unique_fee,
+     weights = weights
+     )
+
+
+result_feegrowthczw <- 
+  list(
+    "log_difffee_14_10(weighted)" = results_feegrowth_cz_w[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_feegrowthczw,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### fee(fee_growth_14_10 / weighted)
+
+```{r}
+
+### fee
+
+results_feegrowth_cz_wa <- list()
+
+results_feegrowth_cz_wa[[1]] <- 
+  lm(formula = fee_growth_14_10 ~  share_cz_2010,
+     data = data_cz_establishments_all_ippann_unique_fee,
+     weights = weights
+     )
+
+
+result_feegrowthczwa <- 
+  list(
+    "log_difffee_14_10(weighted)" = results_feegrowth_cz_wa[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_feegrowthczwa,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+
+### Plot for reduced form (fee)
+
+```{r}
+
+id_3 <- c(1:220)
+
+data_cz_establishments_all_ippann_fee <-
+   data_cz_establishments_all_ippann %>% 
+   dplyr::select(
+     cz,
+     share_cz_2010,
+     log_difffee_14_10
+   ) %>% 
+   unique() %>% 
+  dplyr::arrange(
+    cz
+  ) 
+ 
+data_cz_establishments_all_ippann_fee <-
+  data_cz_establishments_all_ippann_fee %>% 
+  dplyr::mutate(
+    cz_bin = cut(id_3, 
+                 breaks = 20)
+  ) %>% 
+  dplyr::group_by(
+    cz_bin
+  ) %>% 
+  dplyr::mutate(
+    log_difffee_14_10_avr = mean(log_difffee_14_10),
+    share_cz_2010_med = median(share_cz_2010)
+  ) %>% 
+  dplyr::ungroup()
+ 
+ data_cz_establishments_all_ippann_fee_avr <- 
+   data_cz_establishments_all_ippann_fee %>% 
+   dplyr::select(
+     share_cz_2010_med,
+     log_difffee_14_10_avr
+   ) %>% 
+   dplyr::distinct()
+   
+ 
+
+ g15 <- ggplot() +
+   geom_point(
+     data = data_cz_establishments_all_ippann_fee,
+     mapping = aes(x = share_cz_2010, y = log_difffee_14_10),
+     size = 0.3
+   ) +
+   xlab("Ratio of # tokutei estab. to # total estab. in 2010") +
+   ylab("Difference of log(the average fee)")
+ 
+ print(g15)
+
+
+```
+
+### binscatter plot for reduced form (fee)
+
+```{r}
+
+ g25 <- ggplot() +
+   geom_point(
+     data = data_cz_establishments_all_ippann_fee_avr,
+     mapping = aes(x = share_cz_2010_med, y = log_difffee_14_10_avr),
+     size = 0.5
+   ) +
+   stat_smooth(
+     method = "lm",
+     data = data_cz_establishments_all_ippann_fee_avr,
+     mapping = aes(x = share_cz_2010_med, y = log_difffee_14_10_avr),
+     se = FALSE,
+     size = 0.5
+   ) +
+   xlab("Ratio of # tokutei estab. to # total estab. in 2010") +
+   ylab("Difference of log(the average fee)")
+ 
+ print(g25)
+
+
+```
+
+## Structural form (cz)
+
+Regress the difference between the natural logarithm of average wages and average rates on the difference between 2014 and 2010 in the number of general establishments (log_diffwage/fee_14_10). We use the ratio of tokutei establishments at the initial periods as the instrument variable for the difference between the natural logarithm of average wages and average rates on the difference between 2014 and 2010 in the number of general establishments (log_diff_10_14).
+
+### 2nd stage (wage / log_diffwage_14_10)
+
+```{r}
+
+results_s_wage_cz <- list()
+
+results_s_wage_cz[[1]] <- 
+  lfe::felm(
+    formula = log_diffwage_14_10 ~ 1 | 0 | (log_diff_10_14 ~ share_cz_2010) | 0,
+    data = data_cz_establishments_all_ippann_unique_wage
+  )
+
+result_swagegrowthcz <- 
+  list(
+    "log_diffwage_14_10" = results_s_wage_cz[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_swagegrowthcz,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### 2nd stage (wage / wage_growth_14_10)
+
+```{r}
+
+results_s_wage_cz_a <- list()
+
+results_s_wage_cz_a[[1]] <- 
+  lfe::felm(
+    formula = wage_growth_14_10 ~ 1 | 0 | (diff_14_10_1000 ~ share_cz_2010) | 0,
+    data = data_cz_establishments_all_ippann_unique_wage
+  )
+
+result_swagegrowthcza <- 
+  list(
+    "log_diffwage_14_10" = results_s_wage_cz_a[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_swagegrowthcza,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### 2nd stage (wage / log_diffwage_14_10 / weighted)
+
+```{r}
+
+results_s_wage_cz_2nd <- list()
+
+results_s_wage_cz_2nd[[1]] <- 
+  fixest::feols(
+    fml = log_diffwage_14_10 ~ 1 | log_diff_10_14 ~ share_cz_2010,
+    data = data_cz_establishments_all_ippann_unique_wage,
+    weights = ~ weights
+  )
+
+
+result_swagegrowthcz2nd <- 
+  list(
+    "log_diffwage_14_10(weighted)" = results_s_wage_cz_2nd[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_swagegrowthcz2nd,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+### 2nd stage (wage / wage_growth_14_10 / weighted)
+
+```{r}
+
+results_s_wage_cz_2nd_a <- list()
+
+results_s_wage_cz_2nd_a[[1]] <- 
+  fixest::feols(
+    fml = wage_growth_14_10 ~ 1 | diff_14_10_1000 ~ share_cz_2010,
+    data = data_cz_establishments_all_ippann_unique_wage,
+    weights = ~ weights
+  )
+
+
+result_swagegrowthcz2nda <- 
+  list(
+    "wage_growth_14_10(weighted)" = results_s_wage_cz_2nd_a[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_swagegrowthcz2nda,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### 1st stage (wage / log_diff_10_14)
+
+```{r}
+
+
+resultsb3 <- 
+  list(
+    "log_diff_10_14(1st stage)" = results_s_wage_cz[[1]]$stage1
+  )
+
+modelsummary::modelsummary(
+  resultsb3,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+```
+
+### 1st stage (wage / wage_growth_14_10)
+
+```{r}
+
+
+resultsbb3 <- 
+  list(
+    "wage_growth_14_10(1st stage)" = results_s_wage_cz_a[[1]]$stage1
+  )
+
+modelsummary::modelsummary(
+  resultsbb3,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+```
+
+### 1st stage (wage / log_diff_10_14 / weighted )
+
+```{r}
+
+modelsummary::modelsummary(
+  results_s_wage_cz_2nd[[1]]$iv_first_stage,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+
+```
+
+### 1st stage (wage / wage_growth_14_10 / weighted)
+
+```{r}
+
+modelsummary::modelsummary(
+  results_s_wage_cz_2nd_a[[1]]$iv_first_stage,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+
+```
+
+### 2nd stage (fee / log_difffee_14_10)
+
+```{r}
+
+results_s_fee_cz <- list()
+
+results_s_fee_cz[[1]] <- 
+  lfe::felm(
+    formula = log_difffee_14_10 ~ 1 | 0 | (log_diff_10_14 ~ share_cz_2010) | 0 ,
+    data = data_cz_establishments_all_ippann_unique_fee
+  )
+
+
+result_sfeegrowthcz <- 
+  list(
+    "log_difffee_14_10" = results_s_fee_cz[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_sfeegrowthcz,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### 2nd stage (fee / fee_growth_14_10)
+
+```{r}
+
+results_s_fee_cz_a <- list()
+
+results_s_fee_cz_a[[1]] <- 
+  lfe::felm(
+    formula = fee_growth_14_10 ~ 1 | 0 | (diff_14_10_1000 ~ share_cz_2010) | 0 ,
+    data = data_cz_establishments_all_ippann_unique_fee
+  )
+
+
+result_sfeegrowthcza <- 
+  list(
+    "fee_growth_14_10" = results_s_fee_cz_a[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_sfeegrowthcza,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### 2nd stage (fee / log_difffee_14_10 / weighted)
+
+```{r}
+
+results_s_fee_cz_2nd <- list()
+
+results_s_fee_cz_2nd[[1]] <- 
+  fixest::feols(
+    fml = log_difffee_14_10 ~ 1 | log_diff_10_14 ~ share_cz_2010,
+    data = data_cz_establishments_all_ippann_unique_fee,
+    weights = ~ weights
+  )
+
+
+result_sfeegrowthcz2nd <- 
+  list(
+    "log_difffee_14_10(weighted)" = results_s_fee_cz_2nd[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_sfeegrowthcz2nd,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### 2nd stage (fee / fee_growth_14_10 / weighted)
+
+```{r}
+
+results_s_fee_cz_2nd_a <- list()
+
+results_s_fee_cz_2nd_a[[1]] <- 
+  fixest::feols(
+    fml = fee_growth_14_10 ~ 1 | diff_14_10_1000 ~ share_cz_2010,
+    data = data_cz_establishments_all_ippann_unique_fee,
+    weights = ~ weights
+  )
+
+
+result_sfeegrowthcz2nda <- 
+  list(
+    "fee_growth_14_10(weighted)" = results_s_fee_cz_2nd_a[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_sfeegrowthcz2nda,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### 1st stage (fee / log_difffee_14_10)
+
+```{r}
+
+resultsb4 <- 
+  list(
+    "log_difffee_14_10(1st stage)" = results_s_fee_cz[[1]]$stage1
+  )
+
+modelsummary::modelsummary(
+  resultsb4,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+```
+
+### 1st stage (fee / fee_growth_14_10)
+
+```{r}
+
+resultsbb4 <- 
+  list(
+    "fee_growth_14_10(1st stage)" = results_s_fee_cz_a[[1]]$stage1
+  )
+
+modelsummary::modelsummary(
+  resultsbb4,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+```
+
+### 1st stage (fee / log_difffee_14_10 / weighted )
+
+```{r}
+
+modelsummary::modelsummary(
+  results_s_fee_cz_2nd[[1]]$iv_first_stage,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+```
+
+### 1st stage (fee / fee_growth_14_10 / weighted )
+
+```{r}
+
+modelsummary::modelsummary(
+  results_s_fee_cz_2nd_a[[1]]$iv_first_stage,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+```
+
+# zip data
+
+## First stage (zip)
+Regress the difference between 2014 and 2010 in the number of general establishments (log_diff_10_14) on the percentage of tokutei establishments at the initial period(share_cz_2010). "log_diff_10_14" is the natural logarithm of the number of general establishments in 2014 minus the natural logarithm of the number of general establishments in 2010.
+
+### log_diff_10_14
+
+taking log difference (ln(X_2014) - ln(X_2010))
+
+
+```{r}
+results_diff_zip <- list()
+
+results_diff_zip[[1]] <- 
+  lm(formula = log_diff_10_14 ~  share_zip_2010,
+     data = data_zip_establishments_all_ippann_unique
+  )
+
+result_diffzip <- 
+  list(
+    "log_diff_10_14" = results_diff_zip[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_diffzip,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### diff_14_10
+
+```{r}
+
+results_diff_zip_a <- list()
+
+summary(data_zip_establishments_all_ippann_unique$diff_14_10)
+
+
+ results_diff_zip_a[[1]] <- 
+   lm(formula = diff_14_10 ~  share_zip_2010 ,
+      data = data_zip_establishments_all_ippann_unique
+   )
+ 
+ result_diffzipa <- 
+   list(
+     "diff_14_10" = results_diff_zip_a[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_diffzipa,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+## First stage (weighted by the number of general establishments in 2010)
+
+### log_diff_10_14
+
+```{r}
+
+results_diff_zip_w <- list()
+ 
+ 
+ results_diff_zip_w[[1]] <- 
+   lm(formula = log_diff_10_14 ~  share_zip_2010 ,
+     data = data_zip_establishments_all_ippann_unique,
+     weights = weights
+   )
+ 
+ result_diffzipw <- 
+   list(
+     "log_diff_10_14" = results_diff_zip_w[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_diffzipw,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+### diff_14_10
+
+```{r}
+
+results_diff_zip_w_a <- list()
+ 
+ 
+ results_diff_zip_w_a[[1]] <- 
+   lm(formula = diff_14_10 ~  share_zip_2010 ,
+     data = data_zip_establishments_all_ippann_unique,
+     weights = weights
+   )
+ 
+ result_diffzipwa <- 
+   list(
+     "diff_14_10" = results_diff_zip_w_a[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_diffzipwa,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+```
+
+## Plot for first stage
+
+"estab." represents establishments. y represents "log(#general establishments in 2014) - log(#general establishments in 2010)".
+
+```{r}
+
+id_4 <- c(1:778)
+
+data_zip_establishments_all_ippann_share <-
+   data_zip_establishments_all_ippann_unique %>% 
+   dplyr::select(
+     zip_three,
+     share_zip_2010,
+     log_diff_10_14
+   ) %>% 
+  dplyr::distinct() %>% 
+  dplyr::arrange(
+    zip_three
+  ) 
+
+data_zip_establishments_all_ippann_share <-
+  cbind(
+    id_4,
+    data_zip_establishments_all_ippann_share
+  )
+ 
+data_zip_establishments_all_ippann_share <-
+  data_zip_establishments_all_ippann_share %>% 
+  dplyr::mutate(
+    zip_bin = cut(id_4, 
+                 breaks = 50)
+  ) %>% 
+  dplyr::group_by(
+    zip_bin
+  ) %>% 
+  dplyr::mutate(
+    log_diff_10_14_avr = mean(log_diff_10_14),
+    share_zip_2010_med = median(share_zip_2010)
+  ) %>% 
+  dplyr::ungroup()
+ 
+ data_zip_establishments_all_ippann_share_avr <- 
+   data_zip_establishments_all_ippann_share %>% 
+   dplyr::select(
+     share_zip_2010_med,
+     log_diff_10_14_avr
+   ) %>% 
+   dplyr::distinct()
+   
+
+ g16 <- ggplot() +
+   geom_point(
+     data = data_zip_establishments_all_ippann_share,
+     mapping = aes(x = share_zip_2010, y = log_diff_10_14),
+     size = 0.3
+     ) +
+   xlab("Ratio of # tokutei estab. to # total estab. in 2010") +
+   ylab("y") 
+ 
+ print(g16)
+ 
+ 
+```
+
+## binscatter plot for first stage
+
+```{r}
+
+ g26 <- ggplot() +
+   geom_point(
+     data = data_zip_establishments_all_ippann_share_avr,
+     mapping = aes(x = share_zip_2010_med, y = log_diff_10_14_avr),
+     size = 0.3
+   ) +
+   stat_smooth(
+     method = "lm",
+     data = data_zip_establishments_all_ippann_share_avr,
+     mapping = aes(x = share_zip_2010_med, y = log_diff_10_14_avr),
+     se = FALSE,
+     size = 0.3
+   ) +
+   xlab("Ratio of # tokutei estab. to # total estab. in 2010") +
+   ylab("y") 
+ 
+ print(g26)
+ 
+ 
+```
+
+## Reduced form (zip)
+
+Regress first order difference of the natural logarithm of the average wage and the average fee(log_diffwage_14_10 / flog_difffee_14_10) on the percentage of tokutei establishments at the initial period(share_zip_2010). The natural logarithm of the average wage and average fee are calculated by creating panel data by making the average of each zip code level year by year.
+log_diffwage_14_10 / flog_difffee_14_10 is log(average wage / fee in 2014) - log(average wage / fee in 2010).
+
+### wage(log_diffwage_14_10)
+
+```{r}
+
+### wage
+
+results_growth_zip <- list()
+
+results_growth_zip[[1]] <- 
+  lm(formula = log_diffwage_14_10 ~  share_zip_2010,
+     data = data_zip_establishments_all_ippann_unique_wage
+     )
+
+result_growthzip <- 
+  list(
+    "log_diffwage_14_10" = results_growth_zip[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_growthzip,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### wage(wage_growth_14_10)
+
+```{r}
+
+### wage
+
+results_growth_zip_a <- list()
+
+results_growth_zip_a[[1]] <- 
+  lm(formula = wage_growth_14_10 ~  share_zip_2010,
+     data = data_zip_establishments_all_ippann_unique_wage
+     )
+
+result_growthzipa <- 
+  list(
+    "wage_growth_14_10" = results_growth_zip_a[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_growthzipa,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+
+### wage(weighted / log_diffwage_14_10)
+
+```{r}
+
+### wage
+
+results_growth_zip_w <- list()
+
+results_growth_zip_w[[1]] <- 
+  lm(formula = log_diffwage_14_10 ~  share_zip_2010,
+     data = data_zip_establishments_all_ippann_unique_wage,
+     weights = weights
+     )
+
+result_growthzipw <- 
+  list(
+    "log_diffwage_14_10(weighted)" = results_growth_zip_w[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_growthzipw,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### wage(weighted / wage_growth_14_10)
+
+```{r}
+
+### wage
+
+results_growth_zip_w_a <- list()
+
+results_growth_zip_w_a[[1]] <- 
+  lm(formula = wage_growth_14_10 ~  share_zip_2010,
+     data = data_zip_establishments_all_ippann_unique_wage,
+     weights = weights
+     )
+
+result_growthzipwa <- 
+  list(
+    "wage_growth_14_10(weighted)" = results_growth_zip_w_a[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_growthzipwa,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### Plot for reduced form (wage)
+
+```{r}
+
+id_5 <- c(1:778)
+
+data_zip_establishments_all_ippann_wage <-
+   data_zip_establishments_all_ippann_unique_wage %>% 
+   dplyr::select(
+     zip_three,
+     share_zip_2010,
+     log_diffwage_14_10
+   ) %>% 
+   dplyr::distinct() %>% 
+  dplyr::arrange(
+    zip_three
+  ) 
+ 
+data_zip_establishments_all_ippann_wage <-
+  data_zip_establishments_all_ippann_wage %>% 
+  dplyr::mutate(
+    zip_bin = cut(id_5, 
+                 breaks = 50)
+  ) %>% 
+  dplyr::group_by(
+    zip_bin
+  ) %>% 
+  dplyr::mutate(
+    log_diffwage_14_10_avr = mean(log_diffwage_14_10),
+    share_zip_2010_med = median(share_zip_2010)
+  ) %>% 
+  dplyr::ungroup()
+ 
+ data_zip_establishments_all_ippann_wage_avr <- 
+   data_zip_establishments_all_ippann_wage %>% 
+   dplyr::select(
+     share_zip_2010_med,
+     log_diffwage_14_10_avr
+   ) %>% 
+   dplyr::distinct()
+   
+ 
+
+ g17 <- ggplot() +
+   geom_point(
+     data = data_zip_establishments_all_ippann_wage,
+     mapping = aes(x = share_zip_2010, y = log_diffwage_14_10),
+     size = 0.3
+   ) +
+   xlab("Ratio of # tokutei estab. to # total estab. in 2010") +
+   ylab("Difference of log(the average wage)")
+ 
+ print(g17)
+ 
+```
+
+### binscatter plot for reduced form (wage)
+
+```{r}
+
+ g27 <- ggplot() +
+   geom_point(
+     data = data_zip_establishments_all_ippann_wage_avr,
+     mapping = aes(x = share_zip_2010_med, y = log_diffwage_14_10_avr),
+     size = 0.5
+   ) +
+   stat_smooth(
+     data = data_zip_establishments_all_ippann_wage_avr,
+     method = "lm",
+     mapping = aes(x = share_zip_2010_med, y = log_diffwage_14_10_avr),
+     se = FALSE,
+     size = 0.5
+   ) +
+   xlab("Ratio of # tokutei estab. to # total estab. in 2010") +
+   ylab("Difference of log(the average wage)")
+ 
+ print(g27)
+ 
+```
+
+### fee(log_difffee_14_10)
+
+```{r}
+
+### fee
+
+results_feegrowth_zip <- list()
+
+results_feegrowth_zip[[1]] <- 
+  lm(formula = log_difffee_14_10 ~  share_zip_2010,
+     data = data_zip_establishments_all_ippann_unique_fee
+     )
+
+result_feegrowthzip <- 
+  list(
+    "log_difffee_14_10" = results_feegrowth_zip[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_feegrowthzip,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### fee(fee_growth_14_10)
+
+```{r}
+
+### fee
+
+results_feegrowth_zip_a <- list()
+
+results_feegrowth_zip_a[[1]] <- 
+  lm(formula = fee_growth_14_10 ~  share_zip_2010,
+     data = data_zip_establishments_all_ippann_unique_fee
+     )
+
+result_feegrowthzipa <- 
+  list(
+    "fee_growth_14_10" = results_feegrowth_zip_a[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_feegrowthzipa,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### fee(log_difffee_14_10 / weighted )
+
+```{r}
+
+### fee
+
+results_feegrowth_zip_w <- list()
+
+results_feegrowth_zip_w[[1]] <- 
+  lm(formula = log_difffee_14_10 ~  share_zip_2010,
+     data = data_zip_establishments_all_ippann_unique_fee,
+     weights = weights
+     )
+
+result_feegrowthzipw <- 
+  list(
+    "log_difffee_14_10(weighted)" = results_feegrowth_zip_w[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_feegrowthzipw,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### fee(fee_growth_14_10/ weighted )
+
+```{r}
+
+### fee
+
+results_feegrowth_zip_w_a <- list()
+
+results_feegrowth_zip_w_a[[1]] <- 
+  lm(formula = fee_growth_14_10 ~  share_zip_2010,
+     data = data_zip_establishments_all_ippann_unique_fee,
+     weights = weights
+     )
+
+result_feegrowthzipawa <- 
+  list(
+    "fee_growth_14_10(weighted)" = results_feegrowth_zip_w_a[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_feegrowthzipawa,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### Plot for reduced form (fee)
+
+```{r}
+
+id_6 <- c(1:778)
+
+data_zip_establishments_all_ippann_fee <-
+   data_zip_establishments_all_ippann_unique_fee %>% 
+   dplyr::select(
+     zip_three,
+     share_zip_2010,
+     log_difffee_14_10
+   ) %>% 
+   dplyr::distinct() %>% 
+  dplyr::arrange(
+    zip_three
+  ) 
+ 
+data_zip_establishments_all_ippann_fee <-
+  data_zip_establishments_all_ippann_fee %>% 
+  dplyr::mutate(
+    zip_bin = cut(id_6, 
+                 breaks = 50)
+  ) %>% 
+  dplyr::group_by(
+    zip_bin
+  ) %>% 
+  dplyr::mutate(
+    log_difffee_14_10_avr = mean(log_difffee_14_10),
+    share_zip_2010_med = median(share_zip_2010)
+  ) %>% 
+  dplyr::ungroup()
+ 
+ data_zip_establishments_all_ippann_fee_avr <- 
+   data_zip_establishments_all_ippann_fee %>% 
+   dplyr::select(
+     share_zip_2010_med,
+     log_difffee_14_10_avr
+   ) %>% 
+   dplyr::distinct()
+   
+
+ g18 <- ggplot() +
+   geom_point(
+     data = data_zip_establishments_all_ippann_fee,
+     mapping = aes(x = share_zip_2010, y = log_difffee_14_10),
+     size = 0.3
+   ) +
+   xlab("Ratio of # tokutei estab. to # total estab. in 2010") +
+   ylab("Difference of log(the average fee)")
+ 
+ print(g18)
+ 
+```
+
+### binscatter plot for reduced form (fee)
+
+```{r}
+
+ g28 <- ggplot() +
+   geom_point(
+     data = data_zip_establishments_all_ippann_fee_avr,
+     mapping = aes(x = share_zip_2010_med, y = log_difffee_14_10_avr),
+     size = 0.3
+   ) +
+   stat_smooth(
+     data = data_zip_establishments_all_ippann_fee_avr,
+     method = "lm",
+     mapping = aes(x = share_zip_2010_med, y = log_difffee_14_10_avr),
+     se = FALSE,
+     size = 0.3
+   ) +
+   xlab("Ratio of # tokutei estab. to # total estab. in 2010") +
+   ylab("Difference of log(the average fee)")
+ 
+ print(g28)
+ 
+```
+
+## Structural form (zip)
+
+Regress the difference between the natural logarithm of average wages and average rates on the difference between 2014 and 2010 in the number of general establishments (log_diffwage/fee_14_10). We use the ratio of tokutei establishments at the initial periods as the instrument variable for the difference between the natural logarithm of average wages and average rates on the difference between 2014 and 2010 in the number of general establishments (log_diff_10_14).
+
+### 2nd stage (wage / log_diffwage_14_10)
+
+```{r}
+results_s_wage_zip <- list()
+
+results_s_wage_zip[[1]] <- 
+  lfe::felm(
+    formula = log_diffwage_14_10 ~  1 | 0 | (log_diff_10_14 ~ share_zip_2010) | 0 ,
+    data = data_zip_establishments_all_ippann_unique_wage
+  )
+
+
+result_swagegrowthzip <- 
+  list(
+    "log_diffwage_14_10" = results_s_wage_zip[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_swagegrowthzip,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+### 2nd stage (wage / wage_growth_14_10)
+
+```{r}
+results_s_wage_zip_a <- list()
+
+results_s_wage_zip_a[[1]] <- 
+  lfe::felm(
+    formula = wage_growth_14_10 ~  1 | 0 | (diff_14_10 ~ share_zip_2010) | 0 ,
+    data = data_zip_establishments_all_ippann_unique_wage
+  )
+
+
+result_swagegrowthzipa <- 
+  list(
+    "wage_growth_14_10" = results_s_wage_zip_a[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_swagegrowthzipa,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+### 2nd stage (wage / log_diffwage_14_10 / weighted)
+
+```{r}
+
+results_s_wage_zip_2nd <- list()
+
+results_s_wage_zip_2nd[[1]] <- 
+  fixest::feols(
+    fml = log_diffwage_14_10 ~ 1 | log_diff_10_14 ~ share_zip_2010,
+    data = data_zip_establishments_all_ippann_unique_wage,
+    weights = ~ weights
+  )
+
+result_swagegrowthzip2nd <- 
+  list(
+    "log_diffwage_14_10(weighted)" = results_s_wage_zip_2nd[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_swagegrowthzip2nd,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### 2nd stage (wage / wage_growth_14_10 / weighted)
+
+```{r}
+
+results_s_wage_zip_2nd_a <- list()
+
+results_s_wage_zip_2nd_a[[1]] <- 
+  fixest::feols(
+    fml = wage_growth_14_10 ~ 1 | diff_14_10 ~ share_zip_2010,
+    data = data_zip_establishments_all_ippann_unique_wage,
+    weights = ~ weights
+  )
+
+result_swagegrowthzip2nda <- 
+  list(
+    "wage_growth_14_10(weighted)" = results_s_wage_zip_2nd_a[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_swagegrowthzip2nda,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### 1st stage (wage / log_diffwage_14_10)
+
+```{r}
+
+resultsb5 <- 
+  list(
+    "log_diff_10_14(1st stage)" = results_s_wage_zip[[1]]$stage1
+  )
+
+modelsummary::modelsummary(
+  resultsb5,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+```
+
+### 1st stage (wage / wage_growth_14_10 )
+
+```{r}
+
+resultsbb5 <- 
+  list(
+    "wage_growth_14_10(1st stage)" = results_s_wage_zip_a[[1]]$stage1
+  )
+
+modelsummary::modelsummary(
+  resultsbb5,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+
+```
+### 1st stage (wage / log_diff_10_14 / weighted )
+
+```{r}
+
+modelsummary::modelsummary(
+  results_s_wage_zip_2nd[[1]]$iv_first_stage,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+
+```
+
+### 1st stage (wage / results_s_wage_zip_2nd_a[[1]] / weighted )
+
+```{r}
+
+modelsummary::modelsummary(
+  results_s_wage_zip_2nd_a[[1]]$iv_first_stage,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+
+```
+
+### 2nd stage (fee / log_difffee_14_10)
+
+```{r}
+
+results_s_fee_zip <- list()
+
+results_s_fee_zip[[1]] <- 
+  lfe::felm(
+    formula = log_difffee_14_10 ~ 1 | 0 | (log_diff_10_14 ~ share_zip_2010) | 0 ,
+    data = data_zip_establishments_all_ippann_unique_fee
+  )
+
+
+result_sfeegrowthzip <- 
+  list(
+    "log_difffee_14_10" = results_s_fee_zip[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_sfeegrowthzip,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### 2nd stage (fee / fee_growth_14_10)
+
+```{r}
+
+results_s_fee_zip_a <- list()
+
+results_s_fee_zip_a[[1]] <- 
+  lfe::felm(
+    formula = fee_growth_14_10 ~ 1 | 0 | (diff_14_10 ~ share_zip_2010) | 0 ,
+    data = data_zip_establishments_all_ippann_unique_fee
+  )
+
+
+result_sfeegrowthzipa <- 
+  list(
+    "fee_growth_14_10" = results_s_fee_zip_a[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_sfeegrowthzipa,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### 2nd stage (fee / log_difffee_14_10 / weighted)
+
+```{r}
+
+results_s_fee_zip_2nd <- list()
+
+results_s_fee_zip_2nd[[1]] <- 
+  fixest::feols(
+    fml = log_difffee_14_10 ~ 1 | log_diff_10_14 ~ share_zip_2010,
+    data = data_zip_establishments_all_ippann_unique_fee,
+    weights = ~ weights
+  )
+
+result_sfeegrowthzip2nd <- 
+  list(
+    "log_difffee_14_10" = results_s_fee_zip_2nd[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_sfeegrowthzip2nd,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### 2nd stage (fee / fee_growth_14_10 / weighted)
+
+```{r}
+
+results_s_fee_zip_2nd_a <- list()
+
+results_s_fee_zip_2nd_a[[1]] <- 
+  fixest::feols(
+    fml = fee_growth_14_10 ~ 1 | diff_14_10 ~ share_zip_2010,
+    data = data_zip_establishments_all_ippann_unique_fee,
+    weights = ~ weights
+  )
+
+result_sfeegrowthzip2nda <- 
+  list(
+    "log_difffee_14_10" = results_s_fee_zip_2nd_a[[1]]
+  )
+
+modelsummary::modelsummary(
+  result_sfeegrowthzip2nda,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+
+```
+
+### 1st stage (fee / log_diff_10_14)
+
+```{r}
+
+resultsb6 <- 
+  list(
+    "log_diff_10_14(1st stage)" = results_s_fee_zip[[1]]$stage1
+  )
+
+modelsummary::modelsummary(
+  resultsb6,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+```
+
+### 1st stage (fee / fee_growth_14_10)
+
+```{r}
+
+resultsbb6 <- 
+  list(
+    "fee_growth_14_10(1st stage)" = results_s_fee_zip_a[[1]]$stage1
+  )
+
+modelsummary::modelsummary(
+  resultsbb6,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+```
+
+### 1st stage (fee / log_difffee_14_10 / weighted)
+
+```{r}
+
+modelsummary::modelsummary(
+  results_s_fee_zip_2nd[[1]]$iv_first_stage,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+
+```
+
+### 1st stage (fee / fee_growth_14_10 / weighted)
+
+```{r}
+
+modelsummary::modelsummary(
+  results_s_fee_zip_2nd_a[[1]]$iv_first_stage,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95
+)
+
+
+```
+

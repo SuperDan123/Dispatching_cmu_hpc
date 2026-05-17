@@ -1,0 +1,814 @@
+---
+title: "Benchmark Equilibrium Case Comparison (All Markets)"
+author: "Daisy Dan Song"
+date: "2026-03-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+devtools::load_all(".")
+
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+)
+
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(tibble)
+library(foreach)
+library(here)
+library(ggplot2)
+library(scales)
+library(doParallel)
+foreach::registerDoSEQ()
+```
+
+## Purpose
+
+This report applies the benchmark equilibrium comparison to **actual data** and compares
+results across **all** market-zone pairs `(t, j)`.
+
+Cases:
+
+1. Baseline equilibrium (`solve_equilibrium`)
+2. Free-entry benchmark (`solve_equilibrium_competitive`)
+3. Frictionless with free entry (`solve_equilibrium_frictionless_with_free_entry`)
+4. Frictionless without free entry (`solve_equilibrium_frictionless`)
+
+The endogenous comparison focuses on `w` and `f` from index `>= 3`.
+
+```{r, cache=TRUE}
+equilibrium <-
+  readRDS(
+    file = "output/multihome/estimate_data/equilibrium_updated_constrained.rds" %>%
+      here::here()
+  )
+
+equilibrium_base <- equilibrium
+
+equilibrium_competitive <-
+  solve_equilibrium_competitive(
+    equilibrium = equilibrium_base,
+    solver = "nleqslv"
+  )
+```
+
+```{r, cache=TRUE}
+equilibrium_frictionless_free_entry <-
+  solve_equilibrium_frictionless_with_free_entry(
+    equilibrium = equilibrium_base
+  )
+
+```
+
+```{r, cache=TRUE}
+equilibrium_frictionless_no_free_entry <-
+  solve_equilibrium_frictionless(
+    equilibrium = equilibrium_base,
+    solver = "nleqslv",
+    multistart = 1
+  )
+```
+
+
+```{r}
+t <- 1
+j <- 1
+
+m_w <- equilibrium$parameter$m_w
+m_f <- equilibrium$parameter$m_f
+beta_f <- equilibrium$parameter$beta_f
+beta_w <- equilibrium$parameter$beta_w
+lambda_w <- equilibrium$parameter$lambda_w
+lambda_f <- equilibrium$parameter$lambda_f
+gamma_f <- equilibrium$parameter$gamma_f
+gamma_w <- equilibrium$parameter$gamma_w
+x_a_f <- equilibrium$exogenous[[t]][[j]]$x_a_f
+x_a_w <- equilibrium$exogenous[[t]][[j]]$x_a_w
+x_c_w <- equilibrium$exogenous[[t]][[j]]$x_c_w
+x_c_f <- equilibrium$exogenous[[t]][[j]]$x_c_f
+size_w <- equilibrium$exogenous[[t]][[j]]$size_w
+size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+owner <- equilibrium$exogenous[[t]][[j]]$owner
+s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+mu <- equilibrium$shock[[t]][[j]]$mu
+ea_f <- equilibrium$shock[[t]][[j]]$ea_f
+ea_w <- equilibrium$shock[[t]][[j]]$ea_w
+ec_f <- equilibrium$shock[[t]][[j]]$ec_f
+ec_w <- equilibrium$shock[[t]][[j]]$ec_w
+use_exp <- equilibrium$constant$use_exp
+s_f<- equilibrium$endogenous[[t]][[j]]$s_f
+
+w_parttime <- equilibrium$endogenous[[t]][[j]]$w
+w_parttime[3:length(equilibrium$endogenous[[t]][[j]]$w)] <- equilibrium$endogenous[[t]][[j]]$w[2]
+w <- w_parttime
+
+active_idx <- 3:nrow(equilibrium$endogenous[[t]][[j]]$f)
+f_grid <- seq(-100, 20, by = 0.1)
+
+profit_curve_df <-
+  purrr::map_dfr(
+    active_idx,
+    function(i) {
+      s_f_start <- equilibrium$endogenous[[t]][[j]]$s_f
+      purrr::map_dfr(
+        f_grid,
+        function(z) {
+          f_z <- equilibrium$endogenous[[t]][[j]]$f
+          f_z[i, 1] <- z
+
+          s_f_x <-
+            solve_s_f_tj(
+              m_w = m_w,
+              m_f = m_f,
+              beta_f = beta_f,
+              lambda_f = lambda_f,
+              x_a_f = x_a_f,
+              size_w = size_w,
+              size_f = size_f,
+              mu = mu,
+              ea_f = ea_f,
+              f = f_z,
+              s_f = s_f_start
+            ) %>%
+            as.matrix()
+          s_f_start <<- s_f_x
+
+          q_x <-
+            compute_meeting_number_tj(
+              m_w = m_w,
+              m_f = m_f,
+              size_w = size_w,
+              size_f = size_f,
+              mu = mu,
+              s_f = s_f_x
+            ) %>%
+            as.matrix()
+
+          c_w_x <-
+            compute_c_w_tj(
+              gamma_w = gamma_w,
+              x_c_w = x_c_w,
+              ec_w = ec_w,
+              use_exp = use_exp
+            )
+          c_f_x <-
+            compute_c_f_tj(
+              gamma_f = gamma_f,
+              x_c_f = x_c_f,
+              ec_f = ec_f,
+              use_exp = use_exp
+            )
+
+          revenue_term_raw <- q_x * s_w * (f_z - w - c_w_x)
+          cost_term_raw <- c_f_x * s_f_x * size_f
+          revenue_term <- (t(owner) %*% owner) %*% revenue_term_raw
+          cost_term <- (t(owner) %*% owner) %*% cost_term_raw
+
+          tibble(
+            i = i,
+            f_value = z,
+            c_f = c_f_x[i, 1],
+            c_w_x = c_w_x[i, 1],
+            revenue_term = as.numeric(revenue_term[i, 1]),
+            cost_term = as.numeric(cost_term[i, 1]),
+            profit = revenue_term - cost_term
+          )
+        }
+      )
+    }
+  )
+
+solution_df <-
+  tibble(
+    i = active_idx,
+    f_solution = as.numeric(equilibrium_competitive$endogenous[[t]][[j]]$f[active_idx, 1])
+  )
+
+profit_components_df <-
+  profit_curve_df %>%
+  select(i, f_value, revenue_term, cost_term, profit) %>%
+  pivot_longer(
+    cols = c(revenue_term, cost_term),
+    names_to = "component",
+    values_to = "value"
+  ) %>%
+  mutate(
+    component = recode(
+      component,
+      revenue_term = "Revenue term: q_x * s_w * (f_z - w - c_w_x)",
+      cost_term = "Cost term: -c_f_x * s_f_x * size_f"
+    )
+  )
+
+ggplot(profit_components_df, aes(x = f_value, y = value, color = factor(i), linetype = component)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.3) +
+  geom_line(linewidth = 0.7) +
+  labs(
+    title = "Profit decomposition terms vs fee for multiple THS indices",
+    subtitle = "Dashed black: zero line; dotted colored: solved free-entry fee by index",
+    x = "f_i",
+    y = "Value",
+    color = "THS index i",
+    linetype = "Component"
+  ) +
+  theme_classic()
+
+```
+
+```{r}
+f_grid <- seq(0, 50, by = 0.1)
+
+profit_curve_df <-
+  purrr::map_dfr(
+    active_idx,
+    function(i) {
+      s_f_start <- equilibrium$endogenous[[t]][[j]]$s_f
+      purrr::map_dfr(
+        f_grid,
+        function(z) {
+          f_z <- equilibrium$endogenous[[t]][[j]]$f
+          f_z[i, 1] <- z
+
+          s_f_x <-
+            solve_s_f_tj(
+              m_w = m_w,
+              m_f = m_f,
+              beta_f = beta_f,
+              lambda_f = lambda_f,
+              x_a_f = x_a_f,
+              size_w = size_w,
+              size_f = size_f,
+              mu = mu,
+              ea_f = ea_f,
+              f = f_z,
+              s_f = s_f_start
+            ) %>%
+            as.matrix()
+          s_f_start <<- s_f_x
+
+          q_x <-
+            compute_meeting_number_tj(
+              m_w = m_w,
+              m_f = m_f,
+              size_w = size_w,
+              size_f = size_f,
+              mu = mu,
+              s_f = s_f_x
+            ) %>%
+            as.matrix()
+
+          c_w_x <-
+            compute_c_w_tj(
+              gamma_w = gamma_w,
+              x_c_w = x_c_w,
+              ec_w = ec_w,
+              use_exp = use_exp
+            )
+          c_f_x <-
+            compute_c_f_tj(
+              gamma_f = gamma_f,
+              x_c_f = x_c_f,
+              ec_f = ec_f,
+              use_exp = use_exp
+            )
+
+          revenue_term_raw <- q_x * s_w * (f_z - w - c_w_x)
+          cost_term_raw <- c_f_x * s_f_x * size_f
+          revenue_term <- (t(owner) %*% owner) %*% revenue_term_raw
+          cost_term <- (t(owner) %*% owner) %*% cost_term_raw
+
+          tibble(
+            i = i,
+            f_value = z,
+            c_f = c_f_x[i, 1],
+            c_w_x = c_w_x[i, 1],
+            revenue_term = as.numeric(revenue_term[i, 1]),
+            cost_term = as.numeric(cost_term[i, 1]),
+            profit = revenue_term - cost_term
+          )
+        }
+      )
+    }
+  )
+
+solution_df <-
+  tibble(
+    i = active_idx,
+    f_solution = as.numeric(equilibrium_competitive$endogenous[[t]][[j]]$f[active_idx, 1])
+  )
+
+profit_components_df <-
+  profit_curve_df %>%
+  select(i, f_value, revenue_term, cost_term, profit) %>%
+  pivot_longer(
+    cols = c(revenue_term, cost_term),
+    names_to = "component",
+    values_to = "value"
+  ) %>%
+  mutate(
+    component = recode(
+      component,
+      revenue_term = "Revenue term: q_x * s_w * (f_z - w - c_w_x)",
+      cost_term = "Cost term: -c_f_x * s_f_x * size_f"
+    )
+  )
+
+ggplot(profit_components_df, aes(x = f_value, y = value, color = factor(i), linetype = component)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.3) +
+  geom_line(linewidth = 0.7) +
+  labs(
+    title = "Profit decomposition terms vs fee for multiple THS indices",
+    subtitle = "Dashed black: zero line; dotted colored: solved free-entry fee by index",
+    x = "f_i",
+    y = "Value",
+    color = "THS index i",
+    linetype = "Component"
+  ) +
+  theme_classic()
+
+```
+
+
+```{r helper-functions}
+extract_endogenous_all_markets <- function(eq, case_name, vars = c("w", "f"), min_index = 3) {
+  rows <- list()
+  idx <- 1
+
+  for (t in seq_along(eq$endogenous)) {
+    for (j in seq_along(eq$endogenous[[t]])) {
+      endo <- eq$endogenous[[t]][[j]]
+
+      for (var_name in vars) {
+        values <- as.numeric(endo[[var_name]])
+        rows[[idx]] <- tibble(
+          case = case_name,
+          t = t,
+          j = j,
+          variable = var_name,
+          index = seq_along(values),
+          value = values
+        )
+        idx <- idx + 1
+      }
+    }
+  }
+
+  bind_rows(rows) %>%
+    filter(.data$index >= min_index)
+}
+
+compute_case_objective_tj <- function(eq, case_name, t, j) {
+  if (case_name == "baseline") {
+    chk <- check_equilibrium_tj(t = t, j = j, equilibrium = eq)
+    return(max(abs(c(chk$foc_w, chk$foc_f)), na.rm = TRUE))
+  }
+
+  if (case_name == "free_entry") {
+    profit_tj <-
+      compute_profit_ths_tj(
+        m_w = eq$parameter$m_w,
+        m_f = eq$parameter$m_f,
+        gamma_w = eq$parameter$gamma_w,
+        gamma_f = eq$parameter$gamma_f,
+        x_c_w = eq$exogenous[[t]][[j]]$x_c_w,
+        x_c_f = eq$exogenous[[t]][[j]]$x_c_f,
+        size_w = eq$exogenous[[t]][[j]]$size_w,
+        size_f = eq$exogenous[[t]][[j]]$size_f,
+        owner = eq$exogenous[[t]][[j]]$owner,
+        mu = eq$shock[[t]][[j]]$mu,
+        ec_w = eq$shock[[t]][[j]]$ec_w,
+        ec_f = eq$shock[[t]][[j]]$ec_f,
+        w = eq$endogenous[[t]][[j]]$w,
+        f = eq$endogenous[[t]][[j]]$f,
+        s_w = eq$endogenous[[t]][[j]]$s_w,
+        s_f = eq$endogenous[[t]][[j]]$s_f,
+        use_exp = eq$constant$use_exp
+      )
+    return(max(abs(profit_tj[3:nrow(profit_tj), , drop = FALSE]), na.rm = TRUE))
+  }
+
+  if (case_name == "frictionless_free_entry") {
+    c_w <-
+      compute_c_w_tj(
+        gamma_w = eq$parameter$gamma_w,
+        x_c_w = eq$exogenous[[t]][[j]]$x_c_w,
+        ec_w = eq$shock[[t]][[j]]$ec_w,
+        use_exp = eq$constant$use_exp
+      )
+
+    c_f <-
+      compute_c_f_tj(
+        gamma_f = eq$parameter$gamma_f,
+        x_c_f = eq$exogenous[[t]][[j]]$x_c_f,
+        ec_f = eq$shock[[t]][[j]]$ec_f,
+        use_exp = eq$constant$use_exp
+      )
+
+    wedge <- eq$endogenous[[t]][[j]]$f - eq$endogenous[[t]][[j]]$w - c_w - c_f
+    return(max(abs(wedge[3:nrow(wedge), , drop = FALSE]), na.rm = TRUE))
+  }
+
+  if (case_name == "frictionless_no_free_entry") {
+    foc <-
+      compute_foc_tj_frictionless(
+        m_w = eq$parameter$m_w,
+        m_f = eq$parameter$m_f,
+        beta_w = eq$parameter$beta_w,
+        beta_f = eq$parameter$beta_f,
+        gamma_w = eq$parameter$gamma_w,
+        gamma_f = eq$parameter$gamma_f,
+        lambda_w = eq$parameter$lambda_w,
+        lambda_f = eq$parameter$lambda_f,
+        x_a_w = eq$exogenous[[t]][[j]]$x_a_w,
+        x_a_f = eq$exogenous[[t]][[j]]$x_a_f,
+        x_c_w = eq$exogenous[[t]][[j]]$x_c_w,
+        x_c_f = eq$exogenous[[t]][[j]]$x_c_f,
+        size_w = eq$exogenous[[t]][[j]]$size_w,
+        size_f = eq$exogenous[[t]][[j]]$size_f,
+        owner = eq$exogenous[[t]][[j]]$owner,
+        mu = eq$shock[[t]][[j]]$mu,
+        ea_w = eq$shock[[t]][[j]]$ea_w,
+        ea_f = eq$shock[[t]][[j]]$ea_f,
+        ec_w = eq$shock[[t]][[j]]$ec_w,
+        ec_f = eq$shock[[t]][[j]]$ec_f,
+        w = eq$endogenous[[t]][[j]]$w,
+        f = eq$endogenous[[t]][[j]]$f,
+        s_f = eq$endogenous[[t]][[j]]$s_f,
+        method_s_w = "exact",
+        margin = eq$constant$margin,
+        quadrature_size = eq$constant$quadrature_size,
+        tol = eq$constant$tol,
+        use_exp = eq$constant$use_exp
+      )
+    return(max(abs(foc), na.rm = TRUE))
+  }
+
+  stop("Unknown case name.")
+}
+```
+
+```{r build-endogenous-comparison}
+baseline_long_all <-
+  extract_endogenous_all_markets(
+    eq = equilibrium_base,
+    case_name = "baseline",
+    vars = c("w", "f"),
+    min_index = 3
+  )
+
+competitive_long_all <-
+  extract_endogenous_all_markets(
+    eq = equilibrium_competitive,
+    case_name = "free_entry",
+    vars = c("w", "f"),
+    min_index = 3
+  )
+
+frictionless_free_entry_long_all <-
+  extract_endogenous_all_markets(
+    eq = equilibrium_frictionless_free_entry,
+    case_name = "frictionless_free_entry",
+    vars = c("w", "f"),
+    min_index = 3
+  )
+
+frictionless_no_free_entry_long <-
+  extract_endogenous_all_markets(
+    eq = equilibrium_frictionless_no_free_entry,
+    case_name = "frictionless_no_free_entry",
+    vars = c("w", "f"),
+    min_index = 3
+  )
+
+all_cases_long <-
+  bind_rows(
+    baseline_long_all,
+    competitive_long_all,
+    frictionless_free_entry_long_all,
+    frictionless_no_free_entry_long
+  )
+
+comparison_long <-
+  all_cases_long %>%
+  left_join(
+    baseline_long_all %>%
+      select(t, j, variable, index, baseline_value = value),
+    by = c("t", "j", "variable", "index")
+  ) %>%
+  mutate(
+    diff = value - baseline_value,
+    abs_diff = abs(diff)
+  )
+```
+
+## Endogenous Comparison Summary (All Markets)
+
+```{r endogenous-summary-table}
+summary_table <-
+  comparison_long %>%
+  filter(case != "baseline") %>%
+  group_by(case, variable) %>%
+  summarise(
+    n = n(),
+    mean_diff = mean(diff, na.rm = TRUE),
+    median_diff = median(diff, na.rm = TRUE),
+    mean_abs_diff = mean(abs_diff, na.rm = TRUE),
+    p90_abs_diff = quantile(abs_diff, probs = 0.9, na.rm = TRUE),
+    max_abs_diff = max(abs_diff, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(case, variable)
+
+knitr::kable(
+  summary_table,
+  digits = 6,
+  caption = "Summary of deviations from baseline across all (t, j) markets"
+)
+```
+
+```{r endogenous-top-markets-table}
+market_diff_table <-
+  comparison_long %>%
+  filter(case != "baseline") %>%
+  group_by(case, t, j, variable) %>%
+  summarise(
+    mean_abs_diff = mean(abs_diff, na.rm = TRUE),
+    max_abs_diff = max(abs_diff, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(max_abs_diff)) %>%
+  slice_head(n = 30)
+
+knitr::kable(
+  market_diff_table,
+  digits = 6,
+  caption = "Top market-zone pairs by max absolute deviation"
+)
+```
+
+## Endogenous Comparison Graphs
+
+```{r endogenous-diff-average-table}
+avg_change_table <-
+  comparison_long %>%
+  filter(case != "baseline") %>%
+  mutate(
+    case = factor(
+      case,
+      levels = c("free_entry", "frictionless_free_entry", "frictionless_no_free_entry"),
+      labels = c("Free entry", "Frictionless + free entry", "Frictionless no free entry")
+    ),
+    variable = factor(
+      variable,
+      levels = c("f", "w"),
+      labels = c("Fee (f)", "Wage (w)")
+    )
+  ) %>%
+  group_by(case, variable) %>%
+  summarise(
+    mean_change = mean(diff, na.rm = TRUE),
+    median_change = median(diff, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(variable, case)
+
+avg_change_wide <-
+  avg_change_table %>%
+  tidyr::pivot_longer(
+    cols = c(mean_change, median_change),
+    names_to = "stat",
+    values_to = "value"
+  ) %>%
+  mutate(
+    stat = dplyr::recode(
+      stat,
+      mean_change = "Mean",
+      median_change = "Median"
+    ),
+    row_label = paste(variable, stat, sep = ": ")
+  ) %>%
+  select(row_label, case, value) %>%
+  tidyr::pivot_wider(names_from = case, values_from = value)
+
+out_dir <- here::here("draft/figuretable/estimation_result")
+if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+out_file <- file.path(out_dir, "benchmark_avg_signed_change.tex")
+
+fmt_num <- function(x) formatC(x, format = "f", digits = 4)
+
+latex_lines <- c(
+  "\\begingroup",
+  "\\centering",
+  "\\scriptsize",
+  "\\setlength{\\tabcolsep}{4pt}",
+  "\\begin{tabular}{lccc}",
+  "  \\toprule",
+  "  & Free entry & Frictionless + free entry & Frictionless no free entry\\\\",
+  "  \\midrule",
+  apply(
+    avg_change_wide,
+    1,
+    function(row) {
+      paste0(
+        "  ", row[["row_label"]], " & ",
+        fmt_num(as.numeric(row[["Free entry"]])), " & ",
+        fmt_num(as.numeric(row[["Frictionless + free entry"]])), " & ",
+        fmt_num(as.numeric(row[["Frictionless no free entry"]])), "\\\\"
+      )
+    }
+  ),
+  "  \\bottomrule",
+  "  \\multicolumn{4}{l}{\\emph{Entries are signed changes from baseline.}}\\\\",
+  "\\end{tabular}",
+  "\\par\\endgroup"
+)
+
+writeLines(latex_lines, out_file)
+
+knitr::kable(
+  avg_change_table,
+  digits = 4,
+  caption = "Average and median signed changes from baseline by case"
+)
+```
+
+```{r endogenous-diff-boxplot, fig.width=10, fig.height=5}
+plot_data <-
+  comparison_long %>%
+  filter(case != "baseline") %>%
+  mutate(
+    case = factor(
+      case,
+      levels = c("free_entry", "frictionless_free_entry", "frictionless_no_free_entry"),
+      labels = c("Free entry", "Frictionless + free entry", "Frictionless no free entry")
+    ),
+    variable = factor(
+      variable,
+      levels = c("f", "w"),
+      labels = c("Fee (f)", "Wage (w)")
+    )
+  )
+
+p_endogenous_diff <- ggplot(plot_data, aes(x = case, y = diff, fill = case)) +
+  geom_boxplot(
+    width = 0.65,
+    color = "black",
+    outlier.shape = NA
+  ) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.3) +
+  facet_wrap(~ variable, scales = "free_y") +
+  scale_fill_grey(start = 0.85, end = 0.45) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title = "Signed deviations from baseline across all markets",
+    subtitle = "Outlier points omitted for readability",
+    x = NULL,
+    y = "Deviation from baseline"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    legend.position = "none",
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_blank(),
+    strip.background = element_rect(fill = "white", color = "black"),
+    axis.text.x = element_text(angle = 10, hjust = 1)
+  )
+
+out_dir <- here::here("draft/figuretable/estimation_result")
+if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+ggsave(
+  filename = file.path(out_dir, "benchmark_endogenous_diff_all_markets.pdf"),
+  plot = p_endogenous_diff,
+  width = 10,
+  height = 5
+)
+ggsave(
+  filename = file.path(out_dir, "benchmark_endogenous_diff_sampled.pdf"),
+  plot = p_endogenous_diff,
+  width = 10,
+  height = 5
+)
+
+p_endogenous_diff
+```
+
+```{r endogenous-heatmap, fig.width=12, fig.height=8}
+heatmap_data <-
+  comparison_long %>%
+  filter(case != "baseline") %>%
+  group_by(case, t, j, variable) %>%
+  summarise(mean_abs_diff = mean(abs_diff, na.rm = TRUE), .groups = "drop")
+
+ggplot(heatmap_data, aes(x = j, y = t, fill = mean_abs_diff)) +
+  geom_tile() +
+  facet_grid(variable ~ case) +
+  scale_fill_viridis_c(labels = scales::comma) +
+  labs(
+    title = "Mean absolute deviation heatmap by market-zone pair",
+    x = "Zone index (j)",
+    y = "Market index (t)",
+    fill = "Mean |diff|"
+  ) +
+  theme_minimal(base_size = 11)
+```
+
+## Case-specific Objective Comparison (All Markets)
+
+```{r objective-computation}
+tj_grid <-
+  purrr::map_dfr(
+    seq_along(equilibrium_base$endogenous),
+    function(t) {
+      tibble(
+        t = t,
+        j = seq_along(equilibrium_base$endogenous[[t]])
+      )
+    }
+  )
+
+case_map_full <-
+  list(
+    baseline = equilibrium_base,
+    free_entry = equilibrium_competitive,
+    frictionless_free_entry = equilibrium_frictionless_free_entry,
+    frictionless_no_free_entry = equilibrium_frictionless_no_free_entry
+  )
+
+objective_long <-
+  purrr::imap_dfr(
+    case_map_full,
+    function(eq_obj, case_name) {
+      tj_grid %>%
+        mutate(
+          case = case_name,
+          objective = purrr::map2_dbl(
+            t,
+            j,
+            ~ compute_case_objective_tj(eq = eq_obj, case_name = case_name, t = .x, j = .y)
+          )
+        )
+    }
+  )
+```
+
+```{r objective-summary-table}
+objective_summary <-
+  objective_long %>%
+  group_by(case) %>%
+  summarise(
+    n = n(),
+    mean_objective = mean(objective, na.rm = TRUE),
+    median_objective = median(objective, na.rm = TRUE),
+    p90_objective = quantile(objective, probs = 0.9, na.rm = TRUE),
+    max_objective = max(objective, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(case)
+
+knitr::kable(
+  objective_summary,
+  digits = 8,
+  caption = "Case-specific objective residuals across all markets (target is zero)"
+)
+```
+
+```{r objective-boxplot, fig.width=9, fig.height=5}
+objective_long %>%
+  ggplot(aes(x = case, y = objective, fill = case)) +
+  geom_boxplot(outlier.shape = NA) +
+  scale_y_continuous(
+    trans = scales::log1p_trans(),
+    labels = scales::comma
+  ) +
+  labs(
+    title = "Objective residual distribution across all markets",
+    subtitle = "Outlier points omitted for readability",
+    x = "Case",
+    y = "Objective residual (log1p scale)"
+  ) +
+  theme_classic(base_size = 12) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 15, hjust = 1)
+  )
+```
+
+```{r objective-heatmap, fig.width=12, fig.height=4}
+ggplot(objective_long, aes(x = j, y = t, fill = objective)) +
+  geom_tile() +
+  facet_wrap(~ case, nrow = 1) +
+  scale_fill_viridis_c(labels = scales::comma) +
+  labs(
+    title = "Objective residual heatmap by market-zone pair",
+    x = "Zone index (j)",
+    y = "Market index (t)",
+    fill = "Objective"
+  ) +
+  theme_minimal(base_size = 11)
+```

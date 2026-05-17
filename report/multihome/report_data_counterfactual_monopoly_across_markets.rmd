@@ -1,0 +1,448 @@
+---
+title: "report_data_counterfactual_monopoly_across_markets"
+author: "Daisy Dan Song"
+date: "2026-05-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+)
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+```
+
+# import solved equilibrium
+```{r}
+equilibrium <-
+  readRDS(
+    file = "output/multihome/estimate_data/equilibrium_updated_constrained.rds" %>%
+      here::here()
+  )
+updated_ownership <-
+  readRDS(
+    file = "output/multihome/make_equilibrium_nationwide_top5_from_data/updated_ownership_matrix.rds" %>%
+      here::here()
+  )
+
+equilibrium$constant$use_exp <- FALSE
+```
+
+# update ownership
+```{r}
+for (
+  t in seq_along(equilibrium$exogenous)
+) {
+  for (
+    j in seq_along(equilibrium$exogenous[[t]])
+  ) {
+    equilibrium$exogenous[[t]][[j]]$owner <- updated_ownership[[t]][[j]]$owner
+  }
+}
+```
+
+# monopoly counterfactual setup
+#
+# Structural monopoly (instead of zeroing rival mu): rows 1–2 are part-time
+# private and fringe; THS platforms start at row `ths_first_row` (3). The
+# survivor is the THS row with the largest baseline `s_f`; rows 1–2 are never
+# candidates (only `s_f[ths_first_row:nr, ]` is compared). Then drop other THSs
+# and align exogenous, shock, and endogenous objects. Owner columns with no
+# remaining platform are dropped.
+```{r}
+ths_first_row <- 3L
+
+for (
+  t in seq_along(equilibrium$exogenous)
+) {
+  for (
+    j in seq_along(equilibrium$exogenous[[t]])
+  ) {
+    ex <-
+      equilibrium$exogenous[[t]][[j]]
+    nr <-
+      nrow(ex$x_a_w)
+    if (
+      nr <= ths_first_row
+    ) {
+      next
+    }
+    ths <-
+      ths_first_row:nr
+    if (
+      length(ths) <= 1L
+    ) {
+      next
+    }
+    own <-
+      ex$owner
+    end <-
+      equilibrium$endogenous[[t]][[j]]
+    # ths == ths_first_row:nr only; exclude part-time (row 1) and fringe (row 2).
+    # `1L` is the column index of the single-column matrix s_f.
+    s_sub <-
+      end$s_f[ths, 1L, drop = TRUE]
+    survivor <-
+      ths[which.max(s_sub)]
+    keep_rows <-
+      c(
+        1L,
+        2L,
+        survivor
+      )
+    ex$x_a_w <-
+      ex$x_a_w[keep_rows, , drop = FALSE]
+    ex$x_a_f <-
+      ex$x_a_f[keep_rows, , drop = FALSE]
+    ex$x_c_w <-
+      ex$x_c_w[keep_rows, , drop = FALSE]
+    ex$x_c_f <-
+      ex$x_c_f[keep_rows, , drop = FALSE]
+    own_k <-
+      own[keep_rows, , drop = FALSE]
+    keep_cols <-
+      which(
+        colSums(abs(own_k)) > 1e-10
+      )
+    if (
+      length(keep_cols) == 0L
+    ) {
+      stop(
+        "owner has no active columns after restricting to dominant THS"
+      )
+    }
+    ex$owner <-
+      own_k[, keep_cols, drop = FALSE]
+    if (
+      length(ex$size_w) == nr
+    ) {
+      ex$size_w <-
+        ex$size_w[keep_rows]
+    }
+    if (
+      length(ex$size_f) == nr
+    ) {
+      ex$size_f <-
+        ex$size_f[keep_rows]
+    }
+    sh <-
+      equilibrium$shock[[t]][[j]]
+    for (
+      nm in c("mu", "ea_w", "ea_f", "ec_w", "ec_f")
+    ) {
+      sh[[nm]] <-
+        sh[[nm]][keep_rows, , drop = FALSE]
+    }
+    en <-
+      equilibrium$endogenous[[t]][[j]]
+    for (
+      nm in c("w", "f", "s_w", "s_f")
+    ) {
+      en[[nm]] <-
+        en[[nm]][keep_rows, , drop = FALSE]
+    }
+    equilibrium$exogenous[[t]][[j]] <-
+      ex
+    equilibrium$shock[[t]][[j]] <-
+      sh
+    equilibrium$endogenous[[t]][[j]] <-
+      en
+  }
+}
+```
+
+# time
+```{r}
+# `solve_equilibrium_tj` returns the modified equilibrium; R does not update the
+# caller's `equilibrium` object in place. Assign the return value back, or you
+# will still see the pre-solve endogenous values on `equilibrium`.
+system.time(
+  equilibrium <-
+    solve_equilibrium_tj(
+      t = 1,
+      j = 2,
+      equilibrium = equilibrium,
+      solver = "nleqslv",
+      multistart = 20
+    )
+)
+```
+
+# run counterfactual for all markets
+```{r}
+# Same rule as `solve_equilibrium_tj`: use the returned object (`equilibrium_monopoly`);
+# the argument `equilibrium` in the calling environment is not updated in place.
+equilibrium_monopoly <-
+  solve_equilibrium(
+    equilibrium = equilibrium,
+    solver = "nleqslv",
+    multistart = 20
+  )
+```
+
+```{r}
+counterfactual <- 
+  check_equilibrium(
+    equilibrium = equilibrium_monopoly
+  )
+```
+
+# counterfactual with monopoly market
+
+### diagnostics
+```{r}
+counterfactual %>%
+  dplyr::count(role)
+```
+
+### aggregate across markets
+```{r}
+role_levels <-
+  c(
+    "outside",
+    "private",
+    "fringe",
+    "survivor_ths",
+    "shutdown_ths"
+  )
+
+counterfactual_market_role <-
+  counterfactual %>%
+  dplyr::filter(role %in% role_levels) %>%
+  dplyr::group_by(
+    t,
+    j,
+    rival_mu,
+    role
+  ) %>%
+  dplyr::summarise(
+    w = mean(w, na.rm = TRUE),
+    f = mean(f, na.rm = TRUE),
+    m = mean(m, na.rm = TRUE),
+    s_w = sum(s_w, na.rm = TRUE),
+    s_f = sum(s_f, na.rm = TRUE),
+    profit_ths = sum(profit_ths, na.rm = TRUE),
+    surplus_w = sum(surplus_w, na.rm = TRUE),
+    surplus_f = sum(surplus_f, na.rm = TRUE),
+    foc_w = mean(foc_w, na.rm = TRUE),
+    foc_f = mean(foc_f, na.rm = TRUE),
+    foc_s_f = mean(foc_s_f, na.rm = TRUE),
+    meeting_probability_w = mean(meeting_probability_w, na.rm = TRUE),
+    meeting_probability_f = mean(meeting_probability_f, na.rm = TRUE),
+    c_w = mean(c_w, na.rm = TRUE),
+    c_f = mean(c_f, na.rm = TRUE),
+    n_firms_in_role = dplyr::n(),
+    .groups = "drop"
+  )
+
+counterfactual_aggregated <-
+  counterfactual_market_role %>%
+  dplyr::group_by(
+    role,
+    rival_mu
+  ) %>%
+  dplyr::summarise(
+    w = mean(w, na.rm = TRUE),
+    f = mean(f, na.rm = TRUE),
+    m = mean(m, na.rm = TRUE),
+    s_w = mean(s_w, na.rm = TRUE),
+    s_f = mean(s_f, na.rm = TRUE),
+    profit_ths = sum(profit_ths, na.rm = TRUE),
+    surplus_w = sum(surplus_w, na.rm = TRUE),
+    surplus_f = sum(surplus_f, na.rm = TRUE),
+    foc_w = mean(foc_w, na.rm = TRUE),
+    foc_f = mean(foc_f, na.rm = TRUE),
+    foc_s_f = mean(foc_s_f, na.rm = TRUE),
+    meeting_probability_w = mean(meeting_probability_w, na.rm = TRUE),
+    meeting_probability_f = mean(meeting_probability_f, na.rm = TRUE),
+    c_w = mean(c_w, na.rm = TRUE),
+    c_f = mean(c_f, na.rm = TRUE),
+    n_markets = dplyr::n(),
+    avg_firms_in_role = mean(n_firms_in_role, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  dplyr::mutate(
+    role =
+      factor(
+        role,
+        levels = role_levels
+      )
+  ) %>%
+  dplyr::arrange(
+    role,
+    dplyr::desc(rival_mu)
+  )
+
+summary(counterfactual_aggregated)
+```
+
+### table
+```{r, results = "asis"}
+counterfactual_aggregated %>%
+  dplyr::select(
+    role,
+    rival_mu,
+    w,
+    f,
+    m,
+    s_w,
+    s_f,
+    profit_ths,
+    surplus_w,
+    surplus_f,
+    n_markets,
+    avg_firms_in_role
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+### outside/private/fringe {.tabset}
+```{r, results = "asis"}
+outside_plot_data <-
+  counterfactual_aggregated %>%
+  dplyr::filter(
+    role %in% c("outside", "private", "fringe")
+  ) %>%
+  dplyr::select(
+    role,
+    rival_mu,
+    s_w,
+    s_f,
+    surplus_w,
+    surplus_f
+  ) %>%
+  tidyr::pivot_longer(
+    cols = c(
+      s_w,
+      s_f,
+      surplus_w,
+      surplus_f
+    ),
+    names_to = "variable",
+    values_to = "value"
+  )
+
+outside_plot_data$variable <-
+  factor(
+    outside_plot_data$variable,
+    levels = c(
+      "s_w",
+      "s_f",
+      "surplus_w",
+      "surplus_f"
+    )
+  )
+
+p_outside <-
+  ggplot(
+    outside_plot_data,
+    aes(
+      x = rival_mu,
+      y = value,
+      color = role
+    )
+  ) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 1.4) +
+  scale_x_log10() +
+  facet_wrap(
+    ~ variable,
+    scales = "free_y"
+  ) +
+  labs(
+    title = "Outside, private, and fringe outcomes under monopoly counterfactual",
+    subtitle = "Lower rival mu means non-surviving THS firms are more effectively shut down",
+    x = "Rival THS matching efficiency (mu)",
+    y = "Value",
+    color = "Role"
+  ) +
+  theme_classic()
+
+p_outside
+```
+
+### inside THS {.tabset}
+```{r, results = "asis"}
+inside_plot_data <-
+  counterfactual_aggregated %>%
+  dplyr::filter(
+    role %in% c("survivor_ths", "shutdown_ths")
+  ) %>%
+  dplyr::select(
+    role,
+    rival_mu,
+    w,
+    f,
+    m,
+    s_w,
+    s_f,
+    profit_ths,
+    surplus_w,
+    surplus_f
+  ) %>%
+  tidyr::pivot_longer(
+    cols = c(
+      w,
+      f,
+      m,
+      s_w,
+      s_f,
+      profit_ths,
+      surplus_w,
+      surplus_f
+    ),
+    names_to = "variable",
+    values_to = "value"
+  )
+
+inside_plot_data$variable <-
+  factor(
+    inside_plot_data$variable,
+    levels = c(
+      "w",
+      "f",
+      "m",
+      "s_w",
+      "s_f",
+      "profit_ths",
+      "surplus_w",
+      "surplus_f"
+    )
+  )
+
+p_inside <-
+  ggplot(
+    inside_plot_data,
+    aes(
+      x = rival_mu,
+      y = value,
+      color = role
+    )
+  ) +
+  geom_line(linewidth = 0.7) +
+  geom_point(size = 1.4) +
+  scale_x_log10() +
+  facet_wrap(
+    ~ variable,
+    scales = "free_y"
+  ) +
+  labs(
+    title = "THS outcomes under monopoly counterfactual",
+    subtitle = "Survivor THS stays active while rival THS platforms have mu pushed toward zero",
+    x = "Rival THS matching efficiency (mu)",
+    y = "Value",
+    color = "Role"
+  ) +
+  theme_classic()
+
+p_inside
+```

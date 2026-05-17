@@ -1,0 +1,786 @@
+---
+title: "Model Estimation without Share Data"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: html_document
+# output: github_document
+#     # toc: true
+#     # toc_float: true
+# always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 4, fig.width = 8)
+```
+
+```{r, include = F}
+
+type = "html" # regression output
+
+library(magrittr)
+library(ggpubr)
+library(stargazer)
+library(lfe)
+library(gmm)
+library(nleqslv)
+source("../R/gmm_estimation.R")
+source("../R/computing_equilibrium.R")
+
+```
+
+
+```{r}
+load("../output/share_data.RData")
+worktype_description <- readxl::read_excel("../output/worktype_description.xlsx") %>% 
+  dplyr::mutate(description = factor(description,
+                                     levels = description))
+```
+
+
+
+
+```{r}
+
+
+x_names <- share_data %>% 
+  dplyr::select(
+    daily,
+    shokai,
+    oversea,
+    cocurrent,
+    dplyr::starts_with("type_")
+  ) %>% 
+  colnames()
+
+iv_names <- share_data %>% 
+  dplyr::select(
+    dplyr::starts_with("d_mean_"),
+    dplyr::starts_with("d_sd_")
+  ) %>% 
+  colnames()
+
+
+fe_names <- share_data %>% 
+  dplyr::select(
+    year_cz,
+    firm_year
+  ) %>% 
+  colnames()
+
+var_names <- list(
+  x_names = x_names,
+  iv_names = iv_names,
+  fe_names = fe_names
+)
+
+
+
+```
+
+
+
+
+### Parameter Estimates
+#### 1. Estimating $\alpha, \lambda^W, \lambda^F$ and other linear parameters
+```{r, results = "asis"}
+
+load(file = "../output/gmm_result_without_share.Rmd")
+load("../output/share_data.RData")
+load("../output/ptwage_each_market.RData")
+
+tab_nonlinear <- data.frame(
+  params = c("alpha", "lambda_W", "lambda_F"),
+  coef = result$params_nonlinear,
+  se = result$se_nonlinear
+)
+
+tab_linear <- data.frame(
+  vars = x_names[1:4],
+  coef = result$params_linear[x_names[1:4]],
+  se = result$se_linear[x_names[1:4]]
+)
+
+rownames(tab_nonlinear) <- NULL
+rownames(tab_linear) <- NULL
+
+knitr::kable(
+  tab_nonlinear,
+  col.names = c("Parameter", "Est.", "S.E."),
+  digits = 3,
+  caption = "Non-linear Parameters"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+knitr::kable(
+  tab_linear,
+  col.names = c("Variables", "Coef.", "S.E."),
+  digits = 3,
+  caption = "Linear Parameters"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+
+alpha <- result$params_nonlinear[1]
+beta <- 1 - alpha
+lambda_W <- result$params_nonlinear[2]
+lambda_F <- result$params_nonlinear[3]
+  
+  # Reduced form params
+  beta_DW <- (1 + (beta + 2 * (alpha - 1)) / 2 / (2 - alpha - beta)) / lambda_W
+  beta_DF <- beta / 2 / (2 - alpha - beta) / lambda_F
+  beta_SF <- (1 + (alpha + 2 * (beta - 1)) / 2 / (2 - alpha - beta)) / lambda_F
+  beta_SW <- alpha / 2 / (2 - alpha - beta) / lambda_W
+  beta_Q_W <- alpha * beta_DW + beta * beta_SW  # = alpha / lambda_W if CRS
+  beta_Q_F <- alpha * beta_DF + beta * beta_SF  # = (1 - alpha) / lambda_F if CRS
+
+tab_price <- data.frame(
+  vars = c("Net Wage", "Net Fee"),
+  coef = c(beta_Q_W, -beta_Q_F),
+  els = c(beta_Q_W * mean(share_data$wage_net), -beta_Q_F * mean(share_data$fee_net))
+)
+
+knitr::kable(
+  tab_price,
+  col.names = c("Variables", "Coef.", "Elasticity"),
+  digits = 3,
+  caption = "Implied Price Impact"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+tab_all <- data.frame(
+  col1 = c("Nonlinear Parameters", rep("", 2), "Linear Parameters", rep("", 3)),
+  col2 = c("$\\alpha$", "$\\lambda^W$", "$\\lambda^F$", x_names[1:4]),
+  col3 = round(c(result$params_nonlinear, result$params_linear[1:4]), digits = 3),
+  col4 = round(c(result$se_nonlinear, result$se_linear[1:4]), digits = 3)
+) 
+
+
+rownames(tab_all) <- NULL
+colnames(tab_all) <- c("", "", "Estimates", "S.E.")
+
+knitr::kable(tab_all, "markdown") %>%
+  cat(., file = "../figuretable/gmm_estimation.md")
+
+
+```
+
+#### 2. Excluding $\alpha$ from the estimation
+```{r}
+# Not estimating matching param
+load(file = "../output/estimation_result/gmm_result_without_share_baseline.Rmd")
+
+tab_nonlinear <- data.frame(
+  params = c("lambda_W", "lambda_F"),
+  coef = result$params_nonlinear,
+  se = result$se_nonlinear
+)
+
+tab_linear <- data.frame(
+  vars = x_names[1:4],
+  coef = result$params_linear[x_names[1:4]],
+  se = result$se_linear[x_names[1:4]]
+)
+
+rownames(tab_nonlinear) <- NULL
+rownames(tab_linear) <- NULL
+
+knitr::kable(
+  tab_nonlinear,
+  col.names = c("Parameter", "Est.", "S.E."),
+  digits = 3,
+  caption = "Non-linear Parameters"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+knitr::kable(
+  tab_linear,
+  col.names = c("Variables", "Coef.", "S.E."),
+  digits = 3,
+  caption = "Linear Parameters"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+```
+
+### Decomposing (Semi) Elasticities
+```{r}
+
+lambda_W <- result$params_nonlinear[1]
+lambda_F <- result$params_nonlinear[2]
+alpha <- 0.614
+beta <- 0.188
+
+app_els <- data.frame(
+  vars = c("Direct (Wage)", "Network (Wage)", "Application (Fee)", "Network (Fee)"),
+  vals = c(1 / lambda_W, beta * beta_SW - (1 - alpha) * beta_DW, 1 / lambda_F, alpha * beta_DF - (1 - beta) * beta_SF)
+)
+
+match_els <- data.frame(
+  vars = c("Direct (Wage)", "Network (Wage)", "Application (Fee)", "Network (Fee)"),
+  vals = c(alpha / lambda_W, beta_Q_W - alpha/lambda_W, beta / lambda_F, beta_Q_F - beta / lambda_F)
+)
+
+knitr::kable(
+  app_els,
+  col.names = c("Parameter", "Estimates"),
+  digits = 3,
+  caption = "Application Semi-Elasticities"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+knitr::kable(
+  match_els,
+  col.names = c("Parameter", "Estimates"),
+  digits = 3,
+  caption = "Match Semi-Elasticities"
+  ) %>% 
+  kableExtra::kable_paper("hover", full_width = F)
+
+```
+
+
+# Distribution of Platform Heterogeneity $a_i$
+  - Unit: 10K Yen
+  - Normalization: Direct employment $a_0=0$
+  - This does not depend on the assumption on the matching parameters.
+  
+### Distribution of $a_i$
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/gmm_model_estimation/heterogeneity_hist.png")
+```
+
+### Distribution of Market FE
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/gmm_model_estimation/market_fe_hist.png")
+```
+
+### Distribution of Firm FE
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/gmm_model_estimation/firm_fe_hist.png")
+```
+
+### Market FE vs Market Size
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/gmm_model_estimation/market_fe_vs_market_size.png")
+```
+
+
+## Marginal Cost
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/gmm_model_estimation/mc_cdf.png")
+
+knitr::include_graphics("../figuretable/gmm_model_estimation/mc_hist.png")
+```
+
+# Model Fit
+
+```{r}
+load("../output/simulated_data.RData")
+
+simdata$match_share_sim <- matching_params[1] * log(simdata$s_W_sim) + matching_params[2] * log(simdata$s_F_sim)
+
+
+simdata <- simdata %>% 
+  dplyr::group_by(id_unique) %>% 
+  dplyr::summarise(
+                   margin_sim = mean(log(wage_sim) - log(fee_sim), ra.rm = T),
+                   wage_sim = mean(wage_sim),
+                   fee_sim = mean(fee_sim),
+                   s_W_sim = mean(s_W_sim),
+                   s_F_sim = mean(s_F_sim),
+                   match_share_sim = mean(match_share_sim)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::left_join(share_data, by = "id_unique") %>% 
+  dplyr::mutate(
+    margin = log(fee) - log(wage)
+  )
+
+r2_wage <- simdata %>% 
+  lm(wage ~ wage_sim, data = .) %>% 
+  summary() %>% 
+  .$r.squared %>% 
+  round(digits = 3)
+
+r2_fee <- simdata %>% 
+  lm(fee ~ fee_sim, data = .) %>% 
+  summary() %>% 
+  .$r.squared %>% 
+  round(digits = 3)
+
+r2_margin <- simdata %>% 
+  lm(margin ~ margin_sim, data = .) %>% 
+  summary() %>% 
+  .$r.squared %>% 
+  round(digits = 3)
+
+
+r2_match <- simdata %>% 
+  lm(y_Q ~ match_share_sim, data = .) %>% 
+  summary() %>% 
+  .$r.squared %>% 
+  round(digits = 3)
+  
+```
+
+### Wage
+- $R^2$ of regressing actual data on simulated data: `r r2_wage`
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/wage.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/wage_hist.png")
+```
+
+### Fee
+- $R^2$ of regressing actual data on simulated data: `r r2_fee`
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/fee.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/fee_hist.png")
+```
+
+### Margin
+- margin = $log(fee)-log(wage)$
+- $R^2$ of regressing actual data on simulated data: `r r2_margin`
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/margin.png")
+```
+
+### Match 
+- Log of the number of matches relative to outside option $log{(q/q_0)}$
+- $R^2$ of regressing actual data on simulated data: `r r2_match`
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/match.png")
+```
+
+## Aggregate
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/wage_aggregate.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/fee_aggregate.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/margin_aggregate.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/match_aggregate.png")
+```
+
+## Imposing Minimum Wage
+
+```{r}
+g1 <- share_data %>% 
+  gghistogram(x = "wage_net",
+              xlab = "Wage - Parttime Wage (10K Yen per Day)",
+              binwidth = 0.1)
+
+g2 <- share_data %>% 
+  ggecdf(x = "wage_net",
+              xlab = "Wage - Parttime Wage (10K Yen per Day)")
+
+gridExtra::grid.arrange(g1, g2, nrow = 1)
+```
+
+
+### Distribution of Actual Wage - Minimum Wage
+```{r}
+g1 <- share_data %>% 
+  dplyr::mutate(net_wage = wage - mw) %>% 
+  gghistogram(x = "net_wage",
+              xlab = "Wage - Minimum Wage (10K Yen per Day)",
+              binwidth = 0.1)
+
+g2 <- share_data %>% 
+  dplyr::mutate(net_wage = wage - mw) %>% 
+  ggecdf(x = "net_wage",
+              xlab = "Wage - Minimum Wage (10K Yen per Day)")
+gridExtra::grid.arrange(g1, g2, nrow = 1)
+
+```
+
+```{r}
+load("../output/simulated_data_with_mw.RData")
+
+simdata$match_share_sim <- matching_params[1] * log(simdata$s_W_sim) + matching_params[2] * log(simdata$s_F_sim)
+
+
+simdata <- simdata %>% 
+  dplyr::group_by(id_unique) %>% 
+  dplyr::summarise(
+                   margin_sim = mean(log(wage_sim) - log(fee_sim), ra.rm = T),
+                   wage_sim = mean(wage_sim),
+                   fee_sim = mean(fee_sim),
+                   s_W_sim = mean(s_W_sim),
+                   s_F_sim = mean(s_F_sim),
+                   match_share_sim = mean(match_share_sim)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::left_join(share_data, by = "id_unique") %>% 
+  dplyr::mutate(
+    margin = log(fee) - log(wage)
+  )
+
+r2_wage_mw <- simdata %>% 
+  lm(wage ~ wage_sim, data = .) %>% 
+  summary() %>% 
+  .$r.squared %>% 
+  round(digits = 3)
+
+r2_fee_mw <- simdata %>% 
+  lm(fee ~ fee_sim, data = .) %>% 
+  summary() %>% 
+  .$r.squared %>% 
+  round(digits = 3)
+
+r2_margin_mw <- simdata %>% 
+  lm(margin ~ margin_sim, data = .) %>% 
+  summary() %>% 
+  .$r.squared %>% 
+  round(digits = 3)
+
+
+r2_match_mw <- simdata %>% 
+  lm(y_Q ~ match_share_sim, data = .) %>% 
+  summary() %>% 
+  .$r.squared %>% 
+  round(digits = 3)
+  
+```
+
+
+### Wage
+- $R^2$ of regressing actual data on simulated data: `r r2_wage`
+- $R^2$ of regressing actual data on simulated data with minimum wage constraint: `r r2_wage_mw`
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/wage_both.png")
+```
+
+### Fee
+- $R^2$ of regressing actual data on simulated data: `r r2_fee`
+- $R^2$ of regressing actual data on simulated data with minimum wage constraint: `r r2_fee_mw`
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/fee_both.png")
+```
+
+### Margin
+- margin = $log(fee)-log(wage)$
+- $R^2$ of regressing actual data on simulated data: `r r2_margin`
+- $R^2$ of regressing actual data on simulated data with minimum wage constraint: `r r2_margin_mw`
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/margin_both.png")
+```
+
+### Match 
+- Log of the number of matches relative to outside option $log{(q/q_0)}$
+- $R^2$ of regressing actual data on simulated data: `r r2_match`
+- $R^2$ of regressing actual data on simulated data with minimum wage constraint: `r r2_match_mw`
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/match_both.png")
+```
+
+## Aggregate
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/wage_aggregate_both.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/fee_aggregate_both.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/margin_aggregate_both.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/match_aggregate_both.png")
+```
+
+
+## Taking logs in indirect utilities
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/wage_logutil.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/wage_hist_logutil.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/fee_log.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/fee_hist_log.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/margin_log.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/match_log.png")
+```
+
+## Linear \& log in indirect utilities
+
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/wage_linear_and_log.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/wage_hist_linear_and_log.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/fee_linear_and_log.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/fee_hist_linear_and_log.png")
+```
+
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/margin_linear_and_log.png")
+```
+
+```{r, out.width="50%"}
+knitr::include_graphics("../figuretable/model_fit/match_linear_and_log.png")
+```
+
+
+<!-- # Subsampling -->
+<!-- ```{r} -->
+<!-- load("../output/gmm_result_without_share_each_type.Rmd") -->
+
+
+
+<!-- lambda_W <- 1:26 -->
+<!-- lambda_F <- 1:26 -->
+<!-- for (i in 1:26){ -->
+
+<!--   result_i <- result_list[[i]] -->
+<!--   if (!is.na(result_i)){ -->
+<!--     lambda_W[i] <- min(result_i$params_nonlinear[2], 3) -->
+<!--     lambda_F[i] <- min(result_i$params_nonlinear[3], 3) -->
+<!--   } else{ -->
+<!--     lambda_W[i] <- NA -->
+<!--     lambda_F[i] <- NA -->
+<!--   } -->
+<!-- } -->
+
+<!-- data_lambda <- data.frame(type = worktype_description$description_jp, -->
+<!--                         lambda_W = lambda_W, -->
+<!--                         lambda_F = lambda_F) -->
+
+
+<!-- g1 <- data_lambda %>%  -->
+<!--   ggplot(aes(x = type, y = lambda_W)) + geom_bar(stat = "identity") + coord_flip() + -->
+<!--   ylab("lambda_W") + xlab("Work Type") -->
+
+
+<!-- g2 <- data_lambda %>%  -->
+<!--   ggplot(aes(x = type, y = lambda_F)) + geom_bar(stat = "identity") + coord_flip() + -->
+<!--   ylab("lambda_F") + xlab("Work Type") -->
+
+<!-- gridExtra::grid.arrange(g1, g2, ncol = 2) -->
+<!-- ``` -->
+
+
+<!-- ## Impact of $\alpha$ given $\beta = 0.5$ -->
+
+<!-- ```{r} -->
+
+<!-- mc_1_avg <- 1:9 -->
+<!-- mc_2_avg <- 1:9 -->
+<!-- s_w <- 1:9 -->
+<!-- s_f <- 1:9 -->
+<!-- semi_els_1 <- 1:9 -->
+<!-- semi_els_2 <- 1:9 -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+
+
+<!-- for (i in 1:9){ -->
+<!--   alpha <- i * 0.1 -->
+<!--   beta <- 0.5 -->
+<!--   mc <- mc_func(alpha, beta) -->
+<!--   mc_1_avg[i] <- mean(mc$mc_1) -->
+<!--   mc_2_avg[i] <- mean(mc$mc_2) -->
+<!--   s_w[i] <- mean(mc$s_w) -->
+<!--   s_f[i] <- mean(mc$s_f) -->
+<!--   semi_els_1[i] <- mean(mc$semi_els_1) -->
+<!--   semi_els_2[i] <- mean(mc$semi_els_2) -->
+<!-- } -->
+
+<!-- temp <- data.frame(alpha = 1:9 * 0.1, -->
+<!--            mc_1_avg = mc_1_avg, -->
+<!--            mc_2_avg = mc_2_avg, -->
+<!--            s_w = s_w, -->
+<!--            s_f = s_f, -->
+<!--            semi_els_1 = semi_els_1, -->
+<!--            semi_els_2 = semi_els_2) -->
+
+<!-- g1 <- temp %>%  -->
+<!--   ggplot(aes(x = alpha, y = s_w)) + geom_line() + xlab("alpha") + ylab("Share") + -->
+<!--   ggtitle("Model Implied Worker Share") -->
+
+<!-- g2 <- temp %>%  -->
+<!--   ggplot(aes(x = alpha, y = s_f)) + geom_line() + xlab("alpha") + ylab("Share") + -->
+<!--   ggtitle("Model Implied Firm Share") -->
+
+<!-- g3 <- temp %>%  -->
+<!--   ggplot(aes(x = alpha, y = mc_1_avg)) + geom_line() + xlab("alpha") + ylab("Marginal Cost (10K Yen)") + -->
+<!--   ggtitle("Marginal Cost Implied by FOC for Wages") -->
+
+<!-- g4 <- temp %>%  -->
+<!--   ggplot(aes(x = alpha, y = mc_2_avg)) + geom_line() + xlab("alpha") + ylab("Marginal Cost (10K Yen)")+ -->
+<!--   ggtitle("Marginal Cost Implied by FOC for Fees") -->
+
+<!-- g5 <- temp %>%  -->
+<!--   ggplot(aes(x = alpha, y = semi_els_1)) + geom_line() + xlab("alpha") + ylab("") + -->
+<!--   ggtitle("Worker Side Semi-elasticity") -->
+
+<!-- g6 <- temp %>%  -->
+<!--   ggplot(aes(x = alpha, y = semi_els_2)) + geom_line() + xlab("alpha") + ylab("")+ -->
+<!--   ggtitle("Firm Side Semi-elasticity") -->
+
+<!-- gridExtra::grid.arrange(g1, g2, g3, g4, g5, g6, ncol = 2) -->
+
+
+<!-- ``` -->
+
+<!-- ## Impact of $\beta$ given $\alpha = 0.5$ -->
+
+<!-- ```{r} -->
+
+<!-- for (i in 1:9){ -->
+<!--   alpha <- 0.5 -->
+<!--   beta <- i * 0.1 -->
+<!--   mc <- mc_func(alpha, beta) -->
+<!--   mc_1_avg[i] <- mean(mc$mc_1) -->
+<!--   mc_2_avg[i] <- mean(mc$mc_2) -->
+<!--   s_w[i] <- mean(mc$s_w) -->
+<!--   s_f[i] <- mean(mc$s_f) -->
+<!--   semi_els_1[i] <- mean(mc$semi_els_1) -->
+<!--   semi_els_2[i] <- mean(mc$semi_els_2) -->
+<!-- } -->
+
+<!-- temp <- data.frame(beta = 1:9 * 0.1, -->
+<!--            mc_1_avg = mc_1_avg, -->
+<!--            mc_2_avg = mc_2_avg, -->
+<!--            s_w = s_w, -->
+<!--            s_f = s_f, -->
+<!--            semi_els_1 = semi_els_1, -->
+<!--            semi_els_2 = semi_els_2) -->
+
+<!-- g1 <- temp %>%  -->
+<!--   ggplot(aes(x = beta, y = s_w)) + geom_line() + xlab("beta") + ylab("Share") + -->
+<!--   ggtitle("Model Implied Worker Share") -->
+
+<!-- g2 <- temp %>%  -->
+<!--   ggplot(aes(x = beta, y = s_f)) + geom_line() + xlab("beta") + ylab("Share") + -->
+<!--   ggtitle("Model Implied Firm Share") -->
+
+<!-- g3 <- temp %>%  -->
+<!--   ggplot(aes(x = beta, y = mc_1_avg)) + geom_line() + xlab("beta") + ylab("Marginal Cost (10K Yen)") + -->
+<!--   ggtitle("Marginal Cost Implied by FOC for Wages") -->
+
+<!-- g4 <- temp %>%  -->
+<!--   ggplot(aes(x = beta, y = mc_2_avg)) + geom_line() + xlab("beta") + ylab("Marginal Cost (10K Yen)")+ -->
+<!--   ggtitle("Marginal Cost Implied by FOC for Fees") -->
+
+<!-- g5 <- temp %>%  -->
+<!--   ggplot(aes(x = beta, y = semi_els_1)) + geom_line() + xlab("beta") + ylab("") + -->
+<!--   ggtitle("Worker Side Semi-elasticity") -->
+
+<!-- g6 <- temp %>%  -->
+<!--   ggplot(aes(x = beta, y = semi_els_2)) + geom_line() + xlab("beta") + ylab("")+ -->
+<!--   ggtitle("Firm Side Semi-elasticity") -->
+
+<!-- gridExtra::grid.arrange(g1, g2, g3, g4, g5, g6, ncol = 2) -->
+<!-- ``` -->
+
+<!-- ## Impact of $\alpha$ given $\alpha + \beta = 1$ -->
+
+<!-- ```{r} -->
+
+<!-- for (i in 1:9){ -->
+<!--   alpha <- i * 0.1 -->
+<!--   beta <- 1 - alpha -->
+<!--   mc <- mc_func(alpha, beta) -->
+<!--   mc_1_avg[i] <- mean(mc$mc_1) -->
+<!--   mc_2_avg[i] <- mean(mc$mc_2) -->
+<!--   s_w[i] <- mean(mc$s_w) -->
+<!--   s_f[i] <- mean(mc$s_f) -->
+<!--   semi_els_1[i] <- mean(mc$semi_els_1) -->
+<!--   semi_els_2[i] <- mean(mc$semi_els_2) -->
+<!-- } -->
+
+<!-- temp <- data.frame(alpha = 1:9 * 0.1, -->
+<!--            mc_1_avg = mc_1_avg, -->
+<!--            mc_2_avg = mc_2_avg, -->
+<!--            s_w = s_w, -->
+<!--            s_f = s_f, -->
+<!--            semi_els_1 = semi_els_1, -->
+<!--            semi_els_2 = semi_els_2) -->
+
+<!-- g1 <- temp %>%  -->
+<!--   ggplot(aes(x = alpha, y = s_w)) + geom_line() + xlab("alpha") + ylab("Share") + -->
+<!--   ggtitle("Model Implied Worker Share") -->
+
+<!-- g2 <- temp %>%  -->
+<!--   ggplot(aes(x = alpha, y = s_f)) + geom_line() + xlab("alpha") + ylab("Share") + -->
+<!--   ggtitle("Model Implied Firm Share") -->
+
+<!-- g3 <- temp %>%  -->
+<!--   ggplot(aes(x = alpha, y = mc_1_avg)) + geom_line() + xlab("alpha") + ylab("Marginal Cost (10K Yen)") + -->
+<!--   ggtitle("Marginal Cost Implied by FOC for Wages") -->
+
+<!-- g4 <- temp %>%  -->
+<!--   ggplot(aes(x = alpha, y = mc_2_avg)) + geom_line() + xlab("alpha") + ylab("Marginal Cost (10K Yen)")+ -->
+<!--   ggtitle("Marginal Cost Implied by FOC for Fees") -->
+
+
+<!-- g5 <- temp %>%  -->
+<!--   ggplot(aes(x = alpha, y = semi_els_1)) + geom_line() + xlab("alpha") + ylab("") + -->
+<!--   ggtitle("Worker Side Semi-elasticity") -->
+
+<!-- g6 <- temp %>%  -->
+<!--   ggplot(aes(x = alpha, y = semi_els_2)) + geom_line() + xlab("alpha") + ylab("")+ -->
+<!--   ggtitle("Firm Side Semi-elasticity") -->
+
+<!-- gridExtra::grid.arrange(g1, g2, g3, g4, g5, g6, ncol = 2) -->
+<!-- ``` -->
+
+
+
+
+
+
+
+
+

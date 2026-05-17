@@ -1,0 +1,1035 @@
+---
+title: "Report data analysis"
+author: "Chiho Taniguchi"
+date: "2023-02-03"
+output: 
+  html_document:
+    toc: true
+---
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 3, fig.width = 4)
+
+library("magrittr")
+library("kableExtra")
+library("ggplot2")
+
+height <- 6
+width <- 8
+
+```
+
+
+```{r }
+
+ data_establishments <- 
+  here::here(file = "cleaned/data_establishments.rds") %>% 
+  readRDS()
+
+ data_zipcode <- 
+   here::here(file = "cleaned/data_zipcode.rds") %>% 
+   readRDS()
+ 
+ data_area <- 
+   here::here(file = "cleaned/data_area.rds") %>% 
+   readRDS()
+ 
+ data_zip_establishments <- 
+   here::here(file = "output/data_zip_establishments.rds") %>% 
+   readRDS()
+ 
+ data_cz_establishments <- 
+   here::here(file = "output/data_cz_establishments.rds") %>% 
+   readRDS()
+ 
+```
+# Describe N_j_t
+
+We use data defining the market using commuting zone(cz).
+N_j_t is a variable that indicates the number of general establishments present in commuting zone(j) in year t.
+
+```{r }
+ N_jt_unique <- 
+   data_cz_establishments %>% 
+   dplyr::select(N_jt) %>% 
+   unique()
+ 
+ quantile(
+   N_jt_unique$N_jt, 
+   c(0.1, 0.25, 0.5, 0.75, 1)
+   ) %>% 
+   kbl(col.names = "N_jt") %>% 
+   kable_styling(full_width = FALSE)
+```
+
+## Show historgam
+
+On the left is the distribution of N_j_t, without duplicates, and on the right is the distribution of N_j_t, using all data (allowing duplicates).
+
+```{r}
+ ## show histogram
+ histogram_N_jt_unique <- 
+   ggplot() + 
+   geom_histogram(
+     data = N_jt_unique, 
+     mapping = aes(x = N_jt),
+     bins = 100
+   )
+ 
+ print(histogram_N_jt_unique)
+ 
+ data_cz_establishments_N_jt <- 
+   data_cz_establishments %>% 
+   dplyr::select(N_jt)
+ 
+ histogram_N_jt <- 
+   ggplot() + 
+   geom_histogram(
+     data = data_cz_establishments_N_jt, 
+     mapping = aes(x = N_jt),
+     bins = 100
+   )
+ 
+ print(histogram_N_jt)
+```
+
+# Describe wage (wage_{it})
+
+```{r}
+
+data_cz_establishments_wage_fee <- 
+   data_cz_establishments %>% 
+   dplyr::group_by(
+     year, 
+     cz
+     ) %>% 
+   dplyr::mutate(
+     wage_jt = mean(wage),
+     fee_jt = mean(fee)
+     ) 
+ 
+ wage_jt_unique <- 
+   data_cz_establishments_wage_fee %>% 
+   dplyr::select(wage_jt) %>% 
+   unique()
+ 
+ summary(wage_jt_unique$wage_jt) 
+
+```
+
+# Describe fee (fee_{it})
+
+```{r}
+
+fee_jt_unique <- 
+   data_cz_establishments_wage_fee %>% 
+   dplyr::select(fee_jt) %>% 
+   unique() 
+ 
+ summary(fee_jt_unique$fee_jt)
+
+```
+
+# Describe N_zip_t
+
+We use data that defines the market using the first three digits of the zipcode instead of commuting zone(cz).
+N_zip_t is a variable that indicates the number of general establishments in the commuting zone(zip) defined using the firt three digits of the zipcode in year t.
+
+```{r }
+ N_zip_t_unique <- 
+   data_zip_establishments %>% 
+   dplyr::select(N_zip_t) %>% 
+   unique()
+ 
+ quantile(
+   N_zip_t_unique$N_zip_t, 
+   c(0.05, 0.1, 0.25, 0.5, 0.75, 1)
+ ) %>% 
+   kbl(col.names = "N_zip_t") %>% 
+   kable_styling(full_width = FALSE)
+```
+
+## Show historgam
+
+On the left is the distribution of N_zip_t, without duplicates, and on the right is the distribution of N_zip_t, using all data (allowing duplicates).
+
+```{r}
+# Unique data for N_zip_t
+
+histogram_N_zip_t_unique <- 
+   ggplot() + 
+   geom_histogram(
+     data = N_zip_t_unique, 
+     mapping = aes(x = N_zip_t),
+     bins = 100
+   )
+ 
+ print(histogram_N_zip_t_unique)
+ 
+ # All data for N_zip_t
+ 
+ data_zip_establishments_N_zip_t <- 
+   data_zip_establishments %>% 
+   dplyr::select(N_zip_t)
+ 
+ histogram_N_zip_t <- 
+   ggplot() + 
+   geom_histogram(
+     data = data_zip_establishments_N_zip_t, 
+     mapping = aes(x = N_zip_t),
+     bins = 100
+   )
+ 
+ print(histogram_N_zip_t)
+```
+
+# Describe wage (wage_{it})
+
+```{r}
+ data_zip_establishments_wage_fee <- 
+   data_zip_establishments %>% 
+   dplyr::group_by(
+     year, 
+     zip_three
+   ) %>% 
+   dplyr::mutate(
+     wage_jt = mean(wage),
+     fee_jt = mean(fee)
+   ) 
+ 
+ wage_jt_unique <- 
+   data_zip_establishments_wage_fee %>% 
+   dplyr::select(wage_jt) %>% 
+   unique()
+ 
+ summary(wage_jt_unique$wage_jt) 
+ 
+```
+ 
+# Describe fee (fee_{it})
+
+```{r, warning=FALSE}
+
+ fee_jt_unique <- 
+   data_zip_establishments_wage_fee %>% 
+   dplyr::select(fee_jt) %>% 
+   unique() 
+ 
+ summary(fee_jt_unique$fee_jt)
+
+```
+
+
+# Analyze D_ 
+
+```{r}
+
+results2 <- list()
+ 
+ results2[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~ D_2 + D_3 + D_4 + D_5 | cz + year ,
+     data = data_cz_establishments
+   )
+ 
+ results2[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~ D_2 + D_3 + D_4 + D_5 | year + firm_id ,
+     data = data_cz_establishments
+   )
+ 
+ results2[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~ D_2 + D_3 + D_4 + D_5 | cz + year ,
+     data = data_cz_establishments
+   )
+ 
+ results2[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~ D_2 + D_3 + D_4 + D_5 | year + firm_id ,
+     data = data_cz_establishments
+   )
+ 
+ rows_D <- 
+   tibble::tribble(
+     ~term, ~`(1)`, ~`(2)`, ~`(3)`, ~`(4)`,
+     'j_FE', 'Y', 'N', 'Y', 'N',
+     't_FE', 'Y', 'Y', 'Y', 'Y',
+     'i_FE', 'N', 'Y', 'N', 'Y' 
+   )
+ 
+ attr(rows_D, 'position') <- c(12, 13, 14, 15)
+ 
+ result_2 <- 
+   list(
+     "log(fee)" = results2[[1]],
+     "log(fee)" = results2[[2]],
+     "log(wage)" = results2[[3]],
+     "log(wage)" = results2[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_2,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows_D
+ ) 
+
+```
+
+# Analyze different N_j_t {.tabset}
+
+N_j_t is divided by the number after N_j_t.
+
+## Analyze N_j_t
+
+```{r}
+results1 <- list()
+ 
+ results1[[1]] <- 
+   lfe::felm(
+   formula = log_fee ~  N_jt | cz + year ,
+   data = data_cz_establishments
+   )
+ 
+ results1[[2]] <- 
+   lfe::felm(
+   formula = log_fee ~  N_jt | year + firm_id ,
+   data = data_cz_establishments
+   )
+ 
+ results1[[3]] <- 
+   lfe::felm(
+   formula = log_wage ~  N_jt | cz + year ,
+   data = data_cz_establishments
+   )
+ 
+ results1[[4]] <- 
+   lfe::felm(
+   formula = log_wage ~  N_jt | year + firm_id ,
+   data = data_cz_establishments
+   )
+ 
+ rows <- 
+   tibble::tribble(
+     ~term, ~`(1)`, ~`(2)`, ~`(3)`, ~`(4)`,
+                 'j_FE', 'Y', 'N', 'Y', 'N',
+                 't_FE', 'Y', 'Y', 'Y', 'Y',
+                 'i_FE', 'N', 'Y', 'N', 'Y' 
+     )
+ 
+ attr(rows, 'position') <- c(6, 7, 8, 9)
+ 
+ result_1 <- 
+   list(
+   "log(fee)" = results1[[1]],
+   "log(fee)" = results1[[2]],
+   "log(wage)" = results1[[3]],
+   "log(wage)" = results1[[4]]
+ )
+ 
+ modelsummary::modelsummary(
+   result_1,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+   ) 
+ 
+
+```
+
+## Analyze N_j_t_10
+```{r}
+results3 <- list()
+ 
+ results3[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_jt_10 | cz + year ,
+     data = data_cz_establishments
+   )
+ 
+ results3[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_jt_10 | year + firm_id ,
+     data = data_cz_establishments
+   )
+ 
+ results3[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_jt_10 | cz + year ,
+     data = data_cz_establishments
+   )
+ 
+ results3[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_jt_10 | year + firm_id ,
+     data = data_cz_establishments
+   )
+ 
+ attr(rows, 'position') <- c(6, 7, 8, 9)
+ 
+ result_3 <- 
+   list(
+     "log(fee)" = results3[[1]],
+     "log(fee)" = results3[[2]],
+     "log(wage)" = results3[[3]],
+     "log(wage)" = results3[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_3,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+
+```
+
+## Analyze N_j_t_100
+
+```{r}
+
+results5 <- list()
+ 
+ results5[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_jt_100 | cz + year ,
+     data = data_cz_establishments
+   )
+ 
+ results5[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_jt_100 | year + firm_id ,
+     data = data_cz_establishments
+   )
+ 
+ results5[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_jt_100 | cz + year ,
+     data = data_cz_establishments
+   )
+ 
+ results5[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_jt_100 | year + firm_id ,
+     data = data_cz_establishments
+   )
+ 
+ attr(rows, 'position') <- c(6, 7, 8, 9)
+ 
+ result_5 <- 
+   list(
+     "log(fee)" = results5[[1]],
+     "log(fee)" = results5[[2]],
+     "log(wage)" = results5[[3]],
+     "log(wage)" = results5[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_5,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+ 
+## Analyze N_j_t_1000
+
+```{r}
+
+results4 <- list()
+ 
+ results4[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_jt_1000 | cz + year ,
+     data = data_cz_establishments
+   )
+ 
+ results4[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_jt_1000 | year + firm_id ,
+     data = data_cz_establishments
+   )
+ 
+ results4[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_jt_1000 | cz + year ,
+     data = data_cz_establishments
+   )
+ 
+ results4[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_jt_1000 | year + firm_id ,
+     data = data_cz_establishments
+   )
+ 
+ attr(rows, 'position') <- c(6, 7, 8, 9)
+ 
+ result_4 <- 
+   list(
+     "log(fee)" = results4[[1]],
+     "log(fee)" = results4[[2]],
+     "log(wage)" = results4[[3]],
+     "log(wage)" = results4[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_4,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+
+## Analyze N_j_t_10000
+
+```{r}
+
+results6 <- list()
+ 
+ results6[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_jt_10000 | cz + year ,
+     data = data_cz_establishments
+   )
+ 
+ results6[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_jt_10000 | year + firm_id ,
+     data = data_cz_establishments
+   )
+ 
+ results6[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_jt_10000 | cz + year ,
+     data = data_cz_establishments
+   )
+ 
+ results6[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_jt_10000 | year + firm_id ,
+     data = data_cz_establishments
+   )
+ 
+ attr(rows, 'position') <- c(6, 7, 8, 9)
+ 
+ result_6 <- 
+   list(
+     "log(fee)" = results6[[1]],
+     "log(fee)" = results6[[2]],
+     "log(wage)" = results6[[3]],
+     "log(wage)" = results6[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_6,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+
+## Analyze N_z_t_100000
+
+```{r}
+
+results7 <- list()
+ 
+ results7[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_jt_100000 | cz + year ,
+     data = data_cz_establishments
+   )
+ 
+ results7[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_jt_100000 | year + firm_id ,
+     data = data_cz_establishments
+   )
+ 
+ results7[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_jt_100000 | cz + year ,
+     data = data_cz_establishments
+   )
+ 
+ results7[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_jt_100000 | year + firm_id ,
+     data = data_cz_establishments
+   )
+ 
+ attr(rows, 'position') <- c(6, 7, 8, 9)
+ 
+ result_7 <- 
+   list(
+     "log(fee)" = results7[[1]],
+     "log(fee)" = results7[[2]],
+     "log(wage)" = results7[[3]],
+     "log(wage)" = results7[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_7,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+
+
+# Analyze D_ for zip_three {.tabset}
+
+## Include D_1 to D_5
+
+```{r}
+
+results22 <- list()
+ 
+ results22[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~ D_2 + D_3 + D_4 + D_5  | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results22[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~ D_2 + D_3 + D_4 + D_5 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ results22[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~ D_2 + D_3 + D_4 + D_5 | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results22[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~ D_2 + D_3 + D_4 + D_5 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ rows_D <- 
+   tibble::tribble(
+     ~term, ~`(1)`, ~`(2)`, ~`(3)`, ~`(4)`,
+     'j_FE', 'Y', 'N', 'Y', 'N',
+     't_FE', 'Y', 'Y', 'Y', 'Y',
+     'i_FE', 'N', 'Y', 'N', 'Y' 
+   )
+ 
+ attr(rows_D, 'position') <- c(12, 13, 14, 15)
+ 
+ result_22 <- 
+   list(
+     "log(fee)" = results22[[1]],
+     "log(fee)" = results22[[2]],
+     "log(wage)" = results22[[3]],
+     "log(wage)" = results22[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_22,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows_D
+ ) 
+ 
+```
+
+## Include D_1 to D_10
+
+```{r}
+
+results23 <- list()
+ 
+ results23[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~ D_2 + D_3 + D_4 + D_5 + D_6 + D_7 + D_8 + D_9 + D_10 | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results23[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~ D_2 + D_3 + D_4 + D_5 + D_6 + D_7 + D_8 + D_9 + D_10 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ results23[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~ D_2 + D_3 + D_4 + D_5 + D_6 + D_7 + D_8 + D_9 + D_10 | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results23[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~ D_2 + D_3 + D_4 + D_5 + D_6 + D_7 + D_8 + D_9 + D_10 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ rows_DD <- 
+   tibble::tribble(
+     ~term, ~`(1)`, ~`(2)`, ~`(3)`, ~`(4)`,
+     'j_FE', 'Y', 'N', 'Y', 'N',
+     't_FE', 'Y', 'Y', 'Y', 'Y',
+     'i_FE', 'N', 'Y', 'N', 'Y' 
+   )
+ 
+ attr(rows_DD, 'position') <- c(20, 21, 22, 23)
+ 
+ result_23 <- 
+   list(
+     "log(fee)" = results23[[1]],
+     "log(fee)" = results23[[2]],
+     "log(wage)" = results23[[3]],
+     "log(wage)" = results23[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_23,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows_DD
+ )
+```
+ 
+# Analyze different N_zip_t {.tabset}
+
+N_zip_t is divided by the number after N_zip_t.
+
+## Analyze N_zip_t
+
+```{r}
+results11 <- list()
+ 
+ results11[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_zip_t | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results11[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_zip_t | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ results11[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_zip_t | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results11[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_zip_t | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ rows <- 
+   tibble::tribble(
+     ~term, ~`(1)`, ~`(2)`, ~`(3)`, ~`(4)`,
+     'j_FE', 'Y', 'N', 'Y', 'N',
+     't_FE', 'Y', 'Y', 'Y', 'Y',
+     'i_FE', 'N', 'Y', 'N', 'Y' 
+   )
+ 
+ attr(rows, 'position') <- c(6, 7, 8, 9)
+ 
+ result_11 <- 
+   list(
+     "log(fee)" = results11[[1]],
+     "log(fee)" = results11[[2]],
+     "log(wage)" = results11[[3]],
+     "log(wage)" = results11[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_11,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+ 
+```
+
+## Analyze N_zip_t_10
+
+```{r}
+ results33 <- list()
+ 
+ results33[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_zip_t_10 | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results33[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_zip_t_10 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ results33[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_zip_t_10 | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results33[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_zip_t_10 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ attr(rows, 'position') <- c(6, 7, 8, 9)
+ 
+ result_33 <- 
+   list(
+     "log(fee)" = results33[[1]],
+     "log(fee)" = results33[[2]],
+     "log(wage)" = results33[[3]],
+     "log(wage)" = results33[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_33,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+ 
+```
+
+## Analyze N_zip_t_1000
+
+```{r}
+results44 <- list()
+ 
+ results44[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_zip_t_1000 | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results44[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_zip_t_1000 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ results44[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_zip_t_1000 | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results44[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_zip_t_1000 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ attr(rows, 'position') <- c(6, 7, 8, 9)
+ 
+ result_44 <- 
+   list(
+     "log(fee)" = results44[[1]],
+     "log(fee)" = results44[[2]],
+     "log(wage)" = results44[[3]],
+     "log(wage)" = results44[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_44,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+
+## Analyze N_zip_t_100
+
+```{r}
+
+results55 <- list()
+ 
+ results55[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_zip_t_100 | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results55[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_zip_t_100 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ results55[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_zip_t_100 | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results55[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_zip_t_100 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ attr(rows, 'position') <- c(6, 7, 8, 9)
+ 
+ result_55 <- 
+   list(
+     "log(fee)" = results55[[1]],
+     "log(fee)" = results55[[2]],
+     "log(wage)" = results55[[3]],
+     "log(wage)" = results55[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_55,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+
+## Analyze N_zip_t_10000
+
+```{r}
+
+results66 <- list()
+ 
+ results66[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_zip_t_10000 | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results66[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_zip_t_10000 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ results66[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_zip_t_10000 | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results66[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_zip_t_10000 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ attr(rows, 'position') <- c(6, 7, 8, 9)
+ 
+ result_66 <- 
+   list(
+     "log(fee)" = results66[[1]],
+     "log(fee)" = results66[[2]],
+     "log(wage)" = results66[[3]],
+     "log(wage)" = results66[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_66,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+ 
+```
+
+## Analyze N_zip_t_100000
+
+```{r }
+
+results77 <- list()
+ 
+ results77[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_zip_t_100000 | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results77[[2]] <- 
+   lfe::felm(
+     formula = log_fee ~  N_zip_t_100000 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ results77[[3]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_zip_t_100000 | zip_three + year ,
+     data = data_zip_establishments
+   )
+ 
+ results77[[4]] <- 
+   lfe::felm(
+     formula = log_wage ~  N_zip_t_100000 | year + firm_id ,
+     data = data_zip_establishments
+   )
+ 
+ attr(rows, 'position') <- c(6, 7, 8, 9)
+ 
+ result_77 <- 
+   list(
+     "log(fee)" = results77[[1]],
+     "log(fee)" = results77[[2]],
+     "log(wage)" = results77[[3]],
+     "log(wage)" = results77[[4]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_77,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```

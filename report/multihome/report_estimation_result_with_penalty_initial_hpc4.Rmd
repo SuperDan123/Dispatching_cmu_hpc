@@ -1,0 +1,600 @@
+---
+title: "report_estimation_result_with_penalty_initial_hpc4"
+author: "Daisy Dan Song"
+date: "2025-07-06"
+output: html_document
+---
+
+# initialize
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+library(purrr)
+```
+
+# import estimation equilibrium
+```{r}
+equilibrium <-
+  readRDS(
+    file = "output/multihome/estimate_data/equilibrium_updated_constrained.rds" %>%
+    here::here()
+  )
+```
+
+# summary statistics for equilibrium
+```{r}
+T <- length(equilibrium$exogenous)
+J_by_t <- vapply(equilibrium$exogenous, length, integer(1))
+years <- if (T == 5) 2010:2014 else seq_len(T)
+
+cat("Equilibrium object summary\n")
+cat("- years (T):", T, "\n")
+cat("- markets per year (J):", paste(J_by_t, collapse = ", "), "\n\n")
+
+# Market-year level summary
+rows_market <- list()
+k <- 1L
+for (t in seq_len(T)) {
+  for (j in seq_along(equilibrium$exogenous[[t]])) {
+    ex_tj <- equilibrium$exogenous[[t]][[j]]
+    en_tj <- equilibrium$endogenous[[t]][[j]]
+    rows_market[[k]] <- data.frame(
+      year = years[t],
+      market = j,
+      n_options = length(en_tj$w),
+      size_w = ex_tj$size_w,
+      size_f = ex_tj$size_f
+    )
+    k <- k + 1L
+  }
+}
+df_market <- do.call(rbind, rows_market)
+
+cat("Market-year summary\n")
+print(summary(df_market[, c("n_options", "size_w", "size_f")]))
+cat("\nDistribution of number of options per market-year (n_options):\n")
+print(table(df_market$n_options))
+
+# Option-level summary (stack vectors into a long data frame)
+rows_endog <- list()
+k <- 1L
+for (t in seq_len(T)) {
+  for (j in seq_along(equilibrium$endogenous[[t]])) {
+    en_tj <- equilibrium$endogenous[[t]][[j]]
+    n <- length(en_tj$w)
+    for (i in seq_len(n)) {
+      rows_endog[[k]] <- data.frame(
+        year = years[t],
+        market = j,
+        option = i,
+        w = en_tj$w[i],
+        f = en_tj$f[i],
+        s_w = en_tj$s_w[i],
+        s_f = en_tj$s_f[i]
+      )
+      k <- k + 1L
+    }
+  }
+}
+df_endog <- do.call(rbind, rows_endog)
+df_endog$margin <- with(df_endog, ifelse(f == 0, NA, (f - w) / f))
+
+cat("\nOption-level (endogenous) summary\n")
+print(summary(df_endog[, c("w", "f", "s_w", "s_f", "margin")]))
+cat("\nOption-level summary by option index (means)\n")
+print(aggregate(cbind(w, f, s_w, s_f, margin) ~ option, data = df_endog, FUN = mean, na.rm = TRUE))
+```
+
+# demand linear parameters
+```{r}
+cbind(
+  beta_w = equilibrium$parameter$beta_w,
+  beta_f = equilibrium$parameter$beta_f
+)
+```
+
+# Linear paramters corresponding names
+```{r}
+a_f <- 
+  foreach(
+    t = seq_along(equilibrium$endogenous),
+    .combine = rbind,
+    .packages = c(
+      "foreach",
+      "magrittr",
+      "Dispatching"
+    )
+  ) %dopar% {
+    a_f_t <- 
+      foreach(
+        j = seq_along(equilibrium$endogenous[[t]]),
+        .combine = rbind
+      ) %do% {
+        a_f_tj <- 
+          compute_demand_shock_a_f_tj_rcpp(
+            m_f = equilibrium$parameter$m_f,
+            m_w = equilibrium$parameter$m_w,
+            lambda_f = equilibrium$parameter$lambda_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            f = equilibrium$endogenous[[t]][[j]]$f,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          )
+        return(a_f_tj)
+      }
+    return(a_f_t)
+  }
+
+a_w <- 
+  foreach(
+    t = seq_along(equilibrium$endogenous),
+    .combine = rbind,
+    .packages = c(
+      "foreach",
+      "magrittr",
+      "Dispatching"
+    )
+  ) %dopar% {
+    a_w_t <- 
+      foreach(
+        j = seq_along(equilibrium$endogenous[[t]]),
+        .combine = rbind
+      ) %do% {
+        a_w_tj <- 
+          compute_demand_shock_nleqslv_a_w_tj(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            lambda_w = equilibrium$parameter$lambda_w,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+            s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+            method_s_w = equilibrium$constant$method_s_w,
+            margin = equilibrium$constant$margin,
+            quadrature_size = equilibrium$constant$quadrature_size,
+            tol = equilibrium$constant$tol
+          )
+        return(a_w_tj)
+      }
+    return(a_w_t)
+  }
+
+x_a_w <- 
+  foreach(
+    t = seq_along(equilibrium$endogenous),
+    .combine = rbind,
+    .packages = c(
+      "foreach",
+      "magrittr",
+      "Dispatching"
+    )
+  ) %dopar% {
+    x_a_w_t <- 
+      foreach(
+        j = seq_along(equilibrium$endogenous[[t]]),
+        .combine = rbind
+      ) %do% {
+        x_a_w_t_j <- equilibrium$exogenous[[t]][[j]]$x_a_w
+        return(x_a_w_t_j)
+      }
+    return(x_a_w_t)
+  }
+
+x_a_f <- 
+  foreach(
+    t = seq_along(equilibrium$endogenous),
+    .combine = rbind,
+    .packages = c(
+      "foreach",
+      "magrittr",
+      "Dispatching"
+    )
+  ) %dopar% {
+    x_a_f_t <- 
+      foreach(
+        j = seq_along(equilibrium$endogenous[[t]]),
+        .combine = rbind
+      ) %do% {
+        x_a_f_t_j <- equilibrium$exogenous[[t]][[j]]$x_a_f
+        return(x_a_f_t_j)
+      }
+    return(x_a_f_t)
+  }
+
+result_w <- 
+  lm(
+    a_w ~ x_a_w + 0
+  )
+
+result_f <- 
+  lm(
+    a_f ~ x_a_f + 0 
+  )
+```
+
+## beta_w
+```{r}
+result_w$coefficients
+```
+
+## beta_f
+```{r}
+result_f$coefficients
+```
+
+# supply linear parameters
+```{r}
+cbind(
+  gamma_w = equilibrium$parameter$gamma_w,
+  gamma_f = equilibrium$parameter$gamma_f
+)
+```
+
+## gamma_w
+```{r}
+equilibrium$parameter$gamma_w
+```
+
+## gamma_f
+```{r}
+equilibrium$parameter$gamma_f
+```
+
+# non-linear parameters
+```{r}
+rbind(
+  m_w = equilibrium$parameter$m_w,
+  m_f = equilibrium$parameter$m_f,
+  lambda_w = equilibrium$parameter$lambda_w,
+  lambda_f = equilibrium$parameter$lambda_f,
+  mu_p = equilibrium$parameter$mu_p,
+  mu_ths = equilibrium$parameter$mu_ths
+)
+```
+
+# demand shocks
+```{r}
+ea_w <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous)
+  ) %do%{
+    ea_w_t <- 
+      foreach(
+        j = seq_along(equilibrium$exogenous[[t]])
+      ) %do% { 
+        ea_w_tj <- 
+          equilibrium$shock[[t]][[j]]$ea_w
+        return(ea_w_tj)
+      }
+    return(ea_w_t)
+  }
+
+ea_f <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous)
+  ) %do%{
+    ea_f_t <- 
+      foreach(
+        j = seq_along(equilibrium$exogenous[[t]])
+      ) %do% { 
+        ea_f_tj <- 
+          equilibrium$shock[[t]][[j]]$ea_f
+        return(ea_f_tj)
+      }
+    return(ea_f_t)
+  }
+
+df <- 
+  data.frame(
+    ea_w = unlist(ea_w),
+    ea_f = unlist(ea_f)
+  )
+
+g <- 
+  ggplot(
+    df, 
+    aes(
+      x = ea_w, 
+      y = ea_f
+    )
+  ) +
+  geom_point() +
+  geom_vline(
+    xintercept = 0, 
+    color = "red", 
+    lty = "solid"
+  ) +
+  geom_hline(
+    yintercept = 0, 
+    color = "red", 
+    lty = "solid"
+  ) +
+  labs(
+    x = "elicited ea_w", 
+    y = "elicited ea_f", 
+    title = "Scatter Plot of Demand Shocks"
+  ) +
+  theme_classic()
+g
+```
+
+# supply shocks
+```{r}
+ec_w <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous)
+  ) %do%{
+    ec_w_t <- 
+      foreach(
+        j = seq_along(equilibrium$exogenous[[t]])
+      ) %do% { 
+        ec_w_tj <- 
+          equilibrium$shock[[t]][[j]]$ec_w
+        return(ec_w_tj)
+      }
+    return(ec_w_t)
+  }
+
+ec_f <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous)
+  ) %do%{
+    ec_f_t <- 
+      foreach(
+        j = seq_along(equilibrium$exogenous[[t]])
+      ) %do% { 
+        ec_f_tj <- 
+          equilibrium$shock[[t]][[j]]$ec_f
+        return(ec_f_tj)
+      }
+    return(ec_f_t)
+  }
+
+df$ec_w <-  unlist(ec_w)
+df$ec_f <-  unlist(ec_f)
+
+g <- 
+  ggplot(
+    df, 
+    aes(
+      x = ec_w, 
+      y = ec_f
+    )
+  ) +
+  geom_point() +
+  geom_vline(
+    xintercept = 0, 
+    color = "red", 
+    lty = "solid"
+  ) +
+  geom_hline(
+    yintercept = 0, 
+    color = "red", 
+    lty = "solid"
+  ) +
+  labs(
+    x = "elicited ec_w", 
+    y = "elicited ec_f", 
+    title = "Scatter Plot of Supply Shocks"
+  ) +
+  theme_classic()
+g
+```
+
+## summary statistics
+```{r}
+summary(df)
+```
+
+# costs
+```{r}
+T <- length(equilibrium$exogenous)
+J_by_t <- vapply(equilibrium$exogenous, length, integer(1))
+years <- if (T == 5) 2010:2014 else seq_len(T)
+
+safe_costs_tj <- function(t, j) {
+  tryCatch(
+    {
+      c_w_tj <-
+        compute_supply_shock_c_w_tj(
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          lambda_w = equilibrium$parameter$lambda_w,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          owner = equilibrium$exogenous[[t]][[j]]$owner,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+
+      # Prepend outside-option value as a scalar (avoid rbind() -> matrix coercion)
+      c_w_aug <- c(0.1, c_w_tj)
+
+      c_f_tj <-
+        compute_supply_shock_c_f_tj(
+          c_w = c_w_aug,
+          m_w = equilibrium$parameter$m_w,
+          m_f = equilibrium$parameter$m_f,
+          beta_w = equilibrium$parameter$beta_w,
+          beta_f = equilibrium$parameter$beta_f,
+          lambda_w = equilibrium$parameter$lambda_w,
+          lambda_f = equilibrium$parameter$lambda_f,
+          x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+          x_a_f = equilibrium$exogenous[[t]][[j]]$x_a_f,
+          size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+          size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+          mu = equilibrium$shock[[t]][[j]]$mu,
+          ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+          ea_f = equilibrium$shock[[t]][[j]]$ea_f,
+          owner = equilibrium$exogenous[[t]][[j]]$owner,
+          w = equilibrium$endogenous[[t]][[j]]$w,
+          f = equilibrium$endogenous[[t]][[j]]$f,
+          s_w = equilibrium$endogenous[[t]][[j]]$s_w,
+          s_f = equilibrium$endogenous[[t]][[j]]$s_f,
+          method_s_w = equilibrium$constant$method_s_w,
+          margin = equilibrium$constant$margin,
+          quadrature_size = equilibrium$constant$quadrature_size,
+          tol = equilibrium$constant$tol
+        )
+
+      c_w_no0 <- c_w_aug[-1]
+      if (length(c_f_tj) != length(c_w_no0)) {
+        stop(paste0("length mismatch: length(c_f)=", length(c_f_tj),
+                    ", length(c_w)=", length(c_w_no0)))
+      }
+
+      data.frame(
+        year = years[t],
+        market = j,
+        c_w = c_w_no0,
+        c_f = c_f_tj,
+        error = NA_character_
+      )
+    },
+    error = function(e) {
+      data.frame(
+        year = years[t],
+        market = j,
+        c_w = NA_real_,
+        c_f = NA_real_,
+        error = conditionMessage(e)
+      )
+    }
+  )
+}
+
+rows_costs <- list()
+k <- 1L
+for (t in seq_len(T)) {
+  for (j in seq_len(J_by_t[t])) {
+    rows_costs[[k]] <- safe_costs_tj(t, j)
+    k <- k + 1L
+  }
+}
+c <- do.call(rbind, rows_costs)
+
+cat("Costs computed for", nrow(c), "rows.\n")
+cat("Number of failed market-years:", sum(!is.na(c$error)), "\n")
+if (any(!is.na(c$error))) {
+  cat("First few failures (year, market, error):\n")
+  print(utils::head(c[!is.na(c$error), c("year", "market", "error")], 5))
+}
+```
+
+```{r}
+summary(c)
+```
+
+## negative number of c_w & c_f
+```{r}
+num_1 <- sum(c$c_w < 0, na.rm = TRUE)
+num_2 <- sum(c$c_f < 0, na.rm = TRUE)
+num_3 <- nrow(c)
+```
+
+- `r num_1` out of `r num_3` c_w are negetive
+- `r num_2` out of `r num_3` c_f are negetive
+
+# shares
+```{r}
+s_w_predicted <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous),
+    .combine = rbind
+  ) %do% {
+    foreach(
+      j = seq_along(equilibrium$exogenous[[t]]),
+      .combine = rbind
+    ) %do% {
+        solution_tj <- 
+          solve_s_w_tj_exact_check(
+            m_w = equilibrium$parameter$m_w,
+            m_f = equilibrium$parameter$m_f,
+            beta_w = equilibrium$parameter$beta_w,
+            lambda_w = equilibrium$parameter$lambda_w,
+            x_a_w = equilibrium$exogenous[[t]][[j]]$x_a_w,
+            size_w = equilibrium$exogenous[[t]][[j]]$size_w,
+            size_f = equilibrium$exogenous[[t]][[j]]$size_f,
+            mu = equilibrium$shock[[t]][[j]]$mu,
+            ea_w = equilibrium$shock[[t]][[j]]$ea_w,
+            w = equilibrium$endogenous[[t]][[j]]$w,
+            s_f = equilibrium$endogenous[[t]][[j]]$s_f
+          ) 
+      return(solution_tj)
+    }
+  }
+
+```
+
+```{r}
+s_w_actual <- 
+  foreach(
+    t = seq_along(equilibrium$exogenous),
+    .combine = rbind
+  ) %do% {
+    foreach(
+      j = seq_along(equilibrium$exogenous[[t]]),
+      .combine = rbind
+    ) %do% {
+      s_w_tj <- equilibrium$endogenous[[t]][[j]]$s_w
+      return(s_w_tj)
+    }
+  }
+
+```
+
+```{r}
+df_s_w <- 
+  data.frame(
+    s_w_actual = s_w_actual,
+    s_w_predicted = s_w_predicted
+  )
+```
+
+```{r}
+g <- 
+  ggplot(
+    df_s_w, 
+    aes(
+      x = s_w_predicted, 
+      y = s_w_actual
+    )
+  ) +
+  geom_point() +
+  geom_abline(
+    slope = 1, 
+    intercept = 0, 
+    color = "red", 
+    linetype = "solid"
+  ) +
+  labs(
+    x = "s_w_predicted",
+    y = "s_w_actual",
+    title = "Scatter Plot of share of workers"
+  ) +
+  theme_classic()
+g
+```

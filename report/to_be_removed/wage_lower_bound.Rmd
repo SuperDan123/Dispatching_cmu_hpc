@@ -1,0 +1,722 @@
+---
+title: "Lower Bound for Wages"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 4, fig.width = 8)
+```
+
+```{r, include = F}
+
+type = "html" # regression output
+
+library(magrittr)
+library(ggpubr)
+library(stargazer)
+library(lfe)
+library(binsreg)
+
+
+```
+
+```{r}
+data <- readRDS("../output/data_establishments.RDS")
+partwage_pref <- readRDS("../output/partwage_pref.RDS")
+num_labor <- readRDS("../output/num_labor_cz.RDS")
+num_establishments <- readRDS("../output/num_establishments_cz.RDS")
+
+data <- data %>% 
+  dplyr::left_join(partwage_pref, by = c("year", "pref")) %>% 
+  dplyr::left_join(num_labor, by = c("year", "cz")) %>% 
+  dplyr::left_join(num_establishments, by = c("year", "cz"))
+
+```
+
+
+# Distribution of Wages - Parttime Wages
+```{r}
+
+g1 <- data %>% 
+  dplyr::mutate(net_wage = wage - ptwage) %>% 
+  gghistogram(x = "net_wage",
+              xlab = "Wage - Parttime Wage (10K Yen per Day)",
+              binwidth = 0.1)
+
+g2 <- data %>% 
+  dplyr::mutate(net_wage = wage - ptwage) %>% 
+  ggecdf(x = "net_wage",
+              xlab = "Wage - Parttime Wage (10K Yen per Day)") +
+  geom_vline(xintercept = 0, 
+             color = "red")
+
+gridExtra::grid.arrange(g1, g2, nrow = 1)
+
+```
+
+# Prices vs. Market Size
+
+## Labor Force as a Market Size
+
+```{r, eval = F}
+
+data %>% 
+  dplyr::mutate(net_wage = wage - ptwage,
+                labor_all = labor_all / 1000) %>% 
+  ggscatter(.,
+            x = "labor_all",
+            xlab = "Labor Force (Thousands)",
+            y = "net_wage",
+            ylab = "Wage - Parttime Wage (10K Yen per Day)",
+            color = "gray",
+            shape = 21,
+            size = 3,
+            add = "reg.line",
+            add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10()
+
+```
+
+```{r, eval = F}
+
+data %>% 
+  dplyr::mutate(net_wage = wage / ptwage,
+                labor_all = labor_all / 1000) %>% 
+  ggscatter(.,
+            x = "labor_all",
+            xlab = "Labor Force (Thousands)",
+            y = "net_wage",
+            ylab = "Wage / Parttime Wage",
+            color = "gray",
+            shape = 21,
+            size = 3,
+            add = "reg.line",
+            add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10()
+
+```
+
+<!-- #### Binscatter Plot (without Covariates) -->
+```{r, include = F, eval = F}
+tempdata <- data %>% 
+  dplyr::mutate(net_wage = wage - ptwage,
+                net_wage_ratio = wage / ptwage)
+
+result1 <- binsreg(y = tempdata$net_wage,
+        x = tempdata$labor_all / 1000,
+        nbins = 5,
+        ci = c(3, 3),
+        cb = c(3, 3),
+        line = c(3, 3))
+
+
+
+result2 <- binsreg(y = tempdata$net_wage_ratio,
+        x = tempdata$labor_all / 1000,
+        nbins = 5,
+        ci = c(3, 3),
+        cb = c(3, 3),
+        line = c(3, 3))
+
+g1 <- result1$bins_plot + xlab("Labor Force (Thousands)") + ylab("Wage - Part-time Wage (10K Yen)") + scale_x_log10()
+g2 <- result2$bins_plot + xlab("Labor Force (Thousands)") + ylab("Wage / Part-time Wage") + scale_x_log10()
+
+
+```
+
+```{r, eval = F}
+gridExtra::grid.arrange(g1, g2, nrow = 1)
+```
+
+
+<!-- #### Binscatter Plot (with Covariates) -->
+<!-- - Control job type dummies -->
+```{r, include = F, eval = F}
+tempdata <- data %>% 
+  dplyr::mutate(net_wage = wage - ptwage,
+                net_wage_ratio = wage / ptwage)
+
+jobtype <- data %>% 
+  dplyr::select(dplyr::starts_with("type_")) %>% 
+  as.matrix()
+
+result1 <- binsreg(y = tempdata$net_wage,
+        x = tempdata$labor_all / 1000,
+        w = jobtype,
+        nbins = 5,
+        ci = c(3, 3),
+        cb = c(3, 3),
+        line = c(3, 3))
+
+
+
+result2 <- binsreg(y = tempdata$net_wage_ratio,
+        x = tempdata$labor_all / 1000,
+        w = jobtype,
+        nbins = 5,
+        ci = c(3, 3),
+        cb = c(3, 3),
+        line = c(3, 3))
+
+
+g1 <- result1$bins_plot + xlab("Labor Force (Thousands)") + ylab("Wage - Part-time Wage (10K Yen)") + scale_x_log10()
+g2 <- result2$bins_plot + xlab("Labor Force (Thousands)") + ylab("Wage / Part-time Wage") + scale_x_log10()
+
+
+```
+
+
+```{r, eval = F}
+gridExtra::grid.arrange(g1, g2, nrow = 1)
+```
+
+
+
+<!-- ### Taking Average in each CZ -->
+
+
+### Net Wage
+```{r}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(net_wage = mean(wage) - mean(ptwage),
+                   net_wage_sd = sd(wage - ptwage),
+                   labor_all = mean(labor_all) / 1000,
+                   n = dplyr::n(),
+                   pref = mean(pref)) %>% 
+  dplyr::mutate(net_wage_se = net_wage_sd / sqrt(n),
+                ci_upper = net_wage + 1.96 * net_wage_se,
+                ci_lower = net_wage - 1.96 * net_wage_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "labor_all",
+            xlab = "Labor Force (Thousands)",
+            y = "net_wage",
+            size = 1,
+            ylab = "Wage - Parttime Wage (10K Yen per Day)",
+            color = "gray",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + guides(size = FALSE) +
+  geom_errorbar(aes(ymax = ci_upper, ymin = ci_lower), width=.02,
+                 position=position_dodge(.9), color = "gray") 
+```
+
+```{r}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(net_wage = mean(wage / ptwage),
+                   net_wage_sd = sd(wage / ptwage),
+                   labor_all = mean(labor_all) / 1000,
+                   n = dplyr::n()) %>% 
+  dplyr::mutate(net_wage_se = net_wage_sd / sqrt(n),
+                ci_upper = net_wage + 1.96 * net_wage_se,
+                ci_lower = net_wage - 1.96 * net_wage_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "labor_all",
+            xlab = "Labor Force (Thousands)",
+            y = "net_wage",
+            size = 1,
+            ylab = "Wage / Parttime Wage",
+            color = "gray",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + guides(size = FALSE) +
+  geom_errorbar(aes(ymax = ci_upper, ymin = ci_lower), width=.02,
+                 position=position_dodge(.9), color = "gray") 
+```
+
+
+### Net Fee
+
+```{r}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(net_fee = mean(fee) - mean(ptwage),
+                   net_fee_sd = sd(fee - ptwage),
+                   labor_all = mean(labor_all) / 1000,
+                   n = dplyr::n(),
+                   pref = mean(pref)) %>% 
+  dplyr::mutate(net_fee_se = net_fee_sd / sqrt(n),
+                ci_upper = net_fee + 1.96 * net_fee_se,
+                ci_lower = net_fee - 1.96 * net_fee_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "labor_all",
+            xlab = "Labor Force (Thousands)",
+            y = "net_fee",
+            size = 1,
+            ylab = "Fee - Parttime Wage (10K Yen per Day)",
+            color = "gray",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + guides(size = FALSE) +
+  geom_errorbar(aes(ymax = ci_upper, ymin = ci_lower), width=.02,
+                 position=position_dodge(.9), color = "gray") 
+```
+
+```{r}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(net_fee = mean(fee / ptwage),
+                   net_fee_sd = sd(fee / ptwage),
+                   labor_all = mean(labor_all) / 1000,
+                   n = dplyr::n()) %>% 
+  dplyr::mutate(net_fee_se = net_fee_sd / sqrt(n),
+                ci_upper = net_fee + 1.96 * net_fee_se,
+                ci_lower = net_fee - 1.96 * net_fee_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "labor_all",
+            xlab = "Labor Force (Thousands)",
+            y = "net_fee",
+            size = 1,
+            ylab = "Fee / Parttime Wage",
+            color = "gray",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + guides(size = FALSE) +
+  geom_errorbar(aes(ymax = ci_upper, ymin = ci_lower), width=.02,
+                 position=position_dodge(.9), color = "gray") 
+```
+
+### Margin
+```{r}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(margin = mean(fee) - mean(wage),
+                   margin_sd = sd(fee - wage),
+                   labor_all = mean(labor_all) / 1000,
+                   n = dplyr::n(),
+                   pref = mean(pref)) %>% 
+  dplyr::mutate(margin_se = margin_sd / sqrt(n),
+                ci_upper = margin + 1.96 * margin_se,
+                ci_lower = margin - 1.96 * margin_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "labor_all",
+            xlab = "Labor Force (Thousands)",
+            y = "margin",
+            size = 1,
+            ylab = "Fee - Wage (10K Yen per Day)",
+            color = "gray",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + guides(size = FALSE) +
+  geom_errorbar(aes(ymax = ci_upper, ymin = ci_lower), width=.02,
+                 position=position_dodge(.9), color = "gray") 
+```
+
+```{r}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(margin = mean(fee / wage),
+                   margin_sd = sd(fee / wage),
+                   labor_all = mean(labor_all) / 1000,
+                   n = dplyr::n()) %>% 
+  dplyr::mutate(margin_se = margin_sd / sqrt(n),
+                ci_upper = margin + 1.96 * margin_se,
+                ci_lower = margin - 1.96 * margin_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "labor_all",
+            xlab = "Labor Force (Thousands)",
+            y = "margin",
+            size = 1,
+            ylab = "Fee / Wage",
+            color = "gray",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + guides(size = FALSE) +
+  geom_errorbar(aes(ymax = ci_upper, ymin = ci_lower), width=.02,
+                 position=position_dodge(.9), color = "gray") 
+```
+
+
+## Number of Establishments as a Market Size
+
+
+```{r, eval = F}
+
+data %>% 
+  dplyr::mutate(net_wage = wage - ptwage,
+                establishments_all = establishments_all / 1000) %>% 
+  ggscatter(.,
+            x = "establishments_all",
+            xlab = "Establishments (Thousands)",
+            y = "net_wage",
+            ylab = "Wage - Parttime Wage (10K Yen per Day)",
+            color = "gray",
+            shape = 21,
+            size = 3,
+            add = "reg.line",
+            add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10()
+
+```
+
+```{r, eval = F}
+
+data %>% 
+  dplyr::mutate(net_wage = wage / ptwage,
+                establishments_all = establishments_all / 1000) %>% 
+  ggscatter(.,
+            x = "establishments_all",
+            xlab = "Establishments (Thousands)",
+            y = "net_wage",
+            ylab = "Wage / Parttime Wage",
+            color = "gray",
+            shape = 21,
+            size = 3,
+            add = "reg.line",
+            add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10()
+
+```
+
+<!-- #### Binscatter Plot (without Covariates) -->
+```{r, include = F, eval = F}
+tempdata <- data %>% 
+  dplyr::mutate(net_wage = wage - ptwage,
+                net_wage_ratio = wage / ptwage)
+
+result1 <- binsreg(y = tempdata$net_wage,
+        x = tempdata$establishments_all / 1000,
+        nbins = 5,
+        ci = c(3, 3),
+        cb = c(3, 3),
+        line = c(3, 3))
+
+
+
+result2 <- binsreg(y = tempdata$net_wage_ratio,
+        x = tempdata$establishments_all / 1000,
+        nbins = 5,
+        ci = c(3, 3),
+        cb = c(3, 3),
+        line = c(3, 3))
+
+g1 <- result1$bins_plot + xlab("Establishments (Thousands)") + ylab("Wage - Part-time Wage (10K Yen)") + scale_x_log10()
+g2 <- result2$bins_plot + xlab("Establishments (Thousands)") + ylab("Wage / Part-time Wage") + scale_x_log10()
+
+
+```
+
+```{r, eval = F}
+gridExtra::grid.arrange(g1, g2, nrow = 1)
+```
+
+
+<!-- #### Binscatter Plot (with Covariates) -->
+<!-- - Control job type dummies -->
+```{r, include = F, eval = F}
+tempdata <- data %>% 
+  dplyr::mutate(net_wage = wage - ptwage,
+                net_wage_ratio = wage / ptwage)
+
+jobtype <- data %>% 
+  dplyr::select(dplyr::starts_with("type_")) %>% 
+  as.matrix()
+
+result1 <- binsreg(y = tempdata$net_wage,
+        x = tempdata$establishments_all / 1000,
+        w = jobtype,
+        nbins = 5,
+        ci = c(3, 3),
+        cb = c(3, 3),
+        line = c(3, 3))
+
+
+
+result2 <- binsreg(y = tempdata$net_wage_ratio,
+        x = tempdata$establishments_all / 1000,
+        w = jobtype,
+        nbins = 5,
+        ci = c(3, 3),
+        cb = c(3, 3),
+        line = c(3, 3))
+
+
+g1 <- result1$bins_plot + xlab("Establishments (Thousands)") + ylab("Wage - Part-time Wage (10K Yen)") + scale_x_log10()
+g2 <- result2$bins_plot + xlab("Establishments (Thousands)") + ylab("Wage / Part-time Wage") + scale_x_log10()
+
+
+```
+
+
+```{r, eval = F}
+gridExtra::grid.arrange(g1, g2, nrow = 1)
+```
+
+
+<!-- ### Taking Average in each CZ -->
+
+### Net Wage
+```{r}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(net_wage = mean(wage) - mean(ptwage),
+                   net_wage_sd = sd(wage - ptwage),
+                   establishments_all = mean(establishments_all) / 1000,
+                   n = dplyr::n()) %>% 
+  dplyr::mutate(net_wage_se = net_wage_sd / sqrt(n),
+                ci_upper = net_wage + 1.96 * net_wage_se,
+                ci_lower = net_wage - 1.96 * net_wage_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "establishments_all",
+            xlab = "Establishments (Thousands)",
+            y = "net_wage",
+            size = 1,
+            ylab = "Wage - Parttime Wage (10K Yen per Day)",
+            color = "gray",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + guides(size = FALSE) +
+  geom_errorbar(aes(ymax = ci_upper, ymin = ci_lower), width=.02,
+                 position=position_dodge(.9), color = "gray") 
+```
+
+```{r}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(net_wage = mean(wage / ptwage),
+                   net_wage_sd = sd(wage / ptwage),
+                   establishments_all = mean(establishments_all) / 1000,
+                   n = dplyr::n()) %>% 
+  dplyr::mutate(net_wage_se = net_wage_sd / sqrt(n),
+                ci_upper = net_wage + 1.96 * net_wage_se,
+                ci_lower = net_wage - 1.96 * net_wage_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "establishments_all",
+            xlab = "Establishments (Thousands)",
+            y = "net_wage",
+            size = 1,
+            ylab = "Wage / Parttime Wage",
+            color = "gray",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + guides(size = FALSE) +
+  geom_errorbar(aes(ymax = ci_upper, ymin = ci_lower), width=.02,
+                 position=position_dodge(.9), color = "gray") 
+```
+
+
+### Net Fee
+
+```{r}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(net_fee = mean(fee) - mean(ptwage),
+                   net_fee_sd = sd(fee - ptwage),
+                   establishments_all = mean(establishments_all) / 1000,
+                   n = dplyr::n(),
+                   pref = mean(pref)) %>% 
+  dplyr::mutate(net_fee_se = net_fee_sd / sqrt(n),
+                ci_upper = net_fee + 1.96 * net_fee_se,
+                ci_lower = net_fee - 1.96 * net_fee_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "establishments_all",
+            xlab = "Establishments (Thousands)",
+            y = "net_fee",
+            size = 1,
+            ylab = "Fee - Parttime Wage (10K Yen per Day)",
+            color = "gray",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + guides(size = FALSE) +
+  geom_errorbar(aes(ymax = ci_upper, ymin = ci_lower), width=.02,
+                 position=position_dodge(.9), color = "gray") 
+```
+
+```{r}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(net_fee = mean(fee / ptwage),
+                   net_fee_sd = sd(fee / ptwage),
+                   establishments_all = mean(establishments_all) / 1000,
+                   n = dplyr::n()) %>% 
+  dplyr::mutate(net_fee_se = net_fee_sd / sqrt(n),
+                ci_upper = net_fee + 1.96 * net_fee_se,
+                ci_lower = net_fee - 1.96 * net_fee_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "establishments_all",
+            xlab = "Establishments (Thousands)",
+            y = "net_fee",
+            size = 1,
+            ylab = "Fee / Parttime Wage",
+            color = "gray",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + guides(size = FALSE) +
+  geom_errorbar(aes(ymax = ci_upper, ymin = ci_lower), width=.02,
+                 position=position_dodge(.9), color = "gray") 
+```
+
+### Margin
+```{r}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(margin = mean(fee) - mean(wage),
+                   margin_sd = sd(fee - wage),
+                   establishments_all = mean(establishments_all) / 1000,
+                   n = dplyr::n(),
+                   pref = mean(pref)) %>% 
+  dplyr::mutate(margin_se = margin_sd / sqrt(n),
+                ci_upper = margin + 1.96 * margin_se,
+                ci_lower = margin - 1.96 * margin_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "establishments_all",
+            xlab = "Establishments (Thousands)",
+            y = "margin",
+            size = 1,
+            ylab = "Fee - Wage (10K Yen per Day)",
+            color = "gray",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + guides(size = FALSE) +
+  geom_errorbar(aes(ymax = ci_upper, ymin = ci_lower), width=.02,
+                 position=position_dodge(.9), color = "gray") 
+```
+
+```{r}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(margin = mean(fee / wage),
+                   margin_sd = sd(fee / wage),
+                   establishments_all = mean(establishments_all) / 1000,
+                   n = dplyr::n()) %>% 
+  dplyr::mutate(margin_se = margin_sd / sqrt(n),
+                ci_upper = margin + 1.96 * margin_se,
+                ci_lower = margin - 1.96 * margin_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "establishments_all",
+            xlab = "Establishments (Thousands)",
+            y = "margin",
+            size = 1,
+            ylab = "Fee / Wage",
+            color = "gray",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + guides(size = FALSE) +
+  geom_errorbar(aes(ymax = ci_upper, ymin = ci_lower), width=.02,
+                 position=position_dodge(.9), color = "gray") 
+```
+
+
+
+<!-- ## Net Wages vs. Both Labor Force & Establishments -->
+
+<!-- ### Level Difference -->
+```{r, eval = F}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(net_wage = mean(wage) - mean(ptwage),
+                   net_wage_sd = sd(wage - ptwage),
+                   establishments_all = mean(establishments_all) / 1000,
+                   labor_all = mean(labor_all) / 1000,
+                   n = dplyr::n()) %>% 
+  dplyr::mutate(net_wage_se = net_wage_sd / sqrt(n),
+                ci_upper = net_wage + 1.96 * net_wage_se,
+                ci_lower = net_wage - 1.96 * net_wage_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "establishments_all",
+            xlab = "Establishments (Thousands)",
+            y = "labor_all",
+            ylab = "Labor Force (Thousands)",
+            size = "n",
+            color = "net_wage",
+            fill = "net_wage",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + scale_y_log10() + guides(size = FALSE) +   
+  scale_fill_gradient(low = "yellow", high = "red") +
+  scale_color_gradient(low = "yellow", high = "red")
+```
+
+<!-- ### Ratio -->
+```{r, eval = F}
+tempdata <- data %>% 
+  dplyr::group_by(cz) %>% 
+  dplyr::summarise(net_wage = mean(wage / ptwage),
+                   net_wage_sd = sd(wage / ptwage),
+                   establishments_all = mean(establishments_all) / 1000,
+                   labor_all = mean(labor_all) / 1000,
+                   n = dplyr::n()) %>% 
+  dplyr::mutate(net_wage_se = net_wage_sd / sqrt(n),
+                ci_upper = net_wage + 1.96 * net_wage_se,
+                ci_lower = net_wage - 1.96 * net_wage_se)
+
+
+tempdata %>% 
+    ggscatter(.,
+            x = "establishments_all",
+            xlab = "Establishments (Thousands)",
+            y = "labor_all",
+            ylab = "Labor Force (Thousands)",
+            size = "n",
+            color = "net_wage",
+            fill = "net_wage",
+            shape = 21,
+            # add = "reg.line",
+            # add.params = list(color = "blue", fill = "lightgray")
+  ) + scale_x_log10() + scale_y_log10() + guides(size = FALSE) +   
+  scale_fill_gradient(low = "yellow", high = "red") +
+  scale_color_gradient(low = "yellow", high = "red")
+```
+

@@ -1,0 +1,80 @@
+---
+title: "Relevant Market Test"
+author: "Katsuhiro Komatsu"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+```
+
+### Simplified Problem
+- Profit function: $\Pi = Q (f-w)$ where $Q=[D^W]^{\alpha} [D^F]^\beta$
+- How does profit change as the hypothetical monopolist decreases the wage?
+$$
+\begin{align}
+-\frac{\partial \log{\Pi}}{\partial \log{w}} &= -\frac{\partial \log{Q}}{\partial \log{w}} + \frac{1}{f-w} \\
+  &= - [\alpha  \underbrace{\beta^{WW} s_0^W}_{\text{Worker-side elasticity}} + \beta \underbrace{\beta^{FW} s_0^F}_{\text{Firm-side elasticity}}] + \frac{1}{f-w}
+\end{align}
+$$
+- $s_0^W, s_0^F$: Share of outside option
+- First-term: Decrease in the profit due to the decrease in the number of the matches on the platform
+  - Note that the elasticity is zero if the share of the outside option is zero.
+- Second-term: Increase in the profit due to the increase in the margin
+- The simulation results below might not be perfectly aligned with this expression since
+  - the changes are not marginal.
+  - there are marginal costs.
+
+## {.tabset}
+
+### Wage Reduction
+
+- Reduce wage to increase margin $f-w$ by 5\% for each THS establishment
+
+#### Geographic distribution
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/conduct_relevant_market_test/wage_yesno.png"))
+knitr::include_graphics(here::here("figuretable/conduct_relevant_market_test/wage_continuous.png"))
+```
+
+
+#### Indirect utility vs. profit gain
+
+- X-axis: $\mathbb{E}[\max_j(u_j - u_0)]$ for workers or client firms
+- Each point represents each market (i.e. year x commuting zone)
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/conduct_relevant_market_test/profit_gain_from_wage_reduction_vs_indirect_util_worker.png"))
+knitr::include_graphics(here::here("figuretable/conduct_relevant_market_test/profit_gain_from_wage_reduction_vs_indirect_util_firm.png"))
+```
+
+
+
+
+### Fee Increase
+
+- Increase fee to increase margin $f-w$ by 5\% for each THS establilshment
+
+
+#### Geographic distribution
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/conduct_relevant_market_test/fee_yesno.png"))
+knitr::include_graphics(here::here("figuretable/conduct_relevant_market_test/fee_continuous.png"))
+```
+
+
+#### Indirect utility vs. profit gain
+- X-axis: $\mathbb{E}[\max_j(u_j - u_0)]$ for workers or client firms
+- Each point represents each market (i.e. year x commuting zone)
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/conduct_relevant_market_test/profit_gain_from_fee_increase_vs_indirect_util_worker.png"))
+knitr::include_graphics(here::here("figuretable/conduct_relevant_market_test/profit_gain_from_fee_increase_vs_indirect_util_firm.png"))
+```
+

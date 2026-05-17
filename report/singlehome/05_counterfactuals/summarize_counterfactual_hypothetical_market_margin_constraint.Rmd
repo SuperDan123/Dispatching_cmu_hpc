@@ -1,0 +1,419 @@
+---
+title: "Counterfactual: Margin constraint"
+author: "Kohei Kawaguchi"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+
+library("magrittr")
+library("ggplot2")
+library("foreach")
+library("Dispatching")
+dir.create(
+  "figuretable/counterfactual_hypothetical_market_margin_constraint" %>% here::here(),
+  showWarnings = FALSE
+)
+```
+
+
+# Read data
+
+```{r}
+counterfactual_list <- 
+  readRDS(here::here("output/counterfactual_hypothetical_market_margin_constraint/result_hypothetical_market.RDS"))
+```
+
+# Set constants
+
+```{r}
+color <- viridis::viridis_pal(option = "A")(1)
+limits <- 
+  c(
+    max(counterfactual_list$margin_upper_bound_vec),
+    min(counterfactual_list$margin_upper_bound_vec)
+  )
+height <- 3
+width <- 4
+legend_position <- "bottom"
+```
+
+
+
+# Transform data
+
+```{r}
+endogenous_df <-
+  counterfactual_list$equilibrium_list %>%
+  purrr::map(~ .$endogenous) %>%
+  purrr::map(~ purrr::reduce(., rbind)) %>%
+  purrr::map2(
+    .,
+    counterfactual_list$margin_upper_bound_vec,
+    ~ tibble::as_tibble(.x) %>%
+      dplyr::mutate(margin_upper_bound = .y)
+  ) %>%
+  purrr::reduce(dplyr::bind_rows) %>%
+  dplyr::mutate(margin = log(fee/wage))
+surplus_df <- 
+  counterfactual_list$equilibrium_list %>%
+  purrr::map(compute_surplus) %>%
+  purrr::reduce(rbind) %>%
+  tibble::as_tibble() %>%
+  dplyr::mutate(margin_upper_bound = counterfactual_list$margin_upper_bound_vec) 
+```
+
+
+# Endogenous variables
+
+## Fee
+
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = margin_upper_bound,
+      y = fee,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(fee, 2), y = fee - 0.15), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Fee (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_margin_constraint/fee.png"),
+  width = width,
+  height = height
+)
+```
+
+
+## Wage
+
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = margin_upper_bound,
+      y = wage,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(wage, 2), y = wage - 0.15), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Wage (10K Yen / Day)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_margin_constraint/wage.png"),
+  width = width,
+  height = height
+)
+```
+
+## Margin
+
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = margin_upper_bound,
+      y = margin,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(margin, 2), y = margin - 0.05), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "log(Fee/Wage)"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_margin_constraint/margin.png"),
+  width = width,
+  height = height
+)
+```
+
+
+## Worker share
+
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = margin_upper_bound,
+      y = s_W,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(s_W, 4), y = s_W * 1.1), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Worker shares"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_margin_constraint/worker_share.png"),
+  width = width,
+  height = height
+)
+
+```
+
+:::
+
+::: {}
+
+## Firm share
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = margin_upper_bound,
+      y = s_F,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(s_F, 6), y = s_F * 0.9), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Client firm shares"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_margin_constraint/firm_share.png"),
+  width = width,
+  height = height
+)
+```
+
+## Match
+
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = margin_upper_bound,
+      y = Q,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(Q, 5), y = Q * 0.9), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Matches"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_margin_constraint/match.png"),
+  width = width,
+  height = height
+)
+
+```
+
+
+## Profit
+
+```{r}
+endogenous_df %>% 
+  ggplot(
+    aes(
+      x = margin_upper_bound,
+      y = profit,
+      linetype = factor(id_unique),
+      shape = factor(id_unique)
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(profit, 4), y = profit  * 0.9), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Profit"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_margin_constraint/profit.png"),
+  width = width,
+  height = height
+)
+
+```
+# Surplus
+
+## Worker surplus
+
+```{r}
+surplus_df %>% 
+  ggplot(
+    aes(
+      x = margin_upper_bound,
+      y = WS
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(WS, 4), y = WS * 0.8), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Worker surplus"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_margin_constraint/worker_surplus.png"),
+  width = width,
+  height = height
+)
+```
+
+## Firms surplus
+
+```{r}
+surplus_df %>% 
+  ggplot(
+    aes(
+      x = margin_upper_bound,
+      y = FS
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(FS, 4), y = FS * 0.8), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "Client firm surplus"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_margin_constraint/firm_surplus.png"),
+  width = width,
+  height = height
+)
+```
+
+## THS surplus
+
+```{r}
+surplus_df %>% 
+  ggplot(
+    aes(
+      x = margin_upper_bound,
+      y = profit
+    )
+  ) + 
+  ggrepel::geom_text_repel(aes(label = round(profit, 4), y = profit * 0.8), size = 3, color = color) +
+  geom_line(color = color) +
+  geom_point(color = color) +
+  scale_linetype_discrete(name = "Baseline margin rank") +
+  scale_shape_discrete(name = "Baseline margin rank") +
+  scale_x_reverse(limits = limits) +
+  labs(
+    x = "Margin constraint",
+    y = "THS Surplus"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = legend_position
+  )
+
+ggsave(
+  filename = here::here("figuretable/counterfactual_hypothetical_market_margin_constraint/ths_surplus.png"),
+  width = width,
+  height = height
+)
+```
+

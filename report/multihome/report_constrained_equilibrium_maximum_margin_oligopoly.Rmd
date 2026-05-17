@@ -1,0 +1,428 @@
+---
+title: "report_constrained_equilibrium_maximum_margin_oligopoly"
+author: "Daisy Dan Song"
+date: "2024-05-11"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+```
+
+# Set constant
+
+```{r}
+seed <- 1
+set.seed(seed)
+n_ths <- 3
+n_market <- 1
+n_zone <- 1
+t <- 1
+j <- 1
+multistart <- 10
+use_rcpp <- TRUE
+```
+
+# impose baseline setting
+
+```{r}
+# generate template
+equilibrium <-
+  generate_equilibrium(
+    n_ths = n_ths,
+    n_market = n_market,
+    n_zone = n_zone,
+    seed = seed
+  )
+```
+
+# check lower bound of m_bar
+
+```{r}
+m_w <- equilibrium$parameter$m_w
+m_f <- equilibrium$parameter$m_f
+beta_w <- equilibrium$parameter$beta_w
+lambda_w <- equilibrium$parameter$lambda_w
+gamma_w <- equilibrium$parameter$gamma_w
+beta_f <- equilibrium$parameter$beta_f
+lambda_f <- equilibrium$parameter$lambda_f
+gamma_f <- equilibrium$parameter$gamma_f
+x_a_w <- equilibrium$exogenous[[t]][[j]]$x_a_w
+x_a_f <- equilibrium$exogenous[[t]][[j]]$x_a_f
+x_c_w <- equilibrium$exogenous[[t]][[j]]$x_c_w
+x_c_f <- equilibrium$exogenous[[t]][[j]]$x_c_f
+size_w <- equilibrium$exogenous[[t]][[j]]$size_w
+size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+w_0 <- equilibrium$exogenous[[t]][[j]]$w_0
+owner <- equilibrium$exogenous[[t]][[j]]$owner
+mu <- equilibrium$shock[[t]][[j]]$mu
+ea_w <- equilibrium$shock[[t]][[j]]$ea_w
+ec_w <- equilibrium$shock[[t]][[j]]$ec_w
+ea_f <- equilibrium$shock[[t]][[j]]$ea_f
+ec_f <- equilibrium$shock[[t]][[j]]$ec_f
+w <- equilibrium$endogenous[[t]][[j]]$w
+f <- equilibrium$endogenous[[t]][[j]]$f
+s_f <- equilibrium$endogenous[[t]][[j]]$s_f
+method_s_w <- equilibrium$constant$method_s_w
+margin <- equilibrium$constant$margin
+quadrature_size <- equilibrium$constant$quadrature_size
+tol <- equilibrium$constant$tol
+
+bound <-
+  compute_monopoly_bound_tj(
+    m_w = m_w,
+    m_f = m_f,
+    beta_w = beta_w,
+    beta_f = beta_f,
+    gamma_w = gamma_w,
+    gamma_f = gamma_f,
+    lambda_w = lambda_w,
+    lambda_f = lambda_f,
+    x_a_w = x_a_w,
+    x_a_f = x_a_f,
+    x_c_w = x_c_w,
+    x_c_f = x_c_f,
+    w_0 = w_0,
+    size_w = size_w,
+    size_f = size_f,
+    owner = owner,
+    mu = mu,
+    ea_w = ea_w,
+    ea_f = ea_f,
+    ec_w = ec_w,
+    ec_f = ec_f,
+    w = w,
+    f = f,
+    s_f = s_f,
+    method_s_w = method_s_w,
+    margin = margin,
+    quadrature_size = quadrature_size,
+    tol = tol,
+    use_rcpp = use_rcpp
+  )
+bound <-
+  relax_bound_tj(
+    bound = bound
+  )
+
+c_w <- 
+  compute_c_w_tj(
+    gamma_w = gamma_w,
+    x_c_w = x_c_w,
+    ec_w = ec_w
+  ) 
+
+(
+  bound$upper[
+    1:(length(w) - 1)
+    ] +
+  c_w[
+    2:length(w)
+    ]-
+  bound$upper[
+    1:(length(w) - 1)
+    ]
+)/(
+  bound$upper[
+    1:(length(w) - 1)
+    ] +
+    c_w[2:length(w)]
+  )
+```
+
+# start from unconstrained solution
+```{r}
+eq1_nleqslv <-
+  solve_equilibrium_tj(
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = "nleqslv",
+    multistart = multistart,
+    use_rcpp = use_rcpp
+  )
+equilibrium$endogenous[[t]][[j]]$w <- eq1_nleqslv$endogenous[[t]][[j]]$w
+equilibrium$endogenous[[t]][[j]]$f <- eq1_nleqslv$endogenous[[t]][[j]]$f
+w <- equilibrium$endogenous[[t]][[j]]$w
+f <- equilibrium$endogenous[[t]][[j]]$f
+w
+f
+```
+
+
+# threshold 
+```{r}
+(f[2:length(f)] - w[2:length(w)])/f[2:length(f)]
+```
+
+# m_bar
+```{r}
+m_bar <- 0.3
+m_bar
+```
+
+# solve constrained equilibrium
+```{r}
+eq_constrained <- 
+  solve_equilibrium_multiple_initials_maximum_margin_nleqslv_tj(
+    t = t,
+    j = j,
+    equilibrium = equilibrium, 
+    solver = "nleqslv",
+    m_bar = m_bar
+  )
+eq_constrained
+```
+
+## display eta_f
+```{r}
+m_w <- eq_constrained$parameter$m_w
+m_f <- eq_constrained$parameter$m_f
+beta_f <- eq_constrained$parameter$beta_f
+beta_w <- eq_constrained$parameter$beta_w
+gamma_f <- eq_constrained$parameter$gamma_f
+gamma_w <- eq_constrained$parameter$gamma_w
+size_w <- eq_constrained$exogenous[[t]][[j]]$size_w
+size_f <- eq_constrained$exogenous[[t]][[j]]$size_f
+lambda_f <- eq_constrained$parameter$lambda_f
+lambda_w <- eq_constrained$parameter$lambda_w
+mu <- eq_constrained$shock[[t]][[j]]$mu
+s_f <- eq_constrained$endogenous[[t]][[j]]$s_f
+ea_f <- eq_constrained$shock[[t]][[j]]$ea_f
+ec_f <- eq_constrained$shock[[t]][[j]]$ec_f
+ea_w <- eq_constrained$shock[[t]][[j]]$ea_w
+ec_w <- eq_constrained$shock[[t]][[j]]$ec_w
+x_a <- eq_constrained$exogenous[[t]][[j]]$x_a
+x_c <- eq_constrained$exogenous[[t]][[j]]$x_c
+f <- eq_constrained$endogenous[[t]][[j]]$f
+s_f <- eq_constrained$endogenous[[t]][[j]]$s_f
+s_w <- eq_constrained$endogenous[[t]][[j]]$s_w
+w <- eq_constrained$endogenous[[t]][[j]]$w
+eta_f <- eq_constrained$endogenous[[t]][[j]]$eta_f
+owner <- eq_constrained$exogenous[[t]][[j]]$owner
+margin <- eq_constrained$constant$margin
+quadrature_size <- eq_constrained$constant$quadrature_size
+tol <- eq_constrained$constant$tol
+w_0 <- eq_constrained$exogenous[[t]][[j]]$w_0
+
+eta_f
+```
+
+## compute profit
+```{r}
+compute_profit_ths_tj(
+  m_w = m_w,
+  m_f = m_f,
+  gamma_w = gamma_w,
+  gamma_f = gamma_f,
+  x_c_w = x_c_w,
+  x_c_f = x_c_f,
+  size_w = size_w,
+  size_f = size_f,
+  owner = owner,
+  mu = mu,
+  ec_w = ec_w,
+  ec_f = ec_f,
+  w = w,
+  f = f,
+  s_w = s_w,
+  s_f = s_f
+) 
+```
+
+# compute augmented foc
+```{r}
+compute_foc_maximum_margin_tj(
+  m_w = m_w,
+  m_f = m_f,
+  beta_w = beta_w,
+  beta_f = beta_f,
+  gamma_w = gamma_w,
+  gamma_f = gamma_f,
+  lambda_w = lambda_w,
+  lambda_f = lambda_f,
+  x_a_w = x_a_w,
+  x_a_f = x_a_f,
+  x_c_w = x_c_w,
+  x_c_f = x_c_f,
+  size_w = size_w,
+  size_f = size_f,
+  owner = owner,
+  mu = mu,
+  ea_w = ea_w,
+  ea_f = ea_f,
+  ec_w = ec_w,
+  ec_f = ec_f,
+  w = w,
+  f = f,
+  s_f = s_f,
+  eta_f = eta_f,
+  m_bar = m_bar,
+  method_s_w = "exact",
+  margin = margin,
+  quadrature_size = quadrature_size,
+  tol = tol,
+  use_rcpp = use_rcpp
+)  
+```
+
+### foc_shape_w
+
+```{r}
+g <-
+  seq(
+    -10,
+    20,
+    by = 0.1
+  ) %>%
+  purrr::map(
+    function(x) {
+      w_x <- w
+      w_x[2] <- x
+      foc <-
+        compute_foc_maximum_margin_tj(
+          m_w = m_w,
+          m_f = m_f,
+          beta_w = beta_w,
+          beta_f = beta_f,
+          gamma_w = gamma_w,
+          gamma_f = gamma_f,
+          lambda_w = lambda_w,
+          lambda_f = lambda_f,
+          x_a_w = x_a_w,
+          x_a_f = x_a_f,
+          x_c_w = x_c_w,
+          x_c_f = x_c_f,
+          size_w = size_w,
+          size_f = size_f,
+          owner = owner,
+          mu = mu,
+          ea_w = ea_w,
+          ea_f = ea_f,
+          ec_w = ec_w,
+          ec_f = ec_f,
+          w = w,
+          f = f,
+          s_f = s_f,
+          eta_f = eta_f,
+          m_bar = m_bar,
+          method_s_w = "exact",
+          margin = margin,
+          quadrature_size = quadrature_size,
+          tol = tol,
+          use_rcpp = use_rcpp
+        )  
+      return(
+        tibble::tibble(
+          x = x,
+          aug_foc_w = foc[1]
+        )
+      )
+    }
+  ) %>%
+  dplyr::bind_rows()
+
+g %>%
+  ggplot(
+    aes(
+      x = x,
+      y = aug_foc_w
+    )
+  ) +
+  geom_line() +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed"
+  ) +
+  geom_vline(
+    xintercept = w[2],
+    linetype = "dashed"
+  ) +
+  theme_classic()
+```
+
+
+### foc_shape_f
+```{r}
+g <-
+  seq(
+    -10,
+    15,
+    by = 0.1
+  ) %>%
+  purrr::map(
+    function(x) {
+      f_x <- f
+      f_x[2] <- x
+      foc <-
+        compute_foc_maximum_margin_tj(
+          m_w = m_w,
+          m_f = m_f,
+          beta_w = beta_w,
+          beta_f = beta_f,
+          gamma_w = gamma_w,
+          gamma_f = gamma_f,
+          lambda_w = lambda_w,
+          lambda_f = lambda_f,
+          x_a_w = x_a_w,
+          x_a_f = x_a_f,
+          x_c_w = x_c_w,
+          x_c_f = x_c_f,
+          size_w = size_w,
+          size_f = size_f,
+          owner = owner,
+          mu = mu,
+          ea_w = ea_w,
+          ea_f = ea_f,
+          ec_w = ec_w,
+          ec_f = ec_f,
+          w = w,
+          f = f,
+          s_f = s_f,
+          eta_f = eta_f,
+          m_bar = m_bar,
+          method_s_w = "exact",
+          margin = margin,
+          quadrature_size = quadrature_size,
+          tol = tol,
+          use_rcpp = use_rcpp
+        )  
+      return(
+        tibble::tibble(
+          x = x,
+          aug_foc_f = foc[2]
+        )
+      )
+    }
+  ) %>%
+  dplyr::bind_rows()
+
+g %>%
+  ggplot(
+    aes(
+      x = x,
+      y = aug_foc_f
+    )
+  ) +
+  geom_line() +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed"
+  ) +
+  geom_vline(
+    xintercept = f[2],
+    linetype = "dashed"
+  ) +
+  theme_classic()
+```
+

@@ -1,0 +1,472 @@
+---
+title: "report_unconstrained_equilibrium_monopoly_with_ths_1"
+author: "Daisy Dan Song"
+date: "2024-04-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+```
+
+# Set constant
+
+```{r}
+seed <- 1
+set.seed(seed)
+n_ths <- 2
+n_zone <- 1
+n_market <- 1
+t <- 1
+j <- 1
+use_rcpp <- TRUE
+```
+
+# impose baseline setting
+
+```{r}
+# generate template
+equilibrium <-
+  generate_equilibrium(
+    n_ths = n_ths,
+    n_market = n_market,
+    n_zone = n_zone,
+    seed = seed
+  )
+```
+
+```{r}
+t <- 1
+j <- 1
+m_w <- equilibrium$parameter$m_w
+m_f <- equilibrium$parameter$m_f
+beta_f <- equilibrium$parameter$beta_f
+beta_w <- equilibrium$parameter$beta_w
+gamma_w <- equilibrium$parameter$gamma_w
+gamma_f <- equilibrium$parameter$gamma_f
+lambda_f <- equilibrium$parameter$lambda_f
+lambda_w <- equilibrium$parameter$lambda_w
+x_a_w <- equilibrium$exogenous[[t]][[j]]$x_a_w
+x_a_f <- equilibrium$exogenous[[t]][[j]]$x_a_f
+x_c_w <- equilibrium$exogenous[[t]][[j]]$x_c_w
+x_c_f <- equilibrium$exogenous[[t]][[j]]$x_c_f
+size_w <- equilibrium$exogenous[[t]][[j]]$size_w
+size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+w_0 <- equilibrium$exogenous[[t]][[j]]$w_0
+mu <- equilibrium$shock[[t]][[j]]$mu
+ea_f <- equilibrium$shock[[t]][[j]]$ea_f
+ea_w <- equilibrium$shock[[t]][[j]]$ea_w
+ec_f <- equilibrium$shock[[t]][[j]]$ec_f
+ec_w <- equilibrium$shock[[t]][[j]]$ec_w
+f <- equilibrium$endogenous[[t]][[j]]$f
+w <- equilibrium$endogenous[[t]][[j]]$w
+s_f <- equilibrium$endogenous[[t]][[j]]$s_f
+s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+owner <- equilibrium$exogenous[[t]][[j]]$owner
+margin <- equilibrium$constant$margin
+method_s_w <- equilibrium$constant$method_s_w
+quadrature_size <- equilibrium$constant$quadrature_size
+tol <- equilibrium$constant$tol
+```
+
+# nleqslv
+## solve_w_f_nleqslv_tj
+```{r}
+solution_nleqslv_tj <-
+  solve_w_f_nleqslv_tj(
+    m_w = m_w,
+    m_f = m_f,
+    beta_w = beta_w,
+    beta_f = beta_f,
+    gamma_w = gamma_w,
+    gamma_f = gamma_f,
+    lambda_w = lambda_w,
+    lambda_f = lambda_f,
+    x_a_w = x_a_w,
+    x_a_f = x_a_f,
+    x_c_w = x_c_w,
+    x_c_f = x_c_f,
+    w_0 = w_0,
+    size_w = size_w,
+    size_f = size_f,
+    owner = owner,
+    mu = mu,
+    ea_w = ea_w,
+    ea_f = ea_f,
+    ec_w = ec_w,
+    ec_f = ec_f,
+    w = w,
+    f = f,
+    s_f = s_f,
+    method_s_w = "exact",
+    margin = margin,
+    quadrature_size = quadrature_size,
+    tol = tol,
+    seed = 1,
+    use_rcpp = use_rcpp
+  )
+solution_nleqslv_tj 
+```
+
+## solve_equilibrium_tj by nleqslv
+```{r}
+eq1_nleqslv <-
+  solve_equilibrium_tj(
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = "nleqslv",
+    multistart = 20,
+    use_rcpp = use_rcpp
+  ) 
+eq1_nleqslv
+```
+
+### compute foc for nleqslv
+```{r}
+m_w <- eq1_nleqslv$parameter$m_w
+m_f <- eq1_nleqslv$parameter$m_f
+beta_f <- eq1_nleqslv$parameter$beta_f
+beta_w <- eq1_nleqslv$parameter$beta_w
+gamma_f <- eq1_nleqslv$parameter$gamma_f
+gamma_w <- eq1_nleqslv$parameter$gamma_w
+size_w <- eq1_nleqslv$exogenous[[t]][[j]]$size_w
+size_f <- eq1_nleqslv$exogenous[[t]][[j]]$size_f
+lambda_f <- eq1_nleqslv$parameter$lambda_f
+lambda_w <- eq1_nleqslv$parameter$lambda_w
+mu <- eq1_nleqslv$shock[[t]][[j]]$mu
+ea_f <- eq1_nleqslv$shock[[t]][[j]]$ea_f
+ec_f <- eq1_nleqslv$shock[[t]][[j]]$ec_f
+f <- eq1_nleqslv$endogenous[[t]][[j]]$f
+s_f <- eq1_nleqslv$endogenous[[t]][[j]]$s_f
+ea_f <- eq1_nleqslv$shock[[t]][[j]]$ea_f
+ec_f <- eq1_nleqslv$shock[[t]][[j]]$ec_f
+ea_w <- eq1_nleqslv$shock[[t]][[j]]$ea_w
+ec_w <- eq1_nleqslv$shock[[t]][[j]]$ec_w
+x_a <- eq1_nleqslv$exogenous[[t]][[j]]$x_a
+x_c <- eq1_nleqslv$exogenous[[t]][[j]]$x_c
+f <- eq1_nleqslv$endogenous[[t]][[j]]$f
+s_f <- eq1_nleqslv$endogenous[[t]][[j]]$s_f
+s_w <- eq1_nleqslv$endogenous[[t]][[j]]$s_w
+w <- eq1_nleqslv$endogenous[[t]][[j]]$w
+owner <- eq1_nleqslv$exogenous[[t]][[j]]$owner
+margin <- eq1_nleqslv$constant$margin
+quadrature_size <- eq1_nleqslv$constant$quadrature_size
+tol <- eq1_nleqslv$constant$tol
+compute_foc_tj(
+  m_w = m_w,
+  m_f = m_f,
+  beta_w = beta_w,
+  beta_f = beta_f,
+  gamma_w = gamma_w,
+  gamma_f = gamma_f,
+  lambda_w = lambda_w,
+  lambda_f = lambda_f,
+  x_a_w = x_a_w,
+  x_a_f = x_a_f,
+  x_c_w = x_c_w,
+  x_c_f = x_c_f,
+  size_w = size_w,
+  size_f = size_f,
+  owner = owner,
+  mu = mu,
+  ea_w = ea_w,
+  ea_f = ea_f,
+  ec_w = ec_w,
+  ec_f = ec_f,
+  w = w,
+  f = f,
+  s_f = s_f,
+  method_s_w = "exact",
+  margin = margin,
+  quadrature_size = quadrature_size,
+  tol = tol,
+  use_rcpp = use_rcpp
+) 
+```
+
+### compute profit for nleqslv
+```{r}
+compute_profit_ths_tj(
+  m_w = m_w,
+  m_f = m_f,
+  gamma_w = gamma_w,
+  gamma_f = gamma_f,
+  x_c_w = x_c_w,
+  x_c_f = x_c_f,
+  size_w = size_w,
+  size_f = size_f,
+  owner = owner,
+  mu = mu,
+  ec_w = ec_w,
+  ec_f = ec_f,
+  w = w,
+  f = f,
+  s_w = s_w,
+  s_f = s_f
+) 
+```
+
+
+# optim
+
+```{r}
+f <- equilibrium$endogenous[[t]][[j]]$f
+w <- equilibrium$endogenous[[t]][[j]]$w
+s_f <- equilibrium$endogenous[[t]][[j]]$s_f
+s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+```
+
+## solve_w_f_optim_tj
+```{r}
+solution_optim_tj <-
+  solve_w_f_optim_tj(
+    m_w = m_w,
+    m_f = m_f,
+    beta_w = beta_w,
+    beta_f = beta_f,
+    gamma_w = gamma_w,
+    gamma_f = gamma_f,
+    lambda_w = lambda_w,
+    lambda_f = lambda_f,
+    x_a_w = x_a_w,
+    x_a_f = x_a_f,
+    x_c_w = x_c_w,
+    x_c_f = x_c_f,
+    w_0 = w_0,
+    size_w = size_w,
+    size_f = size_f,
+    owner = owner,
+    mu = mu,
+    ea_w = ea_w,
+    ea_f = ea_f,
+    ec_w = ec_w,
+    ec_f = ec_f,
+    w = w,
+    f = f,
+    s_f = s_f,
+    method_s_w = "exact",
+    margin = margin,
+    quadrature_size = quadrature_size,
+    tol = tol,
+    seed = 1,
+    use_rcpp = use_rcpp
+  )
+solution_optim_tj
+```
+
+## solve_equilibrium_tj by nleqslv
+```{r}
+eq1_optim <-
+  solve_equilibrium_tj(
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = "optim",
+    multistart = 20,
+    use_rcpp = use_rcpp
+  ) 
+eq1_optim
+```
+
+## compute foc for optim
+```{r}
+f <- eq1_optim$endogenous[[t]][[j]]$f
+s_f <- eq1_optim$endogenous[[t]][[j]]$s_f
+s_w <- eq1_optim$endogenous[[t]][[j]]$s_w
+w <- eq1_optim$endogenous[[t]][[j]]$w
+
+compute_foc_tj(
+  m_w = m_w,
+  m_f = m_f,
+  beta_w = beta_w,
+  beta_f = beta_f,
+  gamma_w = gamma_w,
+  gamma_f = gamma_f,
+  lambda_w = lambda_w,
+  lambda_f = lambda_f,
+  x_a_w = x_a_w,
+  x_a_f = x_a_f,
+  x_c_w = x_c_w,
+  x_c_f = x_c_f,
+  size_w = size_w,
+  size_f = size_f,
+  owner = owner,
+  mu = mu,
+  ea_w = ea_w,
+  ea_f = ea_f,
+  ec_w = ec_w,
+  ec_f = ec_f,
+  w = w,
+  f = f,
+  s_f = s_f,
+  method_s_w = "exact",
+  margin = margin,
+  quadrature_size = quadrature_size,
+  tol = tol,
+  use_rcpp = use_rcpp
+) 
+```
+
+### compute profit for optim
+```{r}
+compute_profit_ths_tj(
+  m_w = m_w,
+  m_f = m_f,
+  gamma_w = gamma_w,
+  gamma_f = gamma_f,
+  x_c_w = x_c_w,
+  x_c_f = x_c_f,
+  size_w = size_w,
+  size_f = size_f,
+  owner = owner,
+  mu = mu,
+  ec_w = ec_w,
+  ec_f = ec_f,
+  w = w,
+  f = f,
+  s_w = s_w,
+  s_f = s_f
+) 
+```
+
+# iteration
+## solve_w_f_bestrsponse_tj
+```{r}
+f <- equilibrium$endogenous[[t]][[j]]$f
+w <- equilibrium$endogenous[[t]][[j]]$w
+s_f <- equilibrium$endogenous[[t]][[j]]$s_f
+s_w <- equilibrium$endogenous[[t]][[j]]$s_w
+```
+
+```{r}
+solution_iteration_tj <-
+  solve_w_f_iteration_tj(
+    m_w = m_w,
+    m_f = m_f,
+    beta_w = beta_w,
+    beta_f = beta_f,
+    gamma_w = gamma_w,
+    gamma_f = gamma_f,
+    lambda_w = lambda_w,
+    lambda_f = lambda_f,
+    x_a_w = x_a_w,
+    x_a_f = x_a_f,
+    x_c_w = x_c_w,
+    x_c_f = x_c_f,
+    w_0 = w_0,
+    size_w = size_w,
+    size_f = size_f,
+    owner = owner,
+    mu = mu,
+    ea_w = ea_w,
+    ea_f = ea_f,
+    ec_w = ec_w,
+    ec_f = ec_f,
+    w = w,
+    f = f,
+    s_f = s_f,
+    method_s_w = method_s_w,
+    margin = margin,
+    quadrature_size = quadrature_size,
+    tol = tol,
+    use_rcpp = use_rcpp
+  ) 
+solution_iteration_tj
+```
+
+# evaluate difference 
+## no multistart
+```{r}
+w_mat <- 
+  cbind(
+    solution_iteration_tj$w,
+    solution_optim_tj$w,
+    solution_nleqslv_tj$w
+  )
+colnames(w_mat) <- 
+  c(
+    "iteration", 
+    "optim", 
+    "nleqslv"
+    )
+rownames(w_mat) <- 
+  c(
+    "w1", 
+    "w2"
+    )
+w_mat
+```
+
+```{r}
+f_mat <- 
+  cbind(
+    solution_iteration_tj$f,
+    solution_optim_tj$f,
+    solution_nleqslv_tj$f
+  )
+colnames(w_mat) <- 
+  c(
+    "iteration", 
+    "optim", 
+    "nleqslv"
+    )
+rownames(w_mat) <- 
+  c(
+    "f1", 
+    "f2"
+    )
+f_mat
+```
+
+## with multistart
+```{r}
+w_mat <- 
+  cbind(
+    eq1_optim$endogenous[[t]][[j]]$w,
+    eq1_nleqslv$endogenous[[t]][[j]]$w
+  )
+colnames(w_mat) <- 
+  c(
+    "optim", 
+    "nleqslv"
+    )
+rownames(w_mat) <- 
+  c(
+    "w1", 
+    "w2"
+    )
+w_mat
+```
+
+
+```{r}
+w_mat <- 
+  cbind(
+    eq1_optim$endogenous[[t]][[j]]$f,
+    eq1_nleqslv$endogenous[[t]][[j]]$f
+  )
+colnames(w_mat) <- 
+  c(
+    "optim", 
+    "nleqslv"
+    )
+rownames(w_mat) <- 
+  c(
+    "f1", 
+    "f2"
+    )
+f_mat
+```
+

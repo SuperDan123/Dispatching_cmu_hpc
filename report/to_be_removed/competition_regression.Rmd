@@ -1,0 +1,680 @@
+---
+title: "Regression on Number of Platforms"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+- Regress wages, fees, etc. on the number of platforms in each commuting zone (CZ).
+- Restrict sample to ippan establishments.
+- Use the number of platforms in the previous year.
+- Year FE + Firm FE + Commuting zone FE are controlled.
+- IV is the sum of $N$ in adjacent commuting zones.
+- Standard errors are clustered at community zone level.
+- Other control variables are
+  - Number of firms in each industry (major classification)
+  - Labor force in each age range (15-19, 20-24, ...)
+  - Indicator variables that takes 1 if a establishment paid wages for a particular type of work
+  - Indicator for hiring daily workers
+  - Indicator for providing temp-to-perm hiring offers
+  - Indicator for overasea dispatching
+  - Indicator for employment placement services
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+```
+
+```{r}
+colorize <- function(x, color) {
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{%s}{%s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, 
+      x)
+  } else x
+}
+```
+
+
+```{r, include = F}
+
+type = "html" # regression output
+
+source("../R/temp.R")
+library(magrittr)
+library(ggplot2);  theme_set(theme_classic())
+library(stargazer)
+library(knitr)
+library(lfe)
+# library(gtools)
+# library(grid)
+library(gridExtra)
+# library(gtable)
+```
+
+
+```{r, include = F}
+# load("../data/data_2010_2014_cleaned.RData")
+# load("../data/num_platforms.RData")
+# load("../data/num_platforms_adjacent.RData")
+# data <- dplyr::filter(data,
+#                       year <= 2014)
+
+# data <- readRDS("../output/data_establishments.RDS")
+data <- readRDS("../output/share_data_two_shares.RDS")
+num_labor <- readRDS("../output/num_labor_cz.RDS")
+num_firms <- readRDS("../output/num_firms_cz.RDS")
+num_platforms <- readRDS("../output/num_platforms.RDS")
+
+data <- data %>% 
+  dplyr::left_join(num_labor, by = c("cz", "year")) %>% 
+  dplyr::left_join(num_firms, by = c("cz", "year")) %>% 
+  dplyr::mutate(
+    margin = log(fee) - log(wage)
+  ) %>% 
+  dplyr::group_by(cz, year) %>% 
+  dplyr::mutate(
+    s_W_sum = sum(s_W),
+    s_F_sum = sum(s_F)
+  ) %>% 
+  dplyr::ungroup()
+
+```
+
+
+```{r, include = F}
+# data <- data %>% 
+#   dplyr::filter(
+#     is.finite(staff_ratio),
+#     !is.na(ptwage),
+#     staff_ratio > 0,
+#     to_use == 1
+#   ) 
+
+```
+
+
+```{r, include = F}
+# Control variables
+ctr_vars_names <- data %>% 
+  dplyr::select(dplyr::starts_with("firms"),
+                dplyr::starts_with("labor")) %>%
+  dplyr::select(!dplyr::ends_with("_all"),
+                !dplyr::ends_with("_all")) %>% 
+  colnames()
+
+ctr_vars_names <- paste("log(1 + ", ctr_vars_names, ")", sep = "")
+
+temp <- data %>% 
+  dplyr::select(dplyr::starts_with("type_")) %>% 
+  colnames()
+
+ctr_vars_names <- c(ctr_vars_names,
+                    temp,
+                    # "log(staff_ratio)",
+                    # "log(ptwage)",
+                    "daily",
+                    "shokai",
+                    "oversea",
+                    "cocurrent")
+
+ctr_vars <- paste(ctr_vars_names, sep = "", collapse = " + ")
+
+```
+
+
+```{r, eval = F}
+
+# linear regression
+reg_linear <- function(data, N_data, N_iv){
+  
+  data_reg <- data %>% 
+    dplyr::left_join(N_data, by = c("year", "cz")) %>% 
+    dplyr::left_join(N_iv, by = c("year", "cz")) %>% 
+    dplyr::filter(N > 0)
+
+  data_iv <- dplyr::filter(data_reg, N_adj > 0)
+  N_adj <- data_iv %>%
+    dplyr::pull(N_adj) %>%
+    unique() %>%
+    sort()
+
+  for (i in 1:length(N_adj)){
+    j <- N_adj[i]
+    varname <- paste("N_adj", j, sep = "_")
+    data_iv <- data_iv %>%
+      dplyr::mutate(!!varname := dplyr::if_else(N_adj == j, 1, 0))
+  }
+
+
+  temp <- paste("N_adj", N_adj, sep = "_", collapse = " + ")
+  N_iv_formula <- paste("log(N) ", temp, sep = " ~ ")
+  
+  result <- list()
+  formula <- list()
+
+  formula[[1]] <- paste("log(wage) ~ log(N) + ", ctr_vars, " | year + cz + firm_id | 0 | cz", sep = "")
+  formula[[2]] <- paste("log(wage) ~ log(N) + ", ctr_vars, " | year + cz + firm_id | 0 | cz", sep = "")
+  formula[[3]] <- paste("log(wage) ~ ", ctr_vars, " | year + cz + firm_id | (log(N) ~ log(N_adj)) | cz", sep = "")
+  formula[[4]] <- paste("log(wage) ~ ", ctr_vars, " | year + cz + firm_id | (", N_iv_formula, ") | cz", sep = "")
+  
+  formula[[5]] <- paste("log(fee) ~ log(N) + ", ctr_vars, " | year + cz + firm_id | 0 | cz", sep = "")
+  formula[[6]] <- paste("log(fee) ~ log(N) + ", ctr_vars, " | year + cz + firm_id | 0 | cz", sep = "")
+  formula[[7]] <- paste("log(fee) ~ ", ctr_vars, " | year + cz + firm_id | (log(N) ~ log(N_adj)) | cz", sep = "")
+  formula[[8]] <- paste("log(fee) ~ ", ctr_vars, " | year + cz + firm_id | (", N_iv_formula, ") | cz", sep = "")
+  
+  
+  formula[[9]] <- paste("margin ~ log(N) + ", ctr_vars, " | year + cz + firm_id | 0 | cz", sep = "")
+  formula[[10]] <- paste("margin ~ log(N) + ", ctr_vars, " | year + cz + firm_id | 0 | cz", sep = "")
+  formula[[11]] <- paste("margin ~ ", ctr_vars, " | year + cz + firm_id | (log(N) ~ log(N_adj)) | cz", sep = "")
+  formula[[12]] <- paste("margin ~ ", ctr_vars, " | year + cz + firm_id | (", N_iv_formula, ") | cz", sep = "")
+  
+  
+  formula[[13]] <- paste("log(N) ~ log(N_adj) + ", ctr_vars, " | year + cz + firm_id | 0 | cz", sep = "")
+  
+  
+  nspec <- length(formula)
+  for (i in 1:nspec){
+    
+    if (i %in% c(1, 5, 9)){
+      data_touse <- data_reg
+    } else {
+      data_touse <- data_iv
+    }
+    
+    result[[i]] <- felm(
+      data = data_touse,
+      formula = as.formula(formula[[i]])
+    )
+    
+  }
+  
+  # tidy up the expression
+  i <- 1 + length(ctr_vars_names)
+  coef_order <- c(i, 1:(i-1))
+  
+  for (j in c(3, 4, 7, 8, 11, 12)){
+  
+  	# change label
+  	rownames(result[[j]]$coefficients)[i] <- "log(N)"
+  	rownames(result[[j]]$beta)[i] <- "log(N)"
+  	names(result[[j]]$cse)[i] <- "log(N)"
+  
+  	result[[j]]$coefficients <- result[[j]]$coefficients[coef_order, 1, drop = F]
+  	result[[j]]$beta <- result[[j]]$beta[coef_order, 1, drop = F]
+  	result[[j]]$cse <- result[[j]]$cse[coef_order]
+  	result[[j]]$cpval <- result[[j]]$cpval[coef_order]
+  
+  }
+
+  return(result)
+  
+}
+
+# show results of the linear regression
+show_result <- function(result){
+  nspec = length(result)  
+  nyvar = 3
+  stargazer(result,
+            type = type,
+            keep.stat = c("n", "rsq"),
+            dep.var.labels.include = FALSE,
+            column.separate = c(4, 4, 4, 1),
+            column.labels = c("log(wage)", "log(fee)", "margin", "log(N)"),
+            keep = c(1, 2),
+            align = TRUE,
+            add.lines = list(c("IV (Log-linear)",
+                               c(rep(c("No", "No", "Yes", "No"), 3), " ")),
+                             c("IV (Dummies)",
+                               c(rep(c("No", "No", "No", "Yes"), 3), " "))),
+            notes.align = "l")  
+}
+
+
+# plot coefficients
+plot_func <- function(data_reg, N_vars, N_vec, ref_lev = 1, N_iv_formula = NULL, x_label = NULL){
+  
+  result = list()
+  formula = list()
+  coef = list()
+  se = list()
+
+  if (is.null(N_iv_formula)){
+    formula[[1]] <- paste("log(wage) ~ ", N_vars, " + ",  ctr_vars, " | year + cz + firm_id | 0 | cz", sep = "")
+    formula[[2]] <- paste("log(fee) ~ ", N_vars, " + ",  ctr_vars, " | year + cz + firm_id | 0 | cz", sep = "")
+    formula[[3]] <- paste("margin ~ ", N_vars, " + ",  ctr_vars, " | year + cz + firm_id | 0 | cz", sep = "")  
+    
+    for (i in 1:3){
+    result[[i]] <- felm(
+      formula = as.formula(formula[[i]]),
+      data = data_reg
+    )
+    temp <- dim(summary(result[[i]])$coefficients)[1]
+    coef[[i]] <- summary(result[[i]])$coefficients[1:length(N_vec), 1]
+    coef[[i]] <- c(0, coef[[i]])
+    se[[i]] <- summary(result[[i]])$coefficients[1:length(N_vec), 2]
+    se[[i]] <- c(0, se[[i]])
+  }  
+    
+  } else {
+    formula[[1]] <- paste("log(wage) ~ ",   ctr_vars, " | year + cz + firm_id | (", N_iv_formula, ") | cz", sep = "")
+    formula[[2]] <- paste("log(fee) ~ ",  ctr_vars, " | year + cz + firm_id | (", N_iv_formula, ") | cz", sep = "")
+    formula[[3]] <- paste("margin ~ ",  ctr_vars, " | year + cz + firm_id | (", N_iv_formula, ") | cz", sep = "")     
+    
+    for (i in 1:3){
+      result[[i]] <- felm(
+        formula = as.formula(formula[[i]]),
+        data = data_reg
+      )
+      temp <- dim(summary(result[[i]])$coefficients)[1]
+      coef[[i]] <- summary(result[[i]])$coefficients[(temp - length(N_vec) + 1):temp, 1]
+      coef[[i]] <- c(0, coef[[i]])
+      se[[i]] <- summary(result[[i]])$coefficients[(temp - length(N_vec) + 1):temp, 2]
+      se[[i]] <- c(0, se[[i]])
+    }    
+  }
+
+
+  x_axis <- c(ref_lev, N_vec)
+  if (is.null(x_label)){
+    x_label <- "Number of Platforms"
+  }
+
+  g1 <- data.frame(N = x_axis, coef = coef[[1]], se = se[[1]]) %>%
+    ggplot(aes(x = N, y = coef)) +
+    geom_point() + geom_line() +
+    geom_ribbon(aes(ymax = coef + 1.645 * se, ymin = coef - 1.645 * se), alpha = 0.1, width = 0.1) +
+    xlab(x_label) + ylab("Impact on Wage") #+
+    #scale_x_continuous(breaks = x_breaks)
+  
+  g2 <- data.frame(N = x_axis, coef = coef[[2]], se = se[[2]]) %>%
+    ggplot(aes(x = N, y = coef)) +
+    geom_point() + geom_line() +
+    geom_ribbon(aes(ymax = coef + 1.645 * se, ymin = coef - 1.645 * se), alpha = 0.1, width = 0.1) +
+    xlab(x_label) + ylab("Impact on Fee") #+
+    #scale_x_continuous(breaks = x_breaks)
+  
+  g3 <- data.frame(N = x_axis, coef = coef[[3]], se = se[[3]]) %>%
+    ggplot(aes(x = N, y = coef)) +
+    geom_point() + geom_line() +
+    geom_ribbon(aes(ymax = coef + 1.645 * se, ymin = coef - 1.645 * se), alpha = 0.1, width = 0.1) +
+    xlab(x_label) + ylab("Impact on Margin") #+
+    #scale_x_continuous(breaks = x_breaks)
+  
+
+  gridExtra::grid.arrange(g1, g2, g3, nrow = 2)
+    
+  
+}
+
+
+reg_nonlinear <- function(data, N_data, N_iv){
+
+  # Merge the number of platforms
+  data_reg <- data %>% 
+    dplyr::left_join(N_data, by = c("year", "cz")) %>% 
+    dplyr::left_join(N_iv, by = c("year", "cz")) %>% 
+    dplyr::filter(N > 0)
+  
+  # Distribution of N
+  N_dist <- data_reg %>% 
+    dplyr::select(cz, year, N) %>% 
+    dplyr::distinct() %>% 
+    dplyr::pull(N)
+  
+  N_vec <- unique(N_dist) %>% 
+    sort()
+    
+  #----------------------------------------
+  # 1. Regress on 1{N=2}, 1{N=3}, ...
+  #----------------------------------------
+  
+  # truncate at F(N) = 0.5
+  N_max <- floor(quantile(N_dist, 0.5))
+  N_vec <- N_vec[N_vec <= N_max]
+  N_vec <- N_vec[2:length(N_vec)] # remove reference level (N=1)
+
+  for (i in 1:(length(N_vec) - 1)){
+    j <- N_vec[i]
+    varname <- paste("N", j, sep = "_")
+    data_reg <- data_reg %>%
+    dplyr::mutate(!!varname := dplyr::if_else(N == j, 1, 0))
+  }
+  
+  varname <- paste("N", N_max, sep = "_")
+  data_reg <- data_reg %>%
+    dplyr::mutate(!!varname := dplyr::if_else(N >= N_max, 1, 0))
+  
+  N_vars <- paste("N", N_vec, sep = "_", collapse = " + ")
+  
+  title <- "1.1 Regression on the indicators for each $N$"
+  cat(paste("##### ", colorize(title, "blue"), sep = ""))
+  cat("\n\n")
+  plot_func(data_reg, N_vars, N_vec)
+  cat("\n\n")
+  
+  # IV
+  N_adj <- data_reg %>%
+    dplyr::pull(N_adj) %>%
+    unique() %>%
+    sort()
+
+  for (i in 1:length(N_adj)){
+    j <- N_adj[i]
+    varname <- paste("N_adj", j, sep = "_")
+    data_reg <- data_reg %>%
+      dplyr::mutate(!!varname := dplyr::if_else(N_adj == j, 1, 0))
+  }
+
+  temp1 <- paste("N", N_vec, sep = "_", collapse = " | ")
+  temp2 <- paste("N_adj", N_adj, sep = "_", collapse = " + ")
+  N_iv_formula <- paste(temp1, temp2, sep = " ~ ")
+
+  title <- "1.2 Using IV"
+  cat(paste("##### ", colorize(title, "blue"), sep = ""))
+  cat("\n\n")
+  plot_func(data_reg, N_vars, N_vec, ref_lev = 1, N_iv_formula)
+  cat("\n\n")
+
+  #-----------------------------------------------
+  # 2. Regress on 1{N=4,5,6}, 1{N=7,8,9}, ...
+  #-----------------------------------------------
+  
+  N_vec <- c(4, 7, 10, 13, 16, 19)
+  N_size <- length(N_vec) + 1
+
+  for (i in 2:(N_size - 1)){
+    varname <- paste("N", i, sep = "_")
+    data_reg <- data_reg %>%
+      dplyr::mutate(!!varname := dplyr::if_else(N >= N_vec[i-1] & N < N_vec[i], 1, 0))
+  }
+
+  varname <- paste("N", N_size, sep = "_")
+  data_reg <- data_reg %>%
+    dplyr::mutate(!!varname := dplyr::if_else(N >= N_vec[length(N_vec)], 1, 0))
+
+  N_vars <- paste("N", 2:N_size, sep = "_", collapse = " + ")
+  
+  title <- "2.1 Regression on the indicators for each range of $N$"
+  cat(paste("##### ", colorize(title, "blue"), sep = ""))
+  cat("\n\n")
+  plot_func(data_reg, N_vars, (N_vec + 1), ref_lev = 2)
+  cat("\n\n")
+  
+  # IV
+  temp1 <- paste("N", 2:N_size, sep = "_", collapse = " | ")
+  temp2 <- paste("N_adj", N_adj, sep = "_", collapse = " + ")
+  N_iv_formula <- paste(temp1, temp2, sep = " ~ ")
+
+  title <- "2.2 Using IV"
+  cat(paste("##### ", colorize(title, "blue"), sep = ""))
+  cat("\n\n")
+  plot_func(data_reg, N_vars, (N_vec + 1), ref_lev = 2, N_iv_formula)
+  cat("\n\n")
+
+  
+  #----------------------------------------------------
+  # 3. Regress on indicators for deciles
+  #----------------------------------------------------
+  N_qntl <- quantile(N_dist, c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9))
+  N_size <- length(N_qntl) + 1
+
+  for (i in 2:(N_size - 1)){
+    varname <- paste("N", i, sep = "_")
+    data_reg <- data_reg %>%
+      dplyr::mutate(!!varname := dplyr::if_else(N >= N_qntl[i-1] & N < N_qntl[i], 1, 0))
+  }
+
+  data_reg <- data_reg %>%
+    dplyr::mutate(N_10 = dplyr::if_else(N >= N_qntl[9], 1, 0))
+
+  N_vars <- paste("N", 2:N_size, sep = "_") %>%
+    paste(sep = "", collapse = " + ")
+
+  if (length(N_qntl) == length(unique(N_qntl))){
+    N_vec <- 2:10 * 0.1
+    title <- "3.1 Regression on the indicators for deciles of $N$"
+    cat(paste("##### ", colorize(title, "blue"), sep = ""))
+    cat("\n\n")
+    plot_func(data_reg, N_vars, N_vec, ref_lev = 0.1, N_iv_formula = NULL, x_label = "Num Platforms Decile")
+    cat("\n\n")
+  }
+  
+  # IV
+  temp1 <- paste("N", 2:10, sep = "_", collapse = " | ")
+  temp2 <- paste("N_adj", N_adj, sep = "_", collapse = " + ")
+  N_iv_formula <- paste(temp1, temp2, sep = " ~ ")
+
+  if (length(N_qntl) == length(unique(N_qntl))){
+    N_vec <- 2:10 * 0.1
+    title <- "3.2 Using IV"
+    cat(paste("##### ", colorize(title, "blue"), sep = ""))
+    cat("\n\n")
+  plot_func(data_reg, N_vars, N_vec, ref_lev = 0.1, N_iv_formula, x_label = "Num Platforms Decile")
+    cat("\n\n")
+  }
+  
+}
+
+
+show_deciles <- function(N_data){
+  N_data %>%
+    dplyr::filter(N > 0, !is.na(N)) %>% 
+    dplyr::pull(N) %>%
+    quantile(c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)) %>%
+    t() %>% 
+    kable()
+}
+
+
+reg_np <- function(data, N_data){
+  
+  
+  
+  
+}
+
+```
+
+
+```{r, eval = F}
+titles <- c("1. All platforms",
+            "2. Active platforms",
+            "3. General platforms",
+            "4. Platforms of large firms",
+            "5. All firms",
+            "6. Active firms")
+
+descriptions <- c("Using the number of all platforms",
+                  "Using the number of platforms reporting wages and fees",
+                  "Using the number of platforms that did not report worktype-specific wages and fees",
+                  "Using the number of platforms belonging to large firms in terms of sales in the previous year",
+                  "Using the number of firms",
+                  "Using the number of firms whose platforms reported wages and fees")
+
+N_data_list <- list()
+N_data_list[[1]] <- num_platforms
+N_data_list[[2]] <- num_platforms_active
+N_data_list[[3]] <- num_platforms_general
+N_data_list[[4]] <- num_platforms_large
+N_data_list[[5]] <- num_firms
+N_data_list[[6]] <- num_firms_active
+
+N_iv_list <- list()
+N_iv_list[[1]] <- num_platforms_adjacent
+N_iv_list[[2]] <- num_platforms_active_adjacent
+N_iv_list[[3]] <- num_platforms_general_adjacent
+N_iv_list[[4]] <- num_platforms_large_adjacent
+N_iv_list[[5]] <- num_firms_adjacent
+N_iv_list[[6]] <- num_firms_active_adjacent
+
+```
+
+```{r, results = "asis", eval = F}
+
+for (i in 1:6){
+  cat(paste("### ", colorize(titles[i], "blue"), sep = ""))
+  cat("\n\n")
+  cat(descriptions[i])
+  cat("\n\n")
+  cat("***")
+  cat("\n\n")
+
+  # title <- "Linear regression"
+  # cat(paste("#### ", colorize(title, "blue"), sep = ""))
+  # cat("\n\n")
+  # reg_linear(data, N_data_list[[i]], N_iv_list[[i]]) %>% 
+  #   show_result()
+  
+  # title <- "Distribution of N"
+  # cat(paste("#### ", colorize(title, "blue"), sep = ""))
+  # cat("\n\n")
+  # print(show_deciles(N_data_list[[i]]))
+  # cat("\n\n")
+  
+  reg_nonlinear(data, N_data_list[[i]], N_iv_list[[i]])  
+
+  cat("\n\n")
+}
+
+
+```
+
+
+
+
+```{r}
+ylab_vec <- c("Wage", "Fee", "Margin", "Worker Share", "Firm Share")
+yvar_vec <- c("log(wage)", "log(fee)", "margin", "log(s_W_sum)", "log(s_F_sum)")
+```
+
+```{r, results = "asis"}
+N_data <- num_platforms %>% 
+  dplyr::mutate(year = year + 1) %>% 
+  dplyr::select(year, cz, N)
+
+N_iv <- num_platforms %>% 
+  dplyr::mutate(year = year + 1) %>% 
+  dplyr::select(year, cz, N_adj) %>% 
+  na.omit()
+
+cat("### OLS")
+
+reg_nonlinear(data,
+              N_data,
+              N_iv,
+              yvar_vec,
+              ylab_vec,
+              dir_name = "all_platforms")
+```
+
+
+
+```{r, results = "asis", eval = F}
+N_data <- num_platforms %>% 
+  dplyr::select(year, cz, N)
+
+N_iv <- num_platforms %>% 
+  dplyr::select(year, cz, N_adj) %>% 
+  na.omit()
+
+# Merge the number of platforms
+data_reg <- data %>% 
+  dplyr::left_join(N_data, by = c("year", "cz")) %>% 
+  dplyr::left_join(N_iv, by = c("year", "cz")) %>% 
+  dplyr::filter(N > 0)
+  
+# Distribution of N
+N_dist <- data_reg %>% 
+  dplyr::select(cz, year, N) %>% 
+  dplyr::distinct() %>% 
+  dplyr::pull(N)
+  
+N_vec <- unique(N_dist) %>% 
+  sort()  
+  
+# truncate at F(N) = 0.5
+N_max <- floor(quantile(N_dist, 0.5))
+N_vec <- N_vec[N_vec <= N_max]
+N_vec <- N_vec[2:length(N_vec)] # remove reference level (N=1)
+  
+for (i in 1:(length(N_vec) - 1)){
+  j <- N_vec[i]
+  varname <- paste("N", j, sep = "_")
+  data_reg <- data_reg %>%
+    dplyr::mutate(!!varname := dplyr::if_else(N == j, 1, 0))
+}
+  
+varname <- paste("N", N_max, sep = "_")
+data_reg <- data_reg %>%
+  dplyr::mutate(!!varname := dplyr::if_else(N >= N_max, 1, 0))
+  
+N_vars <- paste("N", N_vec, sep = "_", collapse = " + ")
+  
+title <- "1.1 Regression on the indicators for each $N$"
+cat(paste("##### ", colorize(title, "blue"), sep = ""))
+cat("\n\n")
+g_list <- plot_func(data_reg, N_vars, N_vec, yvar_vec, ylab_vec)
+do.call("grid.arrange", c(g_list, nrow = 2))
+cat("\n\n")
+
+# save
+for (i in 1:length(ylab_vec)){
+  filename <- paste("figuretable/competition_regression/each_N/competition_OLS_", ylab_vec[i], ".png", sep = "")
+  ggsave(
+    g_list[[i]],
+    filename = here::here(filename),
+    width = 4,
+    height = 3
+  )  
+}
+
+  
+# IV
+N_adj <- data_reg %>%
+  dplyr::pull(N_adj) %>%
+  unique() %>%
+  sort()
+  
+for (i in 1:length(N_adj)){
+  j <- N_adj[i]
+  varname <- paste("N_adj", j, sep = "_")
+  data_reg <- data_reg %>%
+    dplyr::mutate(!!varname := dplyr::if_else(N_adj == j, 1, 0))
+}
+  
+temp1 <- paste("N", N_vec, sep = "_", collapse = " | ")
+temp2 <- paste("N_adj", N_adj, sep = "_", collapse = " + ")
+N_iv_formula <- paste(temp1, temp2, sep = " ~ ")
+  
+title <- "1.2 Using IV"
+cat(paste("##### ", colorize(title, "blue"), sep = ""))
+cat("\n\n")
+g_list <- plot_func(data_reg, N_vars, N_vec, yvar_vec, ylab_vec, ref_lev = 1, N_iv_formula)
+do.call("grid.arrange", c(g_list, nrow = 2))
+cat("\n\n")
+
+# save
+
+for (i in 1:length(ylab_vec)){
+  filename <- paste("figuretable/competition_regression/each_N/competition_IV_", ylab_vec[i], ".png", sep = "")
+  ggsave(
+    g_list[[i]],
+    filename = here::here(filename),
+    width = 4,
+    height = 3
+  )  
+}
+
+```
+
+
+
+
+

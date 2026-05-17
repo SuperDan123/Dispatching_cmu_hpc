@@ -1,0 +1,13 @@
+testthat
+Dispatching
+dplyr
+tidyr
+purrr
+tibble
+foreach
+here
+ggplot2
+scales
+iterators
+doParallel
+magrittr

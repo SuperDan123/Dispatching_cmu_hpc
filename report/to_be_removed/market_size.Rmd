@@ -1,0 +1,111 @@
+---
+title: "Market_size"
+author: "Katsuhiro Komatsu"
+date: "2020/8/9"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = F, warning = F, include = F}
+rm(list = ls())
+gc()
+type = "html" # regression output
+
+library(magrittr)
+library(ggplot2)
+library(stargazer)
+library(lfe)
+library(gtools)
+library(knitr)
+library(psych)
+```
+
+
+```{r, include = F}
+load("../data/data_2010_2014_cleaned.RData")
+```
+
+```{r, include = F}
+num_platforms <- data %>% 
+  dplyr::select(mun,
+                year,
+                tokutei,
+                num_labor,
+                num_firms
+                ) %>% 
+  dplyr::group_by(year, mun) %>% 
+  dplyr::summarise(N = dplyr::n(),
+                   N_tokutei = sum(tokutei),
+                   num_labor = mean(num_labor),
+                   num_firms = mean(num_firms)) %>% 
+  dplyr::mutate(N_ippan = N - N_tokutei)
+
+num_platforms <- num_platforms %>% 
+  dplyr::arrange(mun, year) %>% 
+  dplyr::group_by(mun) %>% 
+  dplyr::mutate(N_lag = dplyr::lag(N, n = 1),
+                N_tokutei_lag = dplyr::lag(N_tokutei, n = 1),
+                N_ippan_lag = dplyr::lag(N_ippan, n = 1)) %>% 
+  dplyr::ungroup()
+
+num_pref <- data %>% 
+  dplyr::group_by(year, pref) %>% 
+  dplyr::summarise(N = dplyr::n())%>% 
+  dplyr::group_by(pref) %>% 
+  dplyr::mutate(N_gro = (N - dplyr::lag(N)) / dplyr::lag(N)) %>% 
+  dplyr::ungroup() %>% 
+  na.omit()
+
+```
+
+```{r}
+
+num_platforms %>% 
+  ggplot(aes(y = log(N), x = log(num_labor))) +
+  geom_point()
+
+
+num_platforms %>% 
+  ggplot(aes(y = log(N), x = log(num_firms))) + 
+  geom_point()
+
+num_platforms %>% 
+  ggplot(aes(y = log(1+N_ippan), x = log(1+N_tokutei))) +
+  geom_point()
+
+
+num_platforms %>% 
+  ggplot(aes(y = log(1+N_ippan), x = log(num_labor))) +
+  geom_point()
+
+
+num_platforms %>% 
+  ggplot(aes(y = log(1+N_ippan), x = log(num_firms))) + 
+  geom_point()
+
+
+
+num_platforms %>% 
+  ggplot(aes(y = log(1+N_tokutei), x = log(num_labor))) +
+  geom_point()
+
+
+num_platforms %>% 
+  ggplot(aes(y = log(1+N_tokutei), x = log(num_firms))) + 
+  geom_point()
+  
+```
+
+
+```{r}
+
+num_pref %>% 
+  dplyr::arrange(pref, year) %>% 
+  ggplot(aes(x = year, y = N_gro, group = pref)) + 
+  geom_line()
+
+```
+

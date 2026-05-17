@@ -1,0 +1,673 @@
+---
+title: "Testing Simulation: Monopoly"
+output: html_document
+date: "2022-11-21"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  results = "hide"
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+```
+
+# Set constant
+
+```{r}
+seed <- 1
+set.seed(seed)
+n_ths <- 2
+n_market <- 1
+n_zone <- 1
+t <- 1
+j <- 1
+multistart <- 20
+solver <- "nleqslv"
+use_rcpp <- TRUE
+```
+
+
+# Generate the baseline equilibrium
+
+```{r}
+equilibrium <-
+  generate_equilibrium(
+    n_ths = n_ths,
+    n_market = n_market,
+    n_zone = n_zone,
+    seed = seed
+  )
+```
+
+# Comparative statics {.tabset}
+
+## Setting
+
+```{r, results = "asis"}
+equilibrium
+```
+
+## Check the foc at the baseline
+
+```{r, results = "asis"}
+baseline <- 
+  evaluate_equilibrium_tj(
+    x = equilibrium$parameter$m_w,
+    target = "m_w",
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = solver,
+    multistart = multistart,
+    use_rcpp = use_rcpp
+  )
+baseline %>%
+  kbl() %>%
+  kable_styling()
+```
+
+## Parameter {.tabset}
+
+### m_w (Matching coefficient of worker) {.tabset}
+
+```{r}
+target <- "m_w"
+comparative <- 
+  evaluate_comparative_tj(
+    target = target,
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = solver,
+    multistart = multistart,
+    use_rcpp = use_rcpp
+  )
+```
+
+#### table
+
+```{r, results = "asis"}
+comparative %>%
+  dplyr::arrange(
+    i,
+    target
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+```{r, results = "asis"}
+p <- 
+  plot_comparative(
+    comparative = comparative
+  )
+```
+
+
+```{r, results='hide'}
+
+df <- 
+  compute_elasticity_comparative(
+    comparative = comparative
+  )
+
+index <- 
+  compute_elasticity_index(
+    comparative = comparative
+  )
+    
+df_old <- 
+  df[
+  index,
+  1:ncol(df)
+  ]
+
+```
+
+### beta_w (Worker's utility) {.tabset}
+
+```{r}
+target <- "beta_w"
+comparative <- 
+  evaluate_comparative_tj(
+    target = target,
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = solver,
+    multistart = multistart,
+    use_rcpp = use_rcpp
+  )
+```
+
+#### table
+
+```{r, results = "asis"}
+comparative %>%
+  dplyr::arrange(
+    i,
+    target
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+```{r, results = "asis"}
+p <- 
+  plot_comparative(
+    comparative = comparative
+  )
+```
+
+```{r, results='hide'}
+df <- 
+  compute_elasticity_comparative(
+    comparative = comparative
+  )
+
+index <- 
+  compute_elasticity_index(
+    comparative = comparative
+  )
+
+df_new <- 
+  df[
+    index,
+    1:ncol(df)
+    ]
+
+df_old <- 
+  rbind(
+    df_old, 
+    df_new
+    )
+```
+
+### beta_f (Client firm's utility) {.tabset}
+
+```{r}
+target <- "beta_f"
+comparative <- 
+  evaluate_comparative_tj(
+    target = target,
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = solver,
+    multistart = multistart,
+    use_rcpp = use_rcpp
+  )
+```
+
+#### table
+
+```{r, results = "asis"}
+comparative %>%
+  dplyr::arrange(
+    i,
+    target
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+```{r, results = "asis"}
+p <- 
+  plot_comparative(
+    comparative = comparative
+  )
+```
+
+```{r, results='hide'}
+df <- 
+  compute_elasticity_comparative(
+    comparative = comparative
+  )
+
+index <- 
+  compute_elasticity_index(
+    comparative = comparative
+  )
+
+df_new <- 
+  df[
+    index,
+    1:ncol(df)
+    ]
+
+df_old <- 
+  rbind(
+    df_old, 
+    df_new
+    )
+```
+
+### gamma_w (Cost for handling workers) {.tabset}
+
+```{r}
+target <- "gamma_w"
+comparative <- 
+  evaluate_comparative_tj(
+    target = target,
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = solver,
+    multistart = multistart,
+    use_rcpp = use_rcpp
+  )
+```
+
+#### table
+
+```{r, results = "asis"}
+comparative %>%
+  dplyr::arrange(
+    i,
+    target
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+```{r, results = "asis"}
+p <- 
+  plot_comparative(
+    comparative = comparative
+  )
+```
+
+```{r, results='hide'}
+df <- 
+  compute_elasticity_comparative(
+    comparative = comparative
+  )
+
+index <- 
+  compute_elasticity_index(
+    comparative = comparative
+  )
+
+df_new <- 
+  df[
+    index,
+    1:ncol(df)
+    ]
+
+df_old <- 
+  rbind(
+    df_old, 
+    df_new
+    )
+```
+
+### gamma_f (Cost for handling client firms) {.tabset}
+
+```{r}
+target <- "gamma_f"
+comparative <- 
+  evaluate_comparative_tj(
+    target = target,
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = solver,
+    multistart = multistart,
+    use_rcpp = use_rcpp
+  )
+```
+
+#### table
+
+```{r, results = "asis"}
+comparative %>%
+  dplyr::arrange(
+    i,
+    target
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+```{r, results = "asis"}
+p <- 
+  plot_comparative(
+    comparative = comparative
+  )
+```
+
+```{r, results = "asis"}
+df <- 
+  compute_elasticity_comparative(
+    comparative = comparative
+  )
+
+index <- 
+  compute_elasticity_index(
+    comparative = comparative
+  )
+
+df_new <- 
+  df[
+    index,
+    1:ncol(df)
+    ]
+
+df_old <- 
+  rbind(
+    df_old, 
+    df_new
+    )
+```
+
+### lambda_w (Wage coefficient) {.tabset}
+
+```{r}
+target <- "lambda_w"
+comparative <- 
+  evaluate_comparative_tj(
+    target = target,
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = solver,
+    multistart = multistart,
+    use_rcpp = use_rcpp
+  )
+```
+
+#### table
+
+```{r, results = "asis"}
+comparative %>%
+  dplyr::arrange(
+    i,
+    target
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+```{r, results = "asis"}
+p <- 
+  plot_comparative(
+    comparative = comparative
+  )
+```
+
+```{r, results='hide'}
+df <- 
+  compute_elasticity_comparative(
+    comparative = comparative
+  )
+
+index <- 
+  compute_elasticity_index(
+    comparative = comparative
+  )
+
+df_new <- 
+  df[
+    index,
+    1:ncol(df)
+    ]
+
+df_old <- 
+  rbind(
+    df_old, 
+    df_new
+    )
+```
+
+### lambda_f (fee coefficient) {.tabset}
+
+```{r}
+target <- "lambda_f"
+comparative <- 
+  evaluate_comparative_tj(
+    target = target,
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = solver,
+    multistart = multistart,
+    use_rcpp = use_rcpp
+  )
+```
+
+#### table
+
+```{r, results = "asis"}
+comparative %>%
+  dplyr::arrange(
+    i,
+    target
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+```{r, results = "asis"}
+p <- 
+  plot_comparative(
+    comparative = comparative
+  )
+```
+
+```{r, results='hide'}
+df <- 
+  compute_elasticity_comparative(
+    comparative = comparative
+  )
+
+index <- 
+  compute_elasticity_index(
+    comparative = comparative
+  )
+
+df_new <- 
+  df[
+    index,
+    1:ncol(df)
+    ]
+
+df_old <- 
+  rbind(
+    df_old, 
+    df_new
+    )
+```
+
+### mu (Matching efficiency of THS) {.tabset}
+
+```{r}
+target <- "mu"
+comparative <- 
+  evaluate_comparative_tj(
+    target = target,
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = solver,
+    multistart = multistart,
+    use_rcpp = use_rcpp
+  )
+```
+
+#### table
+
+```{r, results = "asis"}
+comparative %>%
+  dplyr::arrange(
+    i,
+    target
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+```{r, results = "asis"}
+p <- 
+  plot_comparative(
+    comparative = comparative
+  )
+```
+
+```{r, results='hide'}
+df <- 
+  compute_elasticity_comparative(
+    comparative = comparative
+  )
+
+index <- 
+  compute_elasticity_index(
+    comparative = comparative
+  )
+
+df_new <- 
+  df[
+    index,
+    1:ncol(df)
+    ]
+
+df_old <- 
+  rbind(
+    df_old, 
+    df_new
+    )
+```
+
+### size_w (number of workers) {.tabset}
+
+```{r}
+target <- "size_w"
+comparative <- 
+  evaluate_comparative_tj(
+    target = target,
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = solver,
+    multistart = multistart,
+    use_rcpp = use_rcpp
+  )
+```
+
+#### table
+
+```{r, results = "asis"}
+comparative %>%
+  dplyr::arrange(
+    i,
+    target
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+```{r, results = "asis"}
+p <- 
+  plot_comparative(
+    comparative = comparative
+  )
+```
+
+```{r, results='hide'}
+df <- 
+  compute_elasticity_comparative(
+    comparative = comparative
+  )
+
+index <- 
+  compute_elasticity_index(
+    comparative = comparative
+  )
+
+df_new <- 
+  df[
+    index,
+    1:ncol(df)
+    ]
+
+df_old <- 
+  rbind(
+    df_old, 
+    df_new
+    )
+```
+
+### size_f (number of firms) {.tabset}
+
+```{r}
+target <- "size_f"
+comparative <- 
+  evaluate_comparative_tj(
+    target = target,
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = solver,
+    multistart = multistart,
+    use_rcpp = use_rcpp
+  )
+```
+
+#### table
+
+```{r, results = "asis"}
+comparative %>%
+  dplyr::arrange(
+    i,
+    target
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+```{r, results = "asis"}
+p <- 
+  plot_comparative(
+    comparative = comparative
+  )
+```
+
+```{r, results='hide'}
+df <- 
+  compute_elasticity_comparative(
+    comparative = comparative
+  )
+
+index <- 
+  compute_elasticity_index(
+    comparative = comparative
+  )
+
+df_new <- 
+  df[
+    index,
+    1:ncol(df)
+    ]
+
+df_old <- 
+  rbind(
+    df_old, 
+    df_new
+    )
+```
+
+## Summary table{.tabset}
+
+```{r, results ='asis'}
+df_old %>%
+  kbl() %>%
+  kable_styling()
+```

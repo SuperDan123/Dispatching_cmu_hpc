@@ -1,0 +1,96 @@
+---
+title: "Demand estimation first stage"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 4, fig.width = 8)
+```
+
+
+```{css, echo = FALSE}
+
+table, td, th {
+  border: none;
+  padding-left: 1em;
+  padding-right: 1em;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+```
+
+
+
+### Residual price variation
+
+- Regress log of wage and fee on covariates and fixed effects, and then take residuals.
+- The residuals are demeaned.
+
+#### Firm FE
+
+```{r}
+htmltools::includeHTML(here::here("figuretable/price_variation/wage_and_fee_table_firm_FE.html"))
+```
+
+#### Establishment FE
+
+```{r}
+htmltools::includeHTML(here::here("figuretable/price_variation/wage_and_fee_table_establishment_FE.html"))
+```
+
+
+### Correlation between residual wages and fees
+
+- Regress log of wage and fee on covariates and fixed effects, and then take residuals.
+- The residuals are demeaned.
+
+#### Firm FE
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/price_variation/wage_fee_correlation_firmFE.png"))
+```
+
+#### Establishment FE
+
+```{r, out.width="50%"}
+knitr::include_graphics(here::here("figuretable/price_variation/wage_fee_correlation_establishmentFE.png"))
+```
+
+
+### First stage of reduced-form demand estimation {.tabset}
+
+
+
+#### Distance IV
+
+```{r}
+htmltools::includeHTML(here::here("figuretable/demand_estimation_reduced_form/first_stage_distance_IV.html"))
+```
+
+
+
+#### Number of rivals 
+
+```{r}
+htmltools::includeHTML(here::here("figuretable/demand_estimation_reduced_form/first_stage_num_rivals_IV.html"))
+```
+
+
+
+#### Hausman IV
+
+```{r}
+htmltools::includeHTML(here::here("figuretable/demand_estimation_reduced_form/first_stage_hausman_IV.html"))
+```
+

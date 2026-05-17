@@ -1,0 +1,471 @@
+---
+title: "report data analysis (use difference of distance data)"
+author: "Chiho Taniguchi"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 3, fig.width = 4)
+
+library("magrittr")
+library("kableExtra")
+library("ggplot2")
+
+height <- 6
+width <- 8
+
+```
+
+```{r }
+ 
+ data_cz_establishments <- 
+   here::here(file = "output/data_cz_establishments.rds") %>% 
+   readRDS()
+ 
+ data_area_area_distance <- 
+   here::here(file = "cleaned/data_area_area_distance.rds") %>% 
+   readRDS()
+ 
+ ## there are two establishments whose firm_id are NA in data_cz_establishments
+ 
+ data_cz_establishments_distance <- 
+   here::here(file = "output/data_cz_establishments_distance.rds") %>% 
+   readRDS()
+ 
+```
+
+```{r}
+
+data_cz_establishments_distance_na_10 <- 
+  data_cz_establishments_distance %>% 
+  tidyr::drop_na(
+    distance_min_r
+  ) %>% 
+  dplyr::filter(
+    year == 2010 
+  ) %>% 
+  dplyr::group_by(
+    cz
+  ) %>% 
+  dplyr::mutate(
+    N_j2010 = N_jt,
+    n_j2010 = dplyr::n(),
+    distance_min_avr_dropna_2010 = mean(distance_min_r),
+    wage_avr_2010 = mean(wage),
+    fee_avr_2010 = mean(fee)
+  ) %>% 
+  dplyr::mutate(
+    log_wage_avr_2010 = log(wage_avr_2010),
+    log_fee_avr_2010 = log(fee_avr_2010)
+  ) %>% 
+  dplyr::select(
+    cz,
+    n_j2010,
+    N_j2010,
+    distance_min_avr_dropna_2010,
+    log_wage_avr_2010,
+    log_fee_avr_2010
+  ) %>% 
+  dplyr::distinct()
+
+data_cz_establishments_distance_na_11 <- 
+  data_cz_establishments_distance %>% 
+  tidyr::drop_na(
+    distance_min_r
+  ) %>% 
+  dplyr::filter(
+    year == 2011 
+  ) %>% 
+  dplyr::group_by(
+    cz
+  ) %>% 
+  dplyr::mutate(
+    N_j2011 = N_jt,
+    n_j2011 = dplyr::n(),
+    distance_min_avr_dropna_2011 = mean(distance_min_r),
+    wage_avr_2011 = mean(wage),
+    fee_avr_2011 = mean(fee)
+  ) %>% 
+  dplyr::mutate(
+    log_wage_avr_2011 = log(wage_avr_2011),
+    log_fee_avr_2011 = log(fee_avr_2011)
+  ) %>% 
+  dplyr::select(
+    cz,
+    n_j2011,
+    N_j2011,
+    distance_min_avr_dropna_2011,
+    log_wage_avr_2011,
+    log_fee_avr_2011
+  ) %>% 
+  dplyr::distinct()
+
+data_cz_establishments_distance_na_12 <- 
+  data_cz_establishments_distance %>% 
+  tidyr::drop_na(
+    distance_min_r
+  ) %>% 
+  dplyr::filter(
+    year == 2012 
+  ) %>% 
+  dplyr::group_by(
+    cz
+  ) %>% 
+  dplyr::mutate(
+    N_j2012 = N_jt,
+    n_j2012 = dplyr::n(),
+    distance_min_avr_dropna_2012 = mean(distance_min_r),
+    wage_avr_2012 = mean(wage),
+    fee_avr_2012 = mean(fee)
+  ) %>% 
+  dplyr::mutate(
+    log_wage_avr_2012 = log(wage_avr_2012),
+    log_fee_avr_2012 = log(fee_avr_2012)
+  ) %>% 
+  dplyr::select(
+    cz,
+    n_j2012,
+    N_j2012,
+    distance_min_avr_dropna_2012,
+    log_wage_avr_2012,
+    log_fee_avr_2012
+  ) %>% 
+  dplyr::distinct()
+
+data_cz_establishments_distance_na_13 <- 
+  data_cz_establishments_distance %>% 
+  tidyr::drop_na(
+    distance_min_r
+  ) %>% 
+  dplyr::filter(
+    year == 2013 
+  ) %>% 
+  dplyr::group_by(
+    cz
+  ) %>% 
+  dplyr::mutate(
+    N_j2013 = N_jt,
+    n_j2013 = dplyr::n(),
+    distance_min_avr_dropna_2013 = mean(distance_min_r),
+    wage_avr_2013 = mean(wage),
+    fee_avr_2013 = mean(fee)
+  ) %>% 
+  dplyr::mutate(
+    log_wage_avr_2013 = log(wage_avr_2013),
+    log_fee_avr_2013 = log(fee_avr_2013)
+  ) %>% 
+  dplyr::select(
+    cz,
+    n_j2013,
+    N_j2013,
+    distance_min_avr_dropna_2013,
+    log_wage_avr_2013,
+    log_fee_avr_2013
+  ) %>% 
+  dplyr::distinct()
+  
+ data_cz_establishments_distance_na_14 <- 
+  data_cz_establishments_distance %>% 
+  tidyr::drop_na(
+    distance_min_r
+  ) %>% 
+   dplyr::filter(
+    year == 2014 
+  ) %>% 
+  dplyr::group_by(
+    cz
+  ) %>% 
+  dplyr::mutate(
+    N_j2014 = N_jt,
+    n_j2014 = dplyr::n(),
+    distance_min_avr_dropna_2014 = mean(distance_min_r),
+    wage_avr_2014 = mean(wage),
+    fee_avr_2014 = mean(fee)
+  ) %>% 
+   dplyr::mutate(
+     log_wage_avr_2014 = log(wage_avr_2014),
+     log_fee_avr_2014 = log(fee_avr_2014)
+   ) %>% 
+   dplyr::select(
+    cz,
+    N_j2014,
+    n_j2014,
+    distance_min_avr_dropna_2014,
+    log_wage_avr_2014,
+    log_fee_avr_2014
+  ) %>% 
+  dplyr::distinct()
+ 
+ data_cz_establishments_distance_na_11_10 <- 
+   dplyr::full_join(
+     data_cz_establishments_distance_na_10,
+     data_cz_establishments_distance_na_11,
+     by = "cz"
+   )
+ 
+ data_cz_establishments_distance_na_11_10 <- 
+   data_cz_establishments_distance_na_11_10 %>% 
+   tidyr::drop_na(
+     N_j2010,
+     N_j2011,
+     n_j2010,
+     n_j2011,
+     log_wage_avr_2010,
+     log_wage_avr_2011,
+     log_fee_avr_2010,
+     log_fee_avr_2011,
+     distance_min_avr_dropna_2010
+   ) %>% 
+   dplyr::mutate(
+     N_j1110 = N_j2011 - N_j2010,
+     n_j1110 = n_j2011 - n_j2010,
+     log_wage_1110 = log_wage_avr_2011 - log_wage_avr_2010,
+     log_fee_1110 = log_fee_avr_2011 - log_fee_avr_2010
+   ) %>% 
+   dplyr::mutate(
+     distance_min_avr_dropna_2010_100000 = distance_min_avr_dropna_2010 / 100000,
+     log_wage_diff = log_wage_1110,
+     log_fee_diff = log_fee_1110
+   ) 
+ 
+  data_cz_establishments_distance_na_11 <- 
+    data_cz_establishments_distance_na_11_10 %>% 
+    dplyr::select(
+      cz,
+      N_jt
+    )
+ 
+ 
+ data_cz_establishments_distance_na_12_10 <- 
+   dplyr::full_join(
+     data_cz_establishments_distance_na_10,
+     data_cz_establishments_distance_na_12,
+     by = "cz"
+   )
+ 
+ data_cz_establishments_distance_na_12_10 <- 
+   data_cz_establishments_distance_na_12_10 %>% 
+   tidyr::drop_na(
+     N_j2010,
+     N_j2012,
+     n_j2010,
+     n_j2012,
+     log_wage_avr_2010,
+     log_wage_avr_2012,
+     log_fee_avr_2010,
+     log_fee_avr_2012,
+     distance_min_avr_dropna_2010
+   ) %>% 
+   dplyr::mutate(
+     N_j1210 = N_j2012 - N_j2010,
+     n_j1210 = n_j2012 - n_j2010,
+     log_wage_1210 = log_wage_avr_2012 - log_wage_avr_2010,
+     log_fee_1210 = log_fee_avr_2012 - log_fee_avr_2010
+   ) %>% 
+   dplyr::mutate(
+     distance_min_avr_dropna_2010_100000 = distance_min_avr_dropna_2010 / 100000,
+     log_wage_diff = log_wage_1210 / 2,
+     log_fee_diff = log_fee_1210 / 2
+   )
+ 
+ data_cz_establishments_distance_na_13_10 <- 
+   dplyr::full_join(
+     data_cz_establishments_distance_na_10,
+     data_cz_establishments_distance_na_13,
+     by = "cz"
+   )
+ 
+ data_cz_establishments_distance_na_13_10 <- 
+   data_cz_establishments_distance_na_13_10 %>% 
+   tidyr::drop_na(
+     N_j2010,
+     N_j2013,
+     n_j2010,
+     n_j2013,
+     log_wage_avr_2010,
+     log_wage_avr_2013,
+     log_fee_avr_2010,
+     log_fee_avr_2013,
+     distance_min_avr_dropna_2010
+   ) %>% 
+   dplyr::mutate(
+     N_j1310 = N_j2013 - N_j2010,
+     n_j1310 = n_j2013 - n_j2010,
+     log_wage_1310 = log_wage_avr_2013 - log_wage_avr_2010,
+     log_fee_1310 = log_fee_avr_2013 - log_fee_avr_2010
+   ) %>% 
+   dplyr::mutate(
+     distance_min_avr_dropna_2010_100000 = distance_min_avr_dropna_2010 / 100000,
+     log_wage_diff = log_wage_1310 / 3,
+     log_fee_diff = log_fee_1310 / 3
+   )
+ 
+ data_cz_establishments_distance_na_14_10 <- 
+   dplyr::full_join(
+     data_cz_establishments_distance_na_10,
+     data_cz_establishments_distance_na_14,
+     by = "cz"
+   )
+ 
+ data_cz_establishments_distance_na_14_10 <- 
+   data_cz_establishments_distance_na_14_10 %>% 
+   tidyr::drop_na(
+     N_j2010,
+     N_j2014,
+     n_j2010,
+     n_j2014,
+     log_wage_avr_2010,
+     log_wage_avr_2014,
+     log_fee_avr_2010,
+     log_fee_avr_2014,
+     distance_min_avr_dropna_2010
+   ) %>% 
+   dplyr::mutate(
+     N_j1410 = N_j2014 - N_j2010,
+     n_j1410 = n_j2014 - n_j2010,
+     log_wage_1410 = log_wage_avr_2014 - log_wage_avr_2010,
+     log_fee_1410 = log_fee_avr_2014 - log_fee_avr_2010
+   ) %>% 
+   dplyr::mutate(
+     distance_min_avr_dropna_2010_100000 = distance_min_avr_dropna_2010 / 100000,
+     log_wage_diff = log_wage_1410 / 4,
+     log_fee_diff = log_fee_1410 / 4
+   )
+ 
+ data_cz_establishments_distance_na_all <- 
+   rbind(data_cz_establishments_distance_na_11_10,
+         data_cz_establishments_distance_na_12_10) %>% 
+   rbind(data_cz_establishments_distance_na_13_10) %>% 
+   rbind(data_cz_establishments_distance_na_14_10)
+ 
+ 
+```
+
+
+
+# first stage
+（N_j2014 ー N_j2010）を初期（2010年）時点の事業所から最も近い同一企業の事業所までの距離のCZ単位の平均値（distance_min_avr）に回帰.
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   estimatr::lm_robust(
+     formula = N_j1410 ~ distance_min_avr_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_14_10
+   )
+
+ 
+ result <- 
+   list(
+     "N_j2014 - N_j2010" = results[[1]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+
+```
+
+# reduced form
+
+料金（ln(fee)_j2014 ー ln(fee)_j2010）、賃金の対数の差分（ln(wage)_j2014 ー ln(wage)_j2010）を初期（2010年）時点の事業所から最も近い同一企業の事業所までの距離のCZ単位の平均値（distance_min_avr）に回帰.
+
+```{r}
+
+ resultr <- list()
+ 
+ resultr[[1]] <- 
+   estimatr::lm_robust(
+     formula = log_wage_1410 ~ distance_min_avr_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_14_10
+   )
+ 
+ resultr[[2]] <- 
+   estimatr::lm_robust(
+     formula = log_fee_1410 ~ distance_min_avr_dropna_2010_100000,
+     se_type = "stata",
+     data = data_cz_establishments_distance_na_14_10
+   )
+
+ result_r <- 
+   list(
+     "log(wage)_j2014 - log(wage)_j2010" = resultr[[1]],
+     "log(fee)_j2014 - log(fee)_j2010" = resultr[[2]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_r,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC"
+ ) 
+
+
+```
+
+# structural form {.tabset}
+
+## 2nd stage
+
+```{r}
+
+resultss <- list()
+
+resultss[[1]] <- 
+  fixest::feols(
+    fml = log_wage_1410 ~ 1 | N_j1410 ~ distance_min_avr_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_14_10,
+    se = "hetero"
+  )
+
+resultss[[2]] <- 
+  fixest::feols(
+    fml = log_fee_1410 ~ 1 | N_j1410 ~ distance_min_avr_dropna_2010_100000,
+    data = data_cz_establishments_distance_na_14_10,
+    se = "hetero"
+  )
+
+results_s <- 
+  list(
+    "log(wage)_j2014 - log(wage)_j2010" = resultss[[1]],
+    "log(fee)_j2014 - log(fee)_j2010" = resultss[[2]]
+  )
+
+modelsummary::modelsummary(
+  results_s,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC"
+) 
+```
+
+## 1st stage
+
+```{r}
+
+modelsummary::modelsummary(
+  resultss[[1]]$iv_first_stage,
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  statistic = 'std.error',
+  conf_level = .95
+)
+
+```
+

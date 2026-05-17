@@ -1,0 +1,106 @@
+---
+title: "panel_check"
+author: "Katsuhiro Komatsu"
+date: "2020/8/17"
+output: html_document
+---
+
+
+- Compute the number of establishments, average wages, fees, and sales for each firm_id.
+- Check the distribution of the growth of those variables.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = F, warning = F, include = F}
+rm(list = ls())
+gc()
+
+library(magrittr)
+library(ggplot2); theme_set(theme_bw())
+library(stargazer)
+```
+
+
+```{r, include = F}
+load("../data/data_2010_2014_cleaned.RData")
+```
+
+
+```{r, include = F, message = F}
+data <- data %>% 
+  dplyr::group_by(firm_id, year) %>% 
+  dplyr::arrange(firm_id, year) %>% 
+  dplyr::summarise(n = dplyr::n(),
+                   wage = mean(wage),
+                   fee = mean(fee),
+                   sales = mean(sales)) %>% 
+  dplyr::mutate(n_gro = log(n) - log(dplyr::lag(n, lag = 1)),
+                wage_gro = log(wage) - log(dplyr::lag(wage, lag = 1)),
+                fee_gro = log(fee) - log(dplyr::lag(fee, lag = 1)),
+                sales_gro = log(sales) - log(dplyr::lag(sales, lag = 1)))
+```
+
+
+
+```{r, echo = F, message = F, warning = F}
+g1 <- data %>% 
+  ggplot(aes(x = n_gro)) + geom_histogram() + xlab("Growth of number of establishments")
+
+g2 <- data %>% 
+  ggplot(aes(x = wage_gro)) + geom_histogram() + xlab("Wage growth")
+
+g3 <- data %>% 
+  ggplot(aes(x = fee_gro)) + geom_histogram() + xlab("Fee growth")
+
+
+g4 <- data %>% 
+  ggplot(aes(x = sales_gro)) + geom_histogram() + xlab("Sales growth")
+
+gridExtra::grid.arrange(g1, g2, g3, g4, nrow = 2)
+
+```
+
+
+### Shuffling firm_id in each year
+```{r, echo = F, message=F}
+load("../data/data_2010_2014_cleaned.RData")
+
+data <- data %>% 
+  dplyr::group_by(year) %>% 
+  dplyr::mutate(new_id = firm_id[sample(dplyr::row_number())])
+
+data <- data %>% 
+  dplyr::group_by(new_id, year) %>% 
+  dplyr::arrange(new_id, year) %>% 
+  dplyr::summarise(n = dplyr::n(),
+                   wage = mean(wage),
+                   fee = mean(fee),
+                   sales = mean(sales)) %>% 
+  dplyr::mutate(n_gro = log(n) - log(dplyr::lag(n, lag = 1)),
+                wage_gro = log(wage) - log(dplyr::lag(wage, lag = 1)),
+                fee_gro = log(fee) - log(dplyr::lag(fee, lag = 1)),
+                sales_gro = log(sales) - log(dplyr::lag(sales, lag = 1)))
+
+```
+
+
+```{r, echo = F, message = F, warning = F}
+g1 <- data %>% 
+  ggplot(aes(x = n_gro)) + geom_histogram() + xlab("Growth of number of establishments")
+
+g2 <- data %>% 
+  ggplot(aes(x = wage_gro)) + geom_histogram() + xlab("Wage growth")
+
+g3 <- data %>% 
+  ggplot(aes(x = fee_gro)) + geom_histogram() + xlab("Fee growth")
+
+
+g4 <- data %>% 
+  ggplot(aes(x = sales_gro)) + geom_histogram() + xlab("Sales growth")
+
+gridExtra::grid.arrange(g1, g2, g3, g4, nrow = 2)
+
+```
+

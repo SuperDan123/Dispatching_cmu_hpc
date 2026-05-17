@@ -1,0 +1,297 @@
+---
+title: "report_data_counterfactual_minimum_wage_across_markets"
+author: "Daisy Dan Song"
+date: "2025-11-11"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+```
+
+# import solved equilibrium
+```{r}
+equilibrium <-
+  readRDS(
+    file = "output/multihome/estimate_data/equilibrium_updated_constrained.rds" %>%
+    here::here()
+  )
+updated_ownership <- 
+  readRDS(
+    file = "output/multihome/make_equilibrium_nationwide_top5_from_data/updated_ownership_matrix.rds" %>%
+    here::here()
+  )
+
+equilibrium$constant$use_exp <- FALSE
+```
+
+# update ownership 
+```{r}
+for (
+  t in seq_along(equilibrium$exogenous)
+) {
+  for (
+    j in seq_along(equilibrium$exogenous[[t]])
+  ){
+    equilibrium$exogenous[[t]][[j]]$owner <- updated_ownership[[t]][[j]]$owner 
+  }
+}
+```
+
+# counterfactual with minimum wage 
+## minimum wage {.tabset}
+```{r}
+counterfactual <- 
+    readRDS(
+    file = "output/multihome/counterfactual/counterfactual_minimum_wage_combined.rds" %>%
+    here::here()
+  ) 
+summary(counterfactual)
+```
+
+### s_w < 0
+```{r}
+counterfactual_1 <-
+  counterfactual %>%
+  dplyr::filter(s_w < 0)
+nrow(counterfactual_1)
+```
+
+
+### add real_index from ownership matrix
+```{r}
+# For each market-zone combination, recover the real establishment index
+# from the owner matrix for firms i >= 3
+# 
+# The counterfactual i index corresponds to:
+# - i=0: outside option
+# - i=1,2: fringe firms (always present)
+# - i>=3: THS firms (may or may not exist in each market)
+#
+# For i>=3, we need to find which establishment (row) in the owner matrix
+# corresponds to this firm. The owner matrix columns represent firms (top-5),
+# and rows represent establishments. We need to map i to the actual row index.
+
+counterfactual_with_real_index <-
+  counterfactual %>%
+  dplyr::mutate(
+    real_index = NA_integer_
+  ) %>%
+  dplyr::rowwise() %>%
+  dplyr::mutate(
+    real_index = {
+      # In rowwise context, i should be a single value
+      # Check if i exists and has valid length
+      if (length(i) == 0) {
+        NA_integer_
+      } else {
+        # Convert factor to integer value (not factor level)
+        # If i is a factor, as.integer(i) returns the level number (1,2,3...)
+        # We need to convert to character first to get the actual value
+        if (is.factor(i)) {
+          i_char <- as.character(i)
+          # Check if character conversion succeeded
+          if (length(i_char) == 0 || nchar(i_char[1]) == 0) {
+            NA_integer_
+          } else {
+            i_int <- suppressWarnings(as.integer(i_char[1]))
+            # Check if conversion succeeded
+            if (length(i_int) == 0 || is.na(i_int)) {
+              NA_integer_
+            } else {
+              # For i = 0, real_index is 0 (outside option)
+              if (i_int == 0) {
+                0L
+              } else if (i_int <= 2) {
+                # For i = 1, 2, real_index is the same as i (fringe firms)
+                i_int
+              } else {
+                # For i >= 3, find which establishment (row) in owner matrix
+                # corresponds to this firm
+                # The owner matrix columns directly correspond to i:
+                # Column 1 = i=1, Column 2 = i=2, Column 3 = i=3, etc.
+                # The rows represent real_index (establishment indices)
+                owner_tj <- equilibrium$exogenous[[t]][[j]]$owner
+                firm_col <- i_int  # Column directly corresponds to i
+                
+                if (firm_col <= ncol(owner_tj)) {
+                  # Find which establishment (row) has a 1 in this firm column
+                  # This gives us the establishment(s) that belong to this firm
+                  # The row number is the real_index
+                  establishment_rows <- which(owner_tj[, firm_col] == 1)
+                  
+                  if (length(establishment_rows) > 0) {
+                    # Use the first establishment that belongs to this firm
+                    # This is the "real_index" - the actual row number in the owner matrix
+                    establishment_rows[1]
+                  } else {
+                    # Firm doesn't exist in this market
+                    NA_integer_
+                  }
+                } else {
+                  # Firm column doesn't exist
+                  NA_integer_
+                }
+              }
+            }
+          }
+        } else {
+          i_int <- as.integer(i[1])
+          # Check if conversion succeeded
+          if (length(i_int) == 0 || is.na(i_int)) {
+            NA_integer_
+          } else {
+            # For i = 0, real_index is 0 (outside option)
+            if (i_int == 0) {
+              0L
+            } else if (i_int <= 2) {
+              # For i = 1, 2, real_index is the same as i (fringe firms)
+              i_int
+            } else {
+              # For i >= 3, find which establishment (row) in owner matrix
+              # corresponds to this firm
+              owner_tj <- equilibrium$exogenous[[t]][[j]]$owner
+              firm_col <- i_int
+              
+              if (firm_col <= ncol(owner_tj)) {
+                establishment_rows <- which(owner_tj[, firm_col] == 1)
+                
+                if (length(establishment_rows) > 0) {
+                  establishment_rows[1]
+                } else {
+                  NA_integer_
+                }
+              } else {
+                NA_integer_
+              }
+            }
+          }
+        }
+      }
+    }
+  ) %>%
+  dplyr::ungroup()
+counterfactual_with_real_index %>% summary()
+```
+
+### aggregate across markets
+```{r}
+# Define which columns to average vs sum
+avg_cols <- 
+  c(
+    "w", 
+    "f", 
+    "m"
+    )  # wages, fees, markups - take average
+share_cols <- 
+  c(
+    "s_w",
+    "s_f"
+    )  # shares - sum then divide by number of markets
+sum_cols <- 
+  c(
+    "profit_ths",
+    "surplus_w", 
+    "surplus_f"
+    )  # profits, surpluses - take sum
+
+counterfactual_aggregated <-
+  counterfactual_with_real_index %>%
+  # Filter out rows where real_index is NA (firms that don't exist in that market)
+  dplyr::filter(
+    !is.na(real_index)
+    ) %>%
+  dplyr::group_by(
+    real_index, 
+    minimum_wage
+    ) %>%
+  dplyr::summarise(
+    # Average wages/fees/markups across markets
+    dplyr::across(
+      dplyr::any_of(avg_cols),
+      ~ mean(.x, na.rm = TRUE),
+      .names = "{.col}"
+    ),
+    # Sum shares then divide by number of markets (average share)
+    dplyr::across(
+      dplyr::any_of(share_cols),
+      ~ sum(.x, na.rm = TRUE) / dplyr::n(),
+      .names = "{.col}"
+    ),
+    # Sum profits/surpluses across markets
+    dplyr::across(
+      dplyr::any_of(sum_cols),
+      ~ sum(.x, na.rm = TRUE),
+      .names = "{.col}"
+    ),
+    # Keep other columns as mean
+    dplyr::across(
+      dplyr::any_of(
+        c("augmented_foc_w", 
+          "augmented_foc_f", 
+          "foc_w", 
+          "foc_f", 
+          "complementarity", 
+          "foc_s_f", 
+          "eta_w", 
+          "meeting_probability_w", 
+          "meeting_probability_f", 
+          "c_w",
+          "c_f")
+        ),
+      ~ mean(.x, na.rm = TRUE),
+      .names = "{.col}"
+    ),
+    # Count how many markets this real_index appears in
+    n_markets = dplyr::n(),
+    # Keep i for reference (should be consistent within real_index, but take first)
+    i = dplyr::first(i),
+    .groups = "drop"
+  ) %>%
+  dplyr::arrange(real_index, minimum_wage)
+summary(counterfactual_aggregated)
+```
+
+
+### table 
+```{r, results = "asis"}
+counterfactual_aggregated %>%
+  kbl() %>%
+  kable_styling()
+```
+
+
+### outside market {.tabset}
+```{r, results = "asis"}
+
+p <- 
+  plot_counterfactual_minimum_wage_outside(
+    counterfactual = counterfactual_aggregated
+  )
+p
+```
+
+
+### inside market {.tabset}
+```{r, results = "asis"}
+p <- 
+  plot_counterfactual_minimum_wage_inside(
+    counterfactual = counterfactual_aggregated
+  )
+p
+```
+
+
+

@@ -1,0 +1,663 @@
+---
+title: "Data Codebook"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    # toc: true
+    # toc_float: true
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 6, fig.width = 12)
+```
+
+```{r}
+library(magrittr)
+library(psych)
+```
+
+# Read data
+
+```{r}
+data_establishments <- readRDS(here::here("cleaned/data_establishments.RDS"))
+data_area_year_num_firms <- readRDS(here::here("cleaned/data_area_year_num_firms.RDS"))
+data_area_year_num_establishments <- readRDS(here::here("cleaned/data_area_year_num_establishments.RDS"))
+data_area_year_num_labor <- readRDS(here::here("cleaned/data_area_year_num_labor.RDS"))
+data_area_year_num_emp <- readRDS(here::here("cleaned/data_area_year_num_emp.RDS"))
+data_area_year_num_parttemp <- readRDS(here::here("cleaned/data_area_year_num_parttemp.RDS"))
+data_area_year_partwage <- readRDS(here::here("cleaned/data_area_year_partwage.RDS"))
+data_pref_year_partwage <- readRDS(here::here("cleaned/data_pref_year_partwage.RDS"))
+data_pref_year_minimum_wage <- readRDS(here::here("cleaned/data_pref_year_minimum_wage.RDS"))
+data_area <- readRDS(here::here("cleaned/data_area.RDS"))
+data_zipcode <- readRDS(here::here("cleaned/data_zipcode.RDS"))
+data_year <- readRDS(here::here("cleaned/data_year.RDS"))
+data_area_adjacent_municipalities <- readRDS(here::here("cleaned/data_area_adjacent_municipalities.RDS"))
+data_area_area_distance <- readRDS(here::here("cleaned/data_area_area_distance.RDS"))
+```
+
+# Describe data {.tabset}
+
+## Establishment
+
+- File name: `cleaned/data_establishments.RDS`
+- Key: `id_unique`
+- The data is at the zipcode, year, and establishment level. However, the establishment id is not assigned because this is not a panel. Within zipcode and year, a row represents an establishment.
+- The `id_unique` is assigned to each row.
+
+```{r}
+ds <-
+  data_establishments %>% 
+  dplyr::mutate(
+    id_unique = as.character(id_unique),
+    firm_id = as.character(firm_id)
+  ) %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- c("Unique ID for each observation",
+         "Firm ID",
+         "Year",
+         "Tokutei (=1) or Ippan (=0)",
+         "Zipcode",
+         "Prefecture code",
+         "Number of permanent workers",
+         "Number of non-permanent workers",
+         "Number of daily workers (full-time equivalent)",
+         "Number of permanent temp workers (full-time equivalent)",
+         "Number of non-permanent temp workers (full-time equivalent)",
+         "Number of registered people who worked at least one in the previous year",
+         "Number of daily workers",
+         "Number of permanent temp workers",
+         "Number of non-pearmanent temp workers",
+         "Number of client firms",
+         "Fee (10K Yen/ 8H)",
+         "Fee (10K Yen/ 8H) for daily workers",
+         "Fee (10K Yen/ 8H) for workers with skills in ソフトウェア開発",
+         "Fee (10K Yen/ 8H) for workers with skills in 機械設計",
+         "Fee (10K Yen/ 8H) for workers with skills in 放送機器等操作",
+         "Fee (10K Yen/ 8H) for workers with skills in 放送番組等演出",
+         "Fee (10K Yen/ 8H) for workers with skills in 事務用機器操作",
+         "Fee (10K Yen/ 8H) for workers with skills in 通訳、翻訳、速記",
+         "Fee (10K Yen/ 8H) for workers with skills in 秘書",
+         "Fee (10K Yen/ 8H) for workers with skills in ファイリング",
+         "Fee (10K Yen/ 8H) for workers with skills in 調査",
+         "Fee (10K Yen/ 8H) for workers with skills in 財務処理",
+         "Fee (10K Yen/ 8H) for workers with skills in 取引文書作成",
+         "Fee (10K Yen/ 8H) for workers with skills in デモンストレーション",
+         "Fee (10K Yen/ 8H) for workers with skills in 添乗",
+         "Fee (10K Yen/ 8H) for workers with skills in 建築物清掃",
+         "Fee (10K Yen/ 8H) for workers with skills in 建築設備運転、点検、整備",
+         "Fee (10K Yen/ 8H) for workers with skills in 案内・受付、駐車場管理等",
+         "Fee (10K Yen/ 8H) for workers with skills in 研究開発",
+         "Fee (10K Yen/ 8H) for workers with skills in 事業の実施体制の企画、立案",
+         "Fee (10K Yen/ 8H) for workers with skills in 書籍等の制作・編集",
+         "Fee (10K Yen/ 8H) for workers with skills in 広告・デザイン",
+         "Fee (10K Yen/ 8H) for workers with skills in インテリアコーディネーター",
+         "Fee (10K Yen/ 8H) for workers with skills in アナウンサー",
+         "Fee (10K Yen/ 8H) for workers with skills in OAインストラクション",
+         "Fee (10K Yen/ 8H) for workers with skills in テレマーケティングの営業",
+         "Fee (10K Yen/ 8H) for workers with skills in セールスエンジニアの営業、金融商品の営業",
+         "Fee (10K Yen/ 8H) for workers with skills in 放送番組等における大道具・小道具",
+         "Wage (10K Yen/ 8H)",
+         "Wage (10K Yen/ 8H) for daily workers",
+         "Wage (10K Yen/ 8H) for workers with skills in ソフトウェア開発",
+         "Wage (10K Yen/ 8H) for workers with skills in 機械設計",
+         "Wage (10K Yen/ 8H) for workers with skills in 放送機器等操作",
+         "Wage (10K Yen/ 8H) for workers with skills in 放送番組等演出",
+         "Wage (10K Yen/ 8H) for workers with skills in 事務用機器操作",
+         "Wage (10K Yen/ 8H) for workers with skills in 通訳、翻訳、速記",
+         "Wage (10K Yen/ 8H) for workers with skills in 秘書",
+         "Wage (10K Yen/ 8H) for workers with skills in ファイリング",
+         "Wage (10K Yen/ 8H) for workers with skills in 調査",
+         "Wage (10K Yen/ 8H) for workers with skills in 財務処理",
+         "Wage (10K Yen/ 8H) for workers with skills in 取引文書作成",
+         "Wage (10K Yen/ 8H) for workers with skills in デモンストレーション",
+         "Wage (10K Yen/ 8H) for workers with skills in 添乗",
+         "Wage (10K Yen/ 8H) for workers with skills in 建築物清掃",
+         "Wage (10K Yen/ 8H) for workers with skills in 建築設備運転、点検、整備",
+         "Wage (10K Yen/ 8H) for workers with skills in 案内・受付、駐車場管理等",
+         "Wage (10K Yen/ 8H) for workers with skills in 研究開発",
+         "Wage (10K Yen/ 8H) for workers with skills in 事業の実施体制の企画、立案",
+         "Wage (10K Yen/ 8H) for workers with skills in 書籍等の制作・編集",
+         "Wage (10K Yen/ 8H) for workers with skills in 広告・デザイン",
+         "Wage (10K Yen/ 8H) for workers with skills in インテリアコーディネーター",
+         "Wage (10K Yen/ 8H) for workers with skills in アナウンサー",
+         "Wage (10K Yen/ 8H) for workers with skills in OAインストラクション",
+         "Wage (10K Yen/ 8H) for workers with skills in テレマーケティングの営業",
+         "Wage (10K Yen/ 8H) for workers with skills in セールスエンジニアの営業、金融商品の営業",
+         "Wage (10K Yen/ 8H) for workers with skills in 放送番組等における大道具・小道具",
+         "Sales (10K Yen / Year)",
+         "Indicator for dispatching workers oversea",
+         "Number of workers dispatched to oversea",
+         "Indicator for providing temp-to-perm hiring offer",
+         "Number of applications to temp-to-perm offer",
+         "Number of actual temp-to-perm offers",
+         "Number of ?",
+         "Number of temp-to-perm offer cases leading to direct employment",
+         "Number of contracts: not longer than 1 day",
+         "Number of contracts: longer than 1 day and not longer than 7 days",
+         "Number of contracts: longer than 7 days and not longer than 1 month",
+         "Number of contracts: longer than 1 month and not longer than 2 months",
+         "Number of contracts: longer than 2 months and not longer than 3 months",
+         "Number of contracts: longer than 3 months and not longer than 6 months",
+         "Number of contracts: longer than 6 months and not longer than 1 year",
+         "Number of contracts: longer than 1 year and not longer than 3 year",
+         "Number of contracts: others",
+         "Number of contracts: total",
+         "type of training",
+         "Number of trained workers",
+         "Indicator for on-the-job training",
+         "Indicator for off-the-job training",
+         "Indicator for whether workers are paid for training",
+         "Indicator for whether workers are not paid for training",
+         "Indicator for whether the establishment provided training by itself",
+         "Indicator for whether the establishment turned to a training center for training its workers",
+         "Indicator for whether the establishment turned to other institutions for training its workers",
+         "Number of days for training",
+         "Number of months for training",
+         "Number of hours for training",
+         "Indicator for whether workers co-paid for training",
+         "Indicator for whether workers did not co-pay for training",
+         "note",
+         "Indicator for whether the establishment offers employment placement services")
+
+knitr::kable(ds)
+```
+
+
+
+## Area-year
+
+- File name: `cleaned/data_area_year_num_firms.RDS`
+- Key: `area_code`, `year`
+
+```{r}
+data_area_year_num_firms <- 
+  data_area_year_num_firms %>% 
+  dplyr::select(
+    area_code, 
+    year, 
+    dplyr::everything()
+    )
+
+ds <- 
+  data_area_year_num_firms %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- c("Municipality code",
+                   "Year", 
+                   "Number of firms",
+                   "Number of firms (鉱業，採石業，砂利採取業)",
+                   "Number of firms (建設業)",
+                   "Number of firms (製造業)",
+                   "Number of firms (電気・ガス・熱供給・水道業)",
+                   "Number of firms (情報通信業)",
+                   "Number of firms (運輸業，郵便業)",
+                   "Number of firms (卸売業，小売業)",
+                   "Number of firms (金融業，保険業)",
+                   "Number of firms (不動産業，物品賃貸業)",
+                   "Number of firms (学術研究，専門・技術サービス業)",
+                   "Number of firms (宿泊業，飲食サービス業)",
+                   "Number of firms (生活関連サービス業，娯楽業)",
+                   "Number of firms (教育，学習支援業)",
+                   "Number of firms (医療，福祉)",
+                   "Number of firms (複合サービス事業)",
+                   "Number of firms (サービス業 他に分類されないもの)",
+                   "Number of firms (農林漁業)")
+
+knitr::kable(ds)
+```
+
+
+- File name: `cleaned/data_area_year_num_establishments.RDS`
+- Key: `area_code`, `year`
+
+```{r}
+data_area_year_num_establishments <- 
+  data_area_year_num_establishments %>% 
+  dplyr::select(
+    area_code, 
+    year, 
+    dplyr::everything()
+    )
+
+ds <- 
+  data_area_year_num_establishments %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- c("Municipality code",
+                   "Year", 
+                   "Number of establishments",
+                   "Number of establishments (鉱業，採石業，砂利採取業)",
+                   "Number of establishments (建設業)",
+                   "Number of establishments (製造業)",
+                   "Number of establishments (電気・ガス・熱供給・水道業)",
+                   "Number of establishments (情報通信業)",
+                   "Number of establishments (運輸業，郵便業)",
+                   "Number of establishments (卸売業，小売業)",
+                   "Number of establishments (金融業，保険業)",
+                   "Number of establishments (不動産業，物品賃貸業)",
+                   "Number of establishments (学術研究，専門・技術サービス業)",
+                   "Number of establishments (宿泊業，飲食サービス業)",
+                   "Number of establishments (生活関連サービス業，娯楽業)",
+                   "Number of establishments (教育，学習支援業)",
+                   "Number of establishments (医療，福祉)",
+                   "Number of establishments (複合サービス事業)",
+                   "Number of establishments (サービス業 他に分類されないもの)",
+                   "Number of establishments (農林漁業)")
+
+knitr::kable(ds)
+```
+
+
+
+- File name: `cleaned/data_area_year_num_labor.RDS`
+- Key: `area_code`, `year`
+
+```{r, results = "asis"}
+data_area_year_num_labor <- 
+  data_area_year_num_labor %>% 
+  dplyr::select(
+    area_code, 
+    year, 
+    dplyr::everything()
+    )
+
+
+ds <- 
+  data_area_year_num_labor %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- c("Municipality code",
+                   "Year", 
+                   "Labor force",
+                   "Labor force (Age 15-19)",
+                   "Labor force (Age 20-24)",
+                   "Labor force (Age 25-29)",
+                   "Labor force (Age 30-34)",
+                   "Labor force (Age 35-39)",
+                   "Labor force (Age 40-44)",
+                   "Labor force (Age 45-49)",
+                   "Labor force (Age 50-54)",
+                   "Labor force (Age 55-59)",
+                   "Labor force (Age 60-64)",
+                   "Labor force (Age 65-69)",
+                   "Labor force (Age 70-74)",
+                   "Labor force (Age 75-79)",
+                   "Labor force (Age 80-84)",
+                   "Labor force (Age 85-)"
+                   )
+
+
+knitr::kable(ds)
+
+
+
+```
+
+
+
+
+- File name: `cleaned/data_area_year_num_emp.RDS`
+- Key: `area_code`, `year`
+
+```{r, results = "asis"}
+data_area_year_num_emp <- 
+  data_area_year_num_emp %>% 
+  dplyr::select(
+    area_code, 
+    year, 
+    dplyr::everything()
+    )
+
+
+ds <- 
+  data_area_year_num_emp %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- c("Municipality code",
+                   "Year", 
+                   "Number of employed people"
+                   )
+
+
+knitr::kable(ds)
+
+
+
+```
+
+
+
+- File name: `cleaned/data_area_year_num_parttemp.RDS`
+- Key: `area_code`, `year`
+
+```{r, results = "asis"}
+data_area_year_num_parttemp <- 
+  data_area_year_num_parttemp %>% 
+  dplyr::select(
+    area_code, 
+    year, 
+    dplyr::everything()
+    )
+
+ds <- 
+  data_area_year_num_parttemp %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- 
+  c(
+    "Municipality code",
+    "Year", 
+    "Number of part-time workers",
+    "Number of temp workers"
+  )
+
+
+knitr::kable(ds)
+
+
+
+```
+
+- File name: `cleaned/data_area_year_partwage.RDS`
+- Key: `area_code`, `year`
+
+```{r, results = "asis"}
+ds <- 
+  data_area_year_partwage %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- 
+  c(
+    "Year", 
+    "Municipality code",
+    "Part-time wage", 
+    "Number of observations used for calculating part-time wages"
+    )
+
+knitr::kable(ds)
+```
+
+
+## Prefecture-year 
+
+- File name: `cleaned/data_pref_year_minimum_wage.RDS`
+- Key: `pref`, `year`
+
+```{r}
+ds <- 
+  data_pref_year_minimum_wage %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- 
+  c(
+    "Prefecture code", 
+    "Year",
+    "Minum wage (10K Yen/ 8H)"
+    )
+
+knitr::kable(ds)
+```
+
+- File name: `cleaned/data_pref_year_partwage.RDS`
+- Key: `pref`, `year`
+
+```{r}
+ds <- 
+  data_pref_year_partwage %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- 
+  c(
+    "Prefecture code", 
+    "Year",
+    "Part-time wage (10K Yen/ 8H)",
+    "Number of observations used for calculating part-time wages"
+    )
+
+knitr::kable(ds)
+```
+
+
+
+## Area
+
+- File name: `cleaned/data_area.RDS`
+- Key: `area_code`
+
+```{r}
+ds <- 
+  data_area %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- 
+  c(
+    "Municipality code",
+    "Commuting zone code"
+    )
+
+knitr::kable(ds)
+```
+
+## Zipcode
+
+- File name: `cleaned/data_zipcode.RDS`
+- Key: `zipcode`
+
+```{r}
+ds <- 
+  data_zipcode %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- 
+  c(
+    "Zip code",
+    "Municipality code"
+    )
+
+knitr::kable(ds)
+```
+
+## Year
+
+- File name: `cleaned/data_year.RDS`
+- Key: `year`
+
+```{r}
+ds <- 
+  data_year %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- 
+  c(
+    "Year",
+    "CPI (100 = 1998/3/1)"
+    )
+
+knitr::kable(ds)
+```
+
+
+## Area-adjacent area
+
+- File name: `cleaned/data_area_adjacent_municipalities.RDS`
+- Key: `area_code`, `adj`
+
+```{r}
+ds <- 
+  data_area_adjacent_municipalities %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- 
+  c(
+    "Municipality code",
+    "Adjacent municipality code"
+    )
+
+knitr::kable(ds)
+```
+
+## Area-Area
+
+- File name: `cleaned/data_area_adjacent_municipalities.RDS`
+- Key: `area_code_1`, `area_code_2`
+
+```{r}
+ds <- 
+  data_area_area_distance %>% 
+  describe(
+    skew = F,
+    ranges = F,
+    trim = 0,
+    quant = c(.05, .25, .5, .75, .95)
+    )
+
+ds$vars <- NULL
+ds$se <- NULL
+
+ds <- round(ds, digits = 2)
+
+ds$definition <- 
+  c(
+    "Municipality code 1",
+    "Municipality code 2",
+    "Distance (m)"
+    )
+
+knitr::kable(ds)
+```
+
+

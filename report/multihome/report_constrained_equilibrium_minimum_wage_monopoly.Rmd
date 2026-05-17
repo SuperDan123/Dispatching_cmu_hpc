@@ -1,0 +1,229 @@
+---
+title: "report_constrained_equilibrium_minimum_wage_monopoly"
+author: "Daisy Dan Song"
+date: "2024-04-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+```
+
+# Set constant
+
+```{r}
+seed <- 1
+set.seed(seed)
+n_ths <- 2
+n_market <- 1
+n_zone <- 1
+t <- 1
+j <- 1
+multistart <- 10
+```
+
+# impose baseline setting
+
+```{r}
+# generate template
+equilibrium <-
+  generate_equilibrium(
+    n_ths = n_ths,
+    n_market = n_market,
+    n_zone = n_zone,
+    seed = seed
+  )
+```
+
+# start from unconstrained solution
+```{r}
+eq1_nleqslv <-
+  solve_equilibrium_tj(
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = "nleqslv",
+    multistart = 20
+  )
+equilibrium$endogenous[[t]][[j]]$w <- eq1_nleqslv$endogenous[[t]][[j]]$w
+equilibrium$endogenous[[t]][[j]]$f <- eq1_nleqslv$endogenous[[t]][[j]]$f
+
+w <- equilibrium$endogenous[[t]][[j]]$w
+f <- equilibrium$endogenous[[t]][[j]]$f
+w
+f
+```
+
+# set minimum wage
+```{r}
+w_0 <- max(w + 0.1)
+w_0
+```
+
+# solve constrained equilibrium
+
+## nleqslv
+```{r}
+eq_constrained_1 <- 
+  solve_equilibrium_minimum_wage_tj(
+    t = t,
+    j = j,
+    eta_w = 1e-16,
+    equilibrium = equilibrium,
+    solver ="nleqslv",
+    w_0 = w_0,
+    multistart = 20
+  )
+
+eq_constrained_1
+```
+
+### display eta_w
+```{r}
+m_w <- eq_constrained_1$parameter$m_w
+m_f <- eq_constrained_1$parameter$m_f
+beta_w <- eq_constrained_1$parameter$beta_w
+lambda_w <- eq_constrained_1$parameter$lambda_w
+gamma_w <- eq_constrained_1$parameter$gamma_w
+beta_f <- eq_constrained_1$parameter$beta_f
+lambda_f <- eq_constrained_1$parameter$lambda_f
+gamma_f <- eq_constrained_1$parameter$gamma_f
+x_a_w <- eq_constrained_1$exogenous[[t]][[j]]$x_a_w
+x_a_f <- eq_constrained_1$exogenous[[t]][[j]]$x_a_f
+x_c_w <- eq_constrained_1$exogenous[[t]][[j]]$x_c_w
+x_c_f <- eq_constrained_1$exogenous[[t]][[j]]$x_c_f
+size_w <- eq_constrained_1$exogenous[[t]][[j]]$size_w
+size_f <- eq_constrained_1$exogenous[[t]][[j]]$size_f
+owner <- eq_constrained_1$exogenous[[t]][[j]]$owner
+mu <- eq_constrained_1$shock[[t]][[j]]$mu
+ea_w <- eq_constrained_1$shock[[t]][[j]]$ea_w
+ec_w <- eq_constrained_1$shock[[t]][[j]]$ec_w
+ea_f <- eq_constrained_1$shock[[t]][[j]]$ea_f
+ec_f <- eq_constrained_1$shock[[t]][[j]]$ec_f
+s_f <- eq_constrained_1$endogenous[[t]][[j]]$s_f
+s_w <- eq_constrained_1$endogenous[[t]][[j]]$s_w
+w <- eq_constrained_1$endogenous[[t]][[j]]$w
+f <- eq_constrained_1$endogenous[[t]][[j]]$f
+eta_w <- eq_constrained_1$endogenous[[t]][[j]]$eta_w
+method_s_w <- eq_constrained_1$constant$method_s_w
+margin <- eq_constrained_1$constant$margin
+quadrature_size <- eq_constrained_1$constant$quadrature_size
+tol <- eq_constrained_1$constant$tol
+eta_w
+```
+
+### compute profit
+```{r}
+compute_profit_ths_tj(
+  m_w = m_w,
+  m_f = m_f,
+  gamma_w = gamma_w,
+  gamma_f = gamma_f,
+  x_c_w = x_c_w,
+  x_c_f = x_c_f,
+  size_w = size_w,
+  size_f = size_f,
+  owner = owner,
+  mu = mu,
+  ec_w = ec_w,
+  ec_f = ec_f,
+  w = w,
+  f = f,
+  s_w = s_w,
+  s_f = s_f
+) 
+```
+
+### compute augmented foc
+```{r}
+compute_foc_minimum_wage_tj(
+  m_w = m_w,
+  m_f = m_f,
+  beta_w = beta_w,
+  beta_f = beta_f,
+  gamma_w = gamma_w,
+  gamma_f = gamma_f,
+  lambda_w = lambda_w,
+  lambda_f = lambda_f,
+  x_a_w = x_a_w,
+  x_a_f = x_a_f,
+  x_c_w = x_c_w,
+  x_c_f = x_c_f,
+  w_0 = w_0,
+  size_w = size_w,
+  size_f = size_f,
+  owner = owner,
+  mu = mu,
+  ea_w = ea_w,
+  ea_f = ea_f,
+  ec_w = ec_w,
+  ec_f = ec_f,
+  w = w,
+  f = f,
+  s_f = s_f,
+  eta_w = eta_w,
+  method_s_w = "exact",
+  margin = margin,
+  quadrature_size = quadrature_size,
+  tol = tol
+) 
+```
+
+#### foc_shape_w
+
+```{r}
+check_foc_w_shape_minimum_wage_tj(
+  equilibrium = eq_constrained_1,
+  t = t,
+  j = j,
+  w_0 = w_0,
+  i = 2
+)
+```
+
+#### foc_shape_f
+```{r}
+check_foc_f_shape_minimum_wage_tj(
+  equilibrium = equilibrium,
+  t = t,
+  j = j,
+  w_0 = w_0,
+  i = 2
+)
+```
+
+## iteration with profit maximization
+```{r}
+eq_constrained_2 <- 
+  solve_equilibrium_minimum_wage_tj(
+    t = t,
+    j = j,
+    eta_w = 1e-16,
+    equilibrium = equilibrium,
+    solver ="iteration",
+    multistart = 20,
+    w_0 = w_0
+  )
+
+eq_constrained_2
+```
+
+# Check equilibrium difference
+```{r}
+eq_constrained_1$endogenous[[t]][[j]]$w - 
+  eq_constrained_2$endogenous[[t]][[j]]$w
+eq_constrained_1$endogenous[[t]][[j]]$f - 
+  eq_constrained_2$endogenous[[t]][[j]]$f
+```
+

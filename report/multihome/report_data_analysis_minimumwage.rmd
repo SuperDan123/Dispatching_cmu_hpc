@@ -1,0 +1,483 @@
+---
+title: "report data analysis (use minimum wage data)"
+author: "Chiho Taniguchi"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 3, fig.width = 4)
+
+library("magrittr")
+library("kableExtra")
+library("ggplot2")
+
+height <- 6
+width <- 8
+
+```
+
+```{r }
+
+ data_establishments <- 
+  here::here(file = "cleaned/data_establishments.rds") %>% 
+  readRDS()
+
+ data_zipcode <- 
+   here::here(file = "cleaned/data_zipcode.rds") %>% 
+   readRDS()
+ 
+ data_area <- 
+   here::here(file = "cleaned/data_area.rds") %>% 
+   readRDS()
+ 
+ data_zip_establishments <- 
+   here::here(file = "output/data_zip_establishments.rds") %>% 
+   readRDS()
+ 
+ data_cz_establishments <- 
+   here::here(file = "output/data_cz_establishments.rds") %>% 
+   readRDS()
+ 
+ data_area_area_distance <- 
+   here::here(file = "cleaned/data_area_area_distance.rds") %>% 
+   readRDS()
+ 
+ ## there are two establishments whose firm_id are NA in data_cz_establishments
+ 
+ data_cz_establishments_distance <- 
+   here::here(file = "output/data_cz_establishments_distance.rds") %>% 
+   readRDS()
+ 
+```
+
+# cz data
+Regress the number of general establishments on minimum wage, prefecture fixed effect(p_FE), and year fixed effect(t_FE) 
+
+```{r}
+
+results <- list()
+ 
+ results[[1]] <- 
+   estimatr::lm_robust(
+     formula = N_jt_10000 ~ mw,
+     fixed_effects = year + pref,
+     se_type = "stata",
+     data = data_cz_establishments
+   )
+ 
+ results[[2]] <- 
+   estimatr::lm_robust(
+     formula = N_jt_10000 ~ mw,
+     fixed_effects = pref,
+     se_type = "stata",
+     data = data_cz_establishments
+   )
+ 
+ results[[3]] <- 
+   estimatr::lm_robust(
+     formula = N_jt_10000 ~ mw,
+     fixed_effects = year,
+     se_type = "stata",
+     data = data_cz_establishments
+   )
+ 
+ rows_D <- 
+   tibble::tribble(
+     ~term, ~`(1)`, ~`(2)`, ~`(3)`,
+     'p_FE', 'Y', 'Y', 'N',
+     't_FE', 'Y', 'N', 'Y' 
+   )
+ 
+ attr(rows_D, 'position') <- c(4,5)
+ 
+ result <- 
+   list(
+     "N_jt" = results[[1]],
+     "N_jt" = results[[2]],
+     "N_jt" = results[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows_D
+ ) 
+
+```
+
+## Check the relation between mw and the number of general establishments
+
+### All data
+
+```{r}
+
+data_cz_establishments_mw <- 
+  data_cz_establishments %>% 
+  dplyr::select(
+    id_unique,
+    firm_id,
+    pref,
+    year,
+    mw,
+    N_jt,
+    N_jt_10000
+  ) %>% 
+  fastDummies::dummy_cols(
+    select_columns = c("pref", "year"),
+    remove_first_dummy = FALSE
+  )
+
+r_mw <- 
+  estimatr::lm_robust(
+    formula = mw ~ pref_2 + pref_3 + pref_4 + pref_5 + pref_6 + pref_7 + pref_8 + pref_9 + pref_10 +
+      pref_11 + pref_12 + pref_13 + pref_14 + pref_15 + pref_16 + pref_17 + pref_18 + pref_19 + pref_20 +
+      pref_21 + pref_22 + pref_23 + pref_24 + pref_25 + pref_26 + pref_27 + pref_28 + pref_29 + pref_30 +
+      pref_31 + pref_32 + pref_33 + pref_34 + pref_35 + pref_36 + pref_37 + pref_38 + pref_39 + pref_40 +
+      pref_41 + pref_42 + pref_43 + pref_44 + pref_45 + pref_46 + pref_47 +
+      year_2011 + year_2012 + year_2013 + year_2014,
+    se_type = "stata",
+    data = data_cz_establishments_mw
+  )
+
+r_Njt <- 
+  estimatr::lm_robust(
+    formula = N_jt_10000 ~ pref_2 + pref_3 + pref_4 + pref_5 + pref_6 + pref_7 + pref_8 + pref_9 + pref_10 +
+      pref_11 + pref_12 + pref_13 + pref_14 + pref_15 + pref_16 + pref_17 + pref_18 + pref_19 + pref_20 +
+      pref_21 + pref_22 + pref_23 + pref_24 + pref_25 + pref_26 + pref_27 + pref_28 + pref_29 + pref_30 +
+      pref_31 + pref_32 + pref_33 + pref_34 + pref_35 + pref_36 + pref_37 + pref_38 + pref_39 + pref_40 +
+      pref_41 + pref_42 + pref_43 + pref_44 + pref_45 + pref_46 + pref_47 +
+      year_2011 + year_2012 + year_2013 + year_2014,
+    se_type = "stata",
+    data = data_cz_establishments_mw
+  )
+  
+
+residuals_mw <- 
+  (r_mw$fitted.values - data_cz_establishments_mw$mw)
+
+residuals_Njt <- 
+  (r_mw$fitted.values - data_cz_establishments_mw$N_jt_10000)
+
+binscatter_residuals <- 
+  cbind(
+    residuals_mw,
+    residuals_Njt
+  ) %>% 
+  as.data.frame()
+
+binscatter_residuals <- 
+  binscatter_residuals %>% 
+  cbind(data_cz_establishments_mw$id_unique) %>% 
+  dplyr::rename(
+    id_unique = "data_cz_establishments_mw$id_unique"
+  ) 
+
+binscatter_residuals <- 
+  binscatter_residuals %>% 
+  dplyr::select(
+    id_unique,
+    dplyr::everything()
+  ) 
+
+binscatter_residuals <- 
+  binscatter_residuals %>% 
+  dplyr::mutate(
+    mw_bin = cut(
+      id_unique,
+      breaks = 500
+    )
+  ) %>% 
+  dplyr::group_by(
+    mw_bin
+  ) %>% 
+  dplyr::mutate(
+    residuals_mw_avr = mean(residuals_mw),
+    residuals_Njt_avr = mean(residuals_Njt)
+  ) %>% 
+  dplyr::ungroup()
+
+ binscatter_residuals_unique <- 
+   binscatter_residuals %>% 
+   dplyr::select(
+     residuals_mw_avr,
+     residuals_Njt_avr
+   ) %>% 
+   dplyr::distinct()
+ 
+
+ g_mw <- 
+   ggplot() +
+   geom_point(
+     data = binscatter_residuals,
+     mapping = aes(x = residuals_mw,
+                   y = residuals_Njt),
+     size = 0.3
+   ) +
+   theme_classic()
+ 
+ g_mw
+
+```
+
+### binscatter plot
+
+```{r}
+
+ mw_binscatter <- ggplot() +
+  geom_point(
+    data = binscatter_residuals_unique,
+    mapping = aes(x = residuals_mw_avr,
+                  y = residuals_Njt_avr),
+    size = 0.3
+  ) +
+  stat_smooth(
+    method = "lm",
+    data = binscatter_residuals_unique,
+    mapping = aes(x = residuals_mw_avr,
+                  y = residuals_Njt_avr),
+    se = FALSE,
+    size = 0.3
+  ) +
+  xlab("residuals of minimum wage") +
+  ylab("residuals of N_jt") +
+  theme_classic()
+
+ mw_binscatter
+
+```
+
+
+## use data_cz_establishments_distance
+
+```{r}
+
+data_cz_establishments_distance <- 
+  data_cz_establishments_distance %>% 
+  dplyr::group_by(
+    year,
+    cz
+  ) %>% 
+  dplyr::mutate(
+    distance_min_avr = mean(distance_min_r)
+  )
+
+
+```
+
+### 1 st stage
+
+```{r}
+
+
+
+```
+
+# zip data
+
+Regress the number of general establishments on minimum wage, prefecture fixed effect(p_FE), and year fixed effect(t_FE) 
+
+```{r}
+
+results2 <- list()
+ 
+ results2[[1]] <- 
+   estimatr::lm_robust(
+     formula = N_zip_t_100 ~ mw,
+     fixed_effects = year + pref,
+     se_type = "stata",
+     data = data_zip_establishments
+   )
+ 
+ results2[[2]] <- 
+   estimatr::lm_robust(
+     formula = N_zip_t_100 ~ mw,
+     fixed_effects = pref,
+     se_type = "stata",
+     data = data_zip_establishments
+   )
+ 
+ results2[[3]] <- 
+   estimatr::lm_robust(
+     formula = N_zip_t_100 ~ mw,
+     fixed_effects = year,
+     se_type = "stata",
+     data = data_zip_establishments
+   )
+ 
+ rows_D <- 
+   tibble::tribble(
+     ~term, ~`(1)`, ~`(2)`, ~`(3)`,
+     'p_FE', 'Y', 'Y', 'N',
+     't_FE', 'Y', 'N', 'Y' 
+   )
+ 
+ attr(rows_D, 'position') <- c(4,5)
+ 
+ result_2 <- 
+   list(
+     "N_jt" = results2[[1]],
+     "N_jt" = results2[[2]],
+     "N_jt" = results2[[3]]
+   )
+ 
+ modelsummary::modelsummary(
+   result_2,
+   stars = c("*" = .1, "**" = .05, "***" = .01),
+   statistic = 'std.error',
+   conf_level = .95 ,
+   gof_omit = "AIC|BIC",
+   add_rows = rows_D
+ ) 
+
+```
+
+## Check the relation between mw and the number of general establishments 
+
+### All data
+
+```{r}
+
+data_zip_establishments_mw <- 
+  data_zip_establishments %>% 
+  dplyr::select(
+    id_unique,
+    firm_id,
+    pref,
+    year,
+    mw,
+    N_zip_t,
+    N_zip_t_100
+  ) %>% 
+  fastDummies::dummy_cols(
+    select_columns = c("pref", "year"),
+    remove_first_dummy = FALSE
+  )
+
+r_mw_zip <- 
+  estimatr::lm_robust(
+    formula = mw ~ pref_2 + pref_3 + pref_4 + pref_5 + pref_6 + pref_7 + pref_8 + pref_9 + pref_10 +
+      pref_11 + pref_12 + pref_13 + pref_14 + pref_15 + pref_16 + pref_17 + pref_18 + pref_19 + pref_20 +
+      pref_21 + pref_22 + pref_23 + pref_24 + pref_25 + pref_26 + pref_27 + pref_28 + pref_29 + pref_30 +
+      pref_31 + pref_32 + pref_33 + pref_34 + pref_35 + pref_36 + pref_37 + pref_38 + pref_39 + pref_40 +
+      pref_41 + pref_42 + pref_43 + pref_44 + pref_45 + pref_46 + pref_47 +
+      year_2011 + year_2012 + year_2013 + year_2014,
+    se_type = "stata",
+    data = data_zip_establishments_mw
+  )
+
+r_N_zip_t <- 
+  estimatr::lm_robust(
+    formula = N_zip_t_100 ~ pref_2 + pref_3 + pref_4 + pref_5 + pref_6 + pref_7 + pref_8 + pref_9 + pref_10 +
+      pref_11 + pref_12 + pref_13 + pref_14 + pref_15 + pref_16 + pref_17 + pref_18 + pref_19 + pref_20 +
+      pref_21 + pref_22 + pref_23 + pref_24 + pref_25 + pref_26 + pref_27 + pref_28 + pref_29 + pref_30 +
+      pref_31 + pref_32 + pref_33 + pref_34 + pref_35 + pref_36 + pref_37 + pref_38 + pref_39 + pref_40 +
+      pref_41 + pref_42 + pref_43 + pref_44 + pref_45 + pref_46 + pref_47 +
+      year_2011 + year_2012 + year_2013 + year_2014,
+    se_type = "stata",
+    data = data_zip_establishments_mw
+  )
+  
+
+residuals_mw_zip <- 
+  (r_mw_zip$fitted.values - data_zip_establishments_mw$mw)
+
+residuals_N_zip_t <- 
+  (r_N_zip_t$fitted.values - data_zip_establishments_mw$N_zip_t_100)
+
+binscatter_residuals_zip <- 
+  cbind(
+    residuals_mw_zip,
+    residuals_N_zip_t
+  ) %>% 
+  as.data.frame()
+
+binscatter_residuals_zip <- 
+  binscatter_residuals_zip %>% 
+  cbind(data_zip_establishments_mw$id_unique) %>% 
+  dplyr::rename(
+    id_unique = "data_zip_establishments_mw$id_unique"
+  ) 
+
+binscatter_residuals_zip <- 
+  binscatter_residuals_zip %>% 
+  dplyr::select(
+    id_unique,
+    dplyr::everything()
+  ) 
+
+binscatter_residuals_zip <- 
+  binscatter_residuals_zip %>% 
+  dplyr::mutate(
+    mw_bin_zip = cut(
+      id_unique,
+      breaks = 500
+    )
+  ) %>% 
+  dplyr::group_by(
+    mw_bin_zip
+  ) %>% 
+  dplyr::mutate(
+    residuals_mw_zip_avr = mean(residuals_mw_zip),
+    residuals_N_zip_t_avr = mean(residuals_N_zip_t)
+  ) %>% 
+  dplyr::ungroup()
+
+ binscatter_residuals_zip_unique <- 
+   binscatter_residuals_zip %>% 
+   dplyr::select(
+     residuals_mw_zip_avr,
+     residuals_N_zip_t_avr
+   ) %>% 
+   dplyr::distinct()
+ 
+
+ g_mw_zip <- 
+   ggplot() +
+   geom_point(
+     data = binscatter_residuals_zip,
+     mapping = aes(x = residuals_mw_zip,
+                   y = residuals_N_zip_t),
+     size = 0.3
+   ) +
+   theme_classic()
+ 
+ g_mw
+
+```
+
+### binscatter plot
+
+```{r}
+
+ mw_binscatter_zip <- ggplot() +
+  geom_point(
+    data = binscatter_residuals_zip_unique,
+    mapping = aes(x = residuals_mw_zip_avr,
+                  y = residuals_N_zip_t_avr),
+    size = 0.3
+  ) +
+  stat_smooth(
+    method = "lm",
+    data = binscatter_residuals_zip_unique,
+    mapping = aes(x = residuals_mw_zip_avr,
+                  y = residuals_N_zip_t_avr),
+    se = FALSE,
+    size = 0.3
+  ) +
+  xlab("residuals of minimum wage") +
+  ylab("residuals of N_zip_t") +
+  theme_classic()
+
+ mw_binscatter_zip
+
+```
+
+

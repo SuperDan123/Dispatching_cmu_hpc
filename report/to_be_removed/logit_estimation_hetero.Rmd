@@ -1,0 +1,674 @@
+---
+title: "Model Estimation"
+author: "Katsuhiro Komatsu"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 4, fig.width = 8)
+```
+
+```{r, include = F}
+
+type = "html" # regression output
+
+library(magrittr)
+library(ggplot2); theme_set(theme_bw())
+library(stargazer)
+library(lfe)
+library(gmm)
+library(nleqslv)
+
+```
+
+
+```{r}
+load("../output/share_data.RData")
+```
+
+```{r}
+x_names <- share_data %>% 
+  dplyr::select(
+    daily,
+    shokai,
+    oversea,
+    cocurrent,
+    dplyr::starts_with("type_")
+  ) %>% 
+  colnames()
+
+iv_names <- share_data %>% 
+  dplyr::select(
+    dplyr::starts_with("d_mean_"),
+    dplyr::starts_with("d_sd_")
+  ) %>% 
+  colnames()
+
+
+fe_names <- share_data %>% 
+  dplyr::select(
+    year_cz,
+    firm_id
+  ) %>% 
+  colnames()
+
+var_names <- list(
+  x_names = x_names,
+  iv_names = iv_names,
+  fe_names = fe_names
+)
+
+```
+
+
+<!-- ### Distribution of Net Wages and Net Fees -->
+```{r, eval = F}
+g1 <- share_data %>% 
+  ggplot(aes(x = wage_net)) + stat_ecdf() +
+  xlab("Wage - Parttime Wage") + ylab("Fraction")
+
+g2 <- share_data %>% 
+  ggplot(aes(x = fee_net)) + stat_ecdf() +
+  xlab("Fee - Parttime Wage") + ylab("Fraction")
+
+gridExtra::grid.arrange(g1, g2, nrow = 1)
+
+```
+
+
+- Year x CZ fixed effects and firm fixed effects are controlled.
+- Covariates: Type of work, daily (dummy), shokai, oversea, coccurent
+- Differentiation IV: For each THS establishment $i$, compute $d_{i,k}=|x_i - x_k|$ for all $k\neq i$ and use the average and the standard deviation of $d_{i,k}$ as instruments for wages and fees.
+
+```{r, results="asis", eval = F}
+
+reg_data <- share_data %>% 
+  dplyr::select(
+    y_W,
+    y_F,
+    dplyr::starts_with("type_"),
+    daily,
+    shokai,
+    oversea,
+    cocurrent,
+    staff_decile,
+    dplyr::starts_with("d_mean_"),
+    dplyr::starts_with("d_sd_"),
+    year_cz,
+    firm_id,
+    wage_net,
+    fee_net,
+    cz,
+    wage_hiv,
+    fee_hiv,
+    fee,
+    wage,
+    share_W,
+    share_F,
+    year,
+    id_unique
+  ) %>% 
+  dplyr::mutate(firm_id = as.numeric(firm_id)) %>% 
+  na.omit()
+
+formula_list <- list()
+formula_list[[1]] <- paste("y_W ~ ", ctr_vars, " + wage_net + fee_net | year_cz + firm_id | 0 | cz ")
+formula_list[[2]] <- paste("y_W ~ ", ctr_vars, " + 1 | year_cz + firm_id | (wage_net | fee_net ~ ", iv_dif,  ") | cz ")
+formula_list[[3]] <- paste("y_W ~ ", ctr_vars, " + 1 | year_cz + firm_id | (wage_net | fee_net ~ wage_hiv + fee_hiv + I(wage_hiv ^ 2) + I(fee_hiv ^ 2) + wage_hiv:fee_hiv) | cz ")
+formula_list[[4]] <- paste("y_W ~ ", ctr_vars, " + 1 | year_cz + firm_id | (wage_net | fee_net ~ ", iv_dif,  " + wage_hiv + fee_hiv) | cz ")
+formula_list[[5]] <- paste("y_F ~ ", ctr_vars, " + wage_net + fee_net | year_cz + firm_id | 0 | cz ")
+formula_list[[6]] <- paste("y_F ~ ", ctr_vars, " + 1 | year_cz + firm_id | (wage_net | fee_net ~ ", iv_dif,  ") | cz ")
+formula_list[[7]] <- paste("y_F ~ ", ctr_vars, " + 1 | year_cz + firm_id | (wage_net | fee_net ~ wage_hiv + fee_hiv + I(wage_hiv ^ 2) + I(fee_hiv ^ 2) + wage_hiv:fee_hiv) | cz ")
+formula_list[[8]] <- paste("y_F ~ ", ctr_vars, " + 1 | year_cz + firm_id | (wage_net | fee_net ~ ", iv_dif,  " + wage_hiv + fee_hiv) | cz ")
+
+
+result <- list()
+for (i in 1:8){
+  result[[i]] <- reg_data %>% 
+    felm(data = .,
+      formula = as.formula(formula_list[[i]])) 
+}
+
+
+# tidy up the expression
+i_w <- 1 + length(ctr_vars_names) # Because X includes the decile of staff members
+i_f <- 2 + length(ctr_vars_names)
+
+coef_order <- c(i_w, i_f, 1:(i_w-1))
+
+for (j in 2:4){
+
+  # change label
+  rownames(result[[j]]$coefficients)[i_w] <- "wage_net"
+  rownames(result[[j]]$beta)[i_w] <- "wage_net"
+  names(result[[j]]$cse)[i_w] <- "wage_net"
+
+  rownames(result[[j]]$coefficients)[i_f] <- "fee_net"
+  rownames(result[[j]]$beta)[i_f] <- "fee_net"
+  names(result[[j]]$cse)[i_f] <- "fee_net"
+
+  # result[[j]]$coefficients <- result[[j]]$coefficients[coef_order, 1, drop = F]
+  # result[[j]]$beta <- result[[j]]$beta[coef_order, 1, drop = F]
+  # result[[j]]$cse <- result[[j]]$cse[coef_order]
+  # result[[j]]$cpval <- result[[j]]$cpval[coef_order]
+
+}
+
+for (j in 6:8){
+
+  # change label
+  rownames(result[[j]]$coefficients)[i_w] <- "wage_net"
+  rownames(result[[j]]$beta)[i_w] <- "wage_net"
+  names(result[[j]]$cse)[i_w] <- "wage_net"
+
+  rownames(result[[j]]$coefficients)[i_f] <- "fee_net"
+  rownames(result[[j]]$beta)[i_f] <- "fee_net"
+  names(result[[j]]$cse)[i_f] <- "fee_net"
+
+  # result[[j]]$coefficients <- result[[j]]$coefficients[coef_order, 1, drop = F]
+  # result[[j]]$beta <- result[[j]]$beta[coef_order, 1, drop = F]
+  # result[[j]]$cse <- result[[j]]$cse[coef_order]
+  # result[[j]]$cpval <- result[[j]]$cpval[coef_order]
+
+}
+
+stargazer(result, 
+          type = "html",
+          dep.var.labels.include = FALSE,
+          column.separate = c(4, 4),
+          column.labels = c("Worker", "Firm"),
+          keep.stat = c("n", "rsq"),
+          order = c("wage_net", "fee_net", "daily", "shokai", "oversea", "cocurrent"),
+          # keep = c("wage", "fee"),
+          covariate.labels = c("Net Wage", "Net Fee", "Daily", "Shokai", "Oversea", "Cocurrent", worktype_description$description_jp),
+          add.lines = list(c("Dif IV", c("", "X", "", "X", "", "X", "", "X")),
+                           c("Hausman IV", c("", "", "X", "X", "", "", "X", "X"))))
+
+```
+
+#### 1. OLS
+```{r, results="asis"}
+
+ctr_vars <- paste(x_names, sep = "", collapse = " + ")
+
+result_w <- lfe::felm(
+  formula = as.formula(paste("y_W ~ ", ctr_vars, " + wage_net + fee_net | year_cz + firm_id ")),
+  data = share_data
+)
+
+result_f <- lfe::felm(
+  formula = as.formula(paste("y_F ~ ", ctr_vars, " + wage_net + fee_net | year_cz + firm_id ")),
+  data = share_data
+)
+
+stargazer(result_w, result_f, 
+          type = "html",
+          keep.stat = c("n", "rsq"),
+          dep.var.labels.include = FALSE,
+          dep.var.caption = "",
+          column.labels = c("Worker", "Firm"),
+          keep = c("wage_net", "fee_net", "daily", "shokai", "oversea", "cocurrent"),
+          order = c("wage_net", "fee_net", "daily", "shokai", "oversea", "cocurrent"),
+          covariate.labels = c("Net Wage", "Net Fee", "Daily", "Shokai", "Oversea", "Cocurrent"),
+          omit = c("Constant"))
+
+```
+
+
+#### 2. GMM Separate Estimation 
+  - Two-Step GMM without Optimal Instruments
+```{r, results="asis"}
+# GMM
+vars <- c(x_names, iv_names, "y_W", "y_F", "wage_net", "fee_net")
+
+fe_vars <- fe_names %>% 
+  paste(sep = "", collapse = " + ")
+  
+# Partial out FE
+data_list <- list()
+for (i in 1:length(vars)){
+    
+  v <- vars[i]
+  fml <- paste(v, " ~ 1 | ", fe_vars)
+  data_list[[v]] <- fixest::feols(fml = as.formula(fml), data = share_data)$residuals
+}
+
+data_transformed <- as.data.frame(data_list)
+
+ctr_vars <- paste(x_names, sep = "", collapse = " + ")
+iv_vars <- paste(iv_names, sep = "", collapse = " + ")
+
+fml_w <- paste("y_W ~ ", ctr_vars, " + wage_net + fee_net")
+fml_f <- paste("y_F ~ ", ctr_vars, " + wage_net + fee_net")
+fml_z <- paste(" ~ ", iv_vars, " + ", ctr_vars)
+
+# result_w <- gmm(
+#   g = as.formula(fml_w),
+#   x = as.formula(fml_z),
+#   data = data_transformed,
+#   type = "twoStep"
+# )
+# 
+# result_f <- gmm(
+#   g = as.formula(fml_f),
+#   x = as.formula(fml_z),
+#   data = data_transformed,
+#   type = "twoStep"
+# )
+# 
+# save(result_w, result_f, file = "../output/gmm_result_separate.RData")
+
+load("../output/gmm_result_separate.RData")
+
+stargazer(result_w, result_f, 
+          type = "html",
+          keep.stat = c("n", "rsq"),
+          dep.var.labels.include = FALSE,
+          dep.var.caption = "",
+          column.labels = c("Worker", "Firm"),
+          keep = c("wage_net", "fee_net", "daily", "shokai", "oversea", "cocurrent"),
+          order = c("wage_net", "fee_net", "daily", "shokai", "oversea", "cocurrent"),
+          covariate.labels = c("Net Wage", "Net Fee", "Daily", "Shokai", "Oversea", "Cocurrent"),
+          omit = c("Constant"))
+```
+
+
+
+#### GMM Joint Estimation 
+  - Two-Step GMM without Optimal Instruments
+```{r, results="asis"}
+x_names <- share_data %>% 
+  dplyr::select(
+    daily,
+    shokai,
+    oversea,
+    cocurrent,
+    dplyr::starts_with("type_")
+  ) %>% 
+  colnames()
+
+iv_names <- share_data %>% 
+  dplyr::select(
+    dplyr::starts_with("d_mean_"),
+    dplyr::starts_with("d_sd_")
+  ) %>% 
+  colnames()
+
+
+fe_names <- share_data %>% 
+  dplyr::select(
+    year_cz,
+    firm_id
+  ) %>% 
+  colnames()
+
+var_names <- list(
+  x_names = x_names,
+  iv_names = iv_names,
+  fe_names = fe_names
+)
+
+# result <- estimate_parameters_all(share_data, var_names)
+# save(result, file = "../output/gmm_not_optimal_iv.RData")
+
+load("../output/gmm_not_optimal_iv.RData")
+
+varname <- c("net wage", "net fee",
+              names(result$params_linear_W)[1:4],
+              "net wage", "net fee",
+              names(result$params_linear_F[1:4]),
+              names(result$params_linear_MC[1:4]))
+
+coef <- c(result$params_nonlinear[1],
+           -result$params_nonlinear[2],
+           result$params_linear_W[1:4],
+           result$params_nonlinear[4],
+           -result$params_nonlinear[3],
+           result$params_linear_F[1:4], 
+           result$params_linear_MC[1:4])
+names(coef) <- varname
+
+se <- c(result$se_nonlinear[1:2], 
+         result$se_linear_W[1:4], 
+         result$se_nonlinear[4:3],
+         result$se_linear_F[1:4], 
+         result$se_linear_MC[1:4])
+names(se) <- varname
+
+# df <- data.frame(
+#   Varname = c("net wage", "net fee",
+#               names(result$params_linear_W)[1:4],
+#               "net wage", "net fee",
+#               names(result$params_linear_F[1:4]),
+#               names(result$params_linear_MC[1:4])),
+#   Coef = c(result$params_nonlinear[1],
+#            -result$params_nonlinear[2],
+#            result$params_linear_W[1:4],
+#            result$params_nonlinear[4],
+#            -result$params_nonlinear[3],
+#            result$params_linear_F[1:4], 
+#            result$params_linear_MC[1:4]),
+#   SE = c(result$se_nonlinear[1:2], 
+#          result$se_linear_W[1:4], 
+#          result$se_nonlinear[3:4],
+#          result$se_linear_F[1:4], 
+#          result$se_linear_MC[1:4])
+# )
+# 
+# df$Coef <- round(df$Coef, 3)
+# df$SE <- round(df$SE, 3)
+# tbl <- xtable::xtable(df)
+
+# This regression has no meaning. Just to use stargazer. 
+result_W <- lm(y_W ~ wage_net + fee_net + daily + shokai + oversea + cocurrent, 
+               data = share_data)
+
+# result_W$residuals <- NULL
+# result_W$effects <- NULL
+# result_W$rank <- NULL
+# result_W$fitted.values <- NULL
+# result_W$assign <- NULL
+# result_W$call <- NULL
+
+result_F <- result_W
+result_MC <- result_W
+
+
+w_idx <- 1:6
+f_idx <- 7:12
+mc_idx <- 13:16
+
+result_W$coefficients <- coef[w_idx]
+result_F$coefficients <- coef[f_idx]
+result_MC$coefficients <- coef[mc_idx]
+
+stargazer(result_W, result_F, result_MC,
+          type = "html",
+          dep.var.caption = "",
+          dep.var.labels.include = FALSE,
+          column.labels = c("Worker", "Firm", "MC"),
+          se = list(se[w_idx], se[f_idx], se[mc_idx]),
+          covariate.labels = c("Net Wage", "Net Fee", "Daily", "Shokai", "Oversea", "Cocurrent"),
+          keep.stat = c("N"))
+
+# knitr::kable(tbl, format = "html", caption = "", booktabs = T) %>%
+#   kableExtra::kable_styling() %>%
+#   kableExtra::group_rows("Worker Demand", 1, 6) %>%
+#   kableExtra::group_rows("Firm Demand", 7, 12) %>% 
+#   kableExtra::group_rows("Supply Side", 13, 16)
+```
+
+
+
+
+
+
+
+<!-- ### Residuals $\hat \xi_{i,m,t}$ -->
+<!-- ```{r, eval=F} -->
+
+<!-- result_W <- result[[2]] -->
+<!-- result_F <- result[[6]] -->
+<!-- reg_data$resid_W <- result_W$residuals -->
+<!-- reg_data$resid_F <- result_F$residuals -->
+
+<!-- figdata <- data %>%  -->
+<!--   dplyr::filter(to_use == 1) %>%  -->
+<!--   dplyr::left_join(dplyr::select(reg_data, id_unique, resid_W, resid_F), by = "id_unique") %>%  -->
+<!--   dplyr::group_by(year, firm_id) %>%  -->
+<!--   dplyr::mutate(firmsize = dplyr::n()) %>%  -->
+<!--   dplyr::ungroup() -->
+
+<!-- figdata$sales_qntl <- gtools::quantcut(figdata$sales, q = 4, na.rm = T) -->
+<!-- levels(figdata$sales_qntl) <- c("Q1", "Q2", "Q3", "Q4") -->
+
+<!-- figdata$firmsize_qntl <- gtools::quantcut(figdata$firmsize, q = 4, na.rm = T) -->
+<!-- levels(figdata$firmsize_qntl) <- c("Q1", "Q2", "Q3", "Q4") -->
+
+<!-- # Sales -->
+<!-- g1 <- figdata %>%  -->
+<!--   ggplot(aes(x = resid_W, color = sales_qntl, linetype = sales_qntl)) + -->
+<!--   stat_ecdf() + xlab("Worker Side Residual") + ylab("Fraction") + ggtitle("Distribution of Worker Side Residuals") + -->
+<!--   scale_color_discrete(name = "Sales") + -->
+<!--   scale_linetype_discrete(name = "Sales") + -->
+<!--   xlim(-5, 5) + theme(legend.position = "bottom") -->
+
+<!-- g2 <- figdata %>%  -->
+<!--   ggplot(aes(x = resid_F, color = sales_qntl, linetype = sales_qntl)) + -->
+<!--   stat_ecdf() + xlab("Firm Side Residual") + ylab("Fraction") + ggtitle("Distribution of Firm Side Residuals") + -->
+<!--   scale_color_discrete(name = "Sales") + -->
+<!--   scale_linetype_discrete(name = "Sales") + -->
+<!--   xlim(-5, 5) + theme(legend.position = "bottom") -->
+
+<!-- gridExtra::grid.arrange(g1, g2, nrow = 1) -->
+
+<!-- # Firm size (number of establishments) -->
+<!-- g1 <- figdata %>%  -->
+<!--   ggplot(aes(x = resid_W, color = firmsize_qntl, linetype = firmsize_qntl)) + -->
+<!--   stat_ecdf() + xlab("Worker Side Residual") + ylab("Fraction") + ggtitle("Distribution of Worker Side Residuals") + -->
+<!--   scale_color_discrete(name = "Num Establishments") + -->
+<!--   scale_linetype_discrete(name = "Num Establishments") + -->
+<!--   xlim(-5, 5) + theme(legend.position = "bottom") -->
+
+<!-- g2 <- figdata %>%  -->
+<!--   ggplot(aes(x = resid_F, color = firmsize_qntl, linetype = firmsize_qntl)) + -->
+<!--   stat_ecdf() + xlab("Firm Side Residual") + ylab("Fraction") + ggtitle("Distribution of Firm Side Residuals") + -->
+<!--   scale_color_discrete(name = "Num Establishments") + -->
+<!--   scale_linetype_discrete(name = "Num Establishments")   + -->
+<!--   xlim(-5, 5) + theme(legend.position = "bottom") -->
+
+<!-- gridExtra::grid.arrange(g1, g2, nrow = 1) -->
+
+
+<!-- ``` -->
+
+
+<!-- ### GMM -->
+<!-- ```{r} -->
+
+<!-- fml_1 <- paste("y_W ~ wage_net + fee_net + factor(year_cz) + ", ctr_vars) -->
+<!-- fml_2 <- paste(" ~ ", iv_dif, " + factor(year_cz) + ", ctr_vars) -->
+
+<!-- foo <- gmm::gmm( -->
+<!--   as.formula(fml_1), as.formula(fml_2), -->
+<!--   data = reg_data, -->
+<!--   type = "twoStep" -->
+<!-- ) -->
+
+<!-- summary(foo) -->
+
+<!-- ``` -->
+
+
+
+<!-- ### First Stage -->
+<!-- ```{r, results="asis"} -->
+
+<!-- formula_list <- list() -->
+<!-- formula_list[[1]] <- paste("wage_net ~ ", ctr_vars, " + wage_hiv + fee_hiv | year_cz + firm_id | 0 | cz ") -->
+<!-- formula_list[[2]] <- paste("wage_net ~ ", ctr_vars, "+", iv_dif, " | year_cz + firm_id | 0 | cz ") -->
+<!-- formula_list[[3]] <- paste("fee_net ~ ", ctr_vars, " + wage_hiv + fee_hiv | year_cz + firm_id | 0 | cz ") -->
+<!-- formula_list[[4]] <- paste("fee_net ~ ", ctr_vars, "+", iv_dif, "  | year_cz + firm_id | 0 | cz ") -->
+
+<!-- result <- list() -->
+<!-- for (i in 1:4){ -->
+<!--   result[[i]] <- share_data %>%  -->
+<!--     felm(data = ., -->
+<!--       formula = as.formula(formula_list[[i]]))  -->
+<!-- } -->
+
+<!-- stargazer(result,  -->
+<!--           type = "html", -->
+<!--           dep.var.labels.include = FALSE, -->
+<!--           column.separate = c(2, 2), -->
+<!--           column.labels = c("Net Wage", "Net Fee"), -->
+<!--           keep.stat = c("n", "rsq"), -->
+<!--           order = c("wage_hiv", "fee_hiv")) -->
+
+<!-- ``` -->
+
+
+<!-- ### Implied Marginal Costs -->
+
+<!-- ```{r, eval=F} -->
+
+<!-- fn_param <- function(x, param){ -->
+
+<!--   alpha = x[1] -->
+<!--   beta = x[2] -->
+<!--   lambda_W = x[3] -->
+<!--   lambda_F = x[4] -->
+
+<!--   out = rep(0, 4) -->
+<!--   out[1] = -param[1] + (1 + (beta + 2 * (alpha - 1)) / 2 / (2 - alpha - beta)) / lambda_W -->
+<!--   out[2] = -param[2] + beta / 2 / (2 - alpha - beta) -->
+<!--   out[3] = -param[3] + (1 + (alpha + 2 * (beta - 1)) / 2 / (2 - alpha - beta)) / lambda_F -->
+<!--   out[4] = -param[4] + alpha / 2 / (2 - alpha - beta) -->
+
+<!--   return(out) -->
+<!-- } -->
+
+<!-- param <- c(1.789, 1.865, 1.203, 0.944) -->
+
+<!-- fn <- function(x){ return (fn_param(x, param))} -->
+<!-- result <- nleqslv(rep(0.5, 4), fn) -->
+<!-- alpha = result$x[1] -->
+<!-- beta = result$x[2] -->
+
+
+<!-- beta_W_1 = param[1] -->
+<!-- beta_W_2 = param[2] -->
+<!-- beta_F_1 = param[3] -->
+<!-- beta_F_2 = param[4] -->
+
+<!-- # Worker side -->
+<!-- temp <- share_data %>%  -->
+<!--   dplyr::mutate( -->
+<!--     mu_W = fee - 1 / (alpha * beta_W_1 * (1 - share_W) + beta * beta_F_2 * (1 - share_F)), -->
+<!--     mu_F = wage + 1 / (beta * beta_F_1 * (1 - share_F) + alpha * beta_W_2 * (1 - share_W)), -->
+<!--     c_W = mu_W - wage, -->
+<!--     c_F = fee - mu_F -->
+<!--   ) %>%  -->
+<!--   dplyr::select(year, cz, wage, fee, mu_W, mu_F, c_W, c_F, share_W, share_F) -->
+
+<!-- # g1 <- data.frame(mc = temp$c_F, type = "by FOC for Fee") %>%  -->
+<!-- #   dplyr::bind_rows(data.frame(mc = temp$c_W, type = "by FOC for Wage")) %>%  -->
+<!-- #   ggplot(aes(x = mc)) + geom_point() + xlab("Marginal Cost (10K Yen)") + -->
+<!-- #   theme(legend.title = element_blank(), legend.position = "bottom") -->
+
+<!-- g1 <- temp %>%  -->
+<!--   ggplot(aes(x = c_W, y = c_F)) + geom_point() + -->
+<!--   xlab("MC implied by FOC for wage (10K Yen)") + ylab("MC implied by FOC for fee (10K Yen)") -->
+
+<!-- g2 <- temp %>%  -->
+<!--   ggplot(aes(x = fee - wage)) + geom_histogram() + xlab("Fee - Wage (10K Yen)") -->
+
+
+<!-- g3 <- data.frame(mc = temp$c_F, type = "by FOC for Fee") %>%  -->
+<!--   dplyr::bind_rows(data.frame(mc = temp$c_W, type = "by FOC for Wage")) %>%  -->
+<!--   ggplot(aes(x = mc, color = type, fill = type)) + stat_ecdf() + xlab("Marginal Cost (10K Yen)") + ylab("Fraction") + -->
+<!--   theme(legend.title = element_blank(), legend.position = "bottom") -->
+
+<!-- g4 <- temp %>%  -->
+<!--   ggplot(aes(x = fee - wage)) + stat_ecdf() + xlab("Fee - Wage (10K Yen)") + ylab("Fraction") -->
+
+<!-- gridExtra::grid.arrange(g1, g3, g4, nrow = 2) -->
+
+<!-- ``` -->
+
+
+
+
+<!-- ### Implied Parameters -->
+<!-- ```{r, eval = F} -->
+
+<!-- fn_param <- function(x, param){ -->
+
+<!--   alpha = x[1] -->
+<!--   beta = x[2] -->
+<!--   lambda_W = x[3] -->
+<!--   lambda_F = x[4] -->
+
+<!--   out = rep(0, 4) -->
+<!--   out[1] = -param[1] + (1 + (beta + 2 * (alpha - 1)) / 2 / (2 - alpha - beta)) / lambda_W -->
+<!--   out[2] = -param[2] + beta / 2 / (2 - alpha - beta) -->
+<!--   out[3] = -param[3] + (1 + (alpha + 2 * (beta - 1)) / 2 / (2 - alpha - beta)) / lambda_F -->
+<!--   out[4] = -param[4] + alpha / 2 / (2 - alpha - beta) -->
+
+<!--   return(out) -->
+<!-- } -->
+
+<!-- param <- c(3.033, 2.556, 1.314, 1.409) -->
+<!-- fn <- function(x){ return (fn_param(x, param))} -->
+<!-- result <- nleqslv(rep(0.5, 4), fn) -->
+<!-- print(result) -->
+
+<!-- ``` -->
+
+
+
+<!-- ### Numerically check how $a_i$ affects $\mu_i^W$ and $\mu_i^F$ -->
+<!-- ```{r, eval = F} -->
+
+
+<!-- fn_a <- function(x, a){ -->
+
+<!--   mu_W = x[1] -->
+<!--   mu_F = x[2] -->
+
+<!--   H_W = 1 -->
+<!--   H_F = 1 -->
+<!--   c = 1 -->
+<!--   alpha = 0.350 -->
+<!--   beta = 0.486 -->
+<!--   lambda_W = 1 -->
+<!--   lambda_F = 1 -->
+
+<!--   p_W_1 = 1 + (beta + 2 * (alpha - 1)) / (2 * (2 - alpha - beta)) -->
+<!--   p_W_2 = beta / (2 * (2 - alpha - beta)) -->
+<!--   p_F_1 = 1 + (alpha + 2 * (beta - 1)) / (2 * (2 - alpha - beta)) -->
+<!--   p_F_2 = alpha / (2 * (2 - alpha - beta)) -->
+
+<!--   n_W = H_W * exp((a - c + mu_W) / lambda_W) ^ p_W_1 * exp((a - c - mu_F) / lambda_F) ^ p_W_2 -->
+<!--   n_F = H_F * exp((a - c - mu_F) / lambda_F) ^ p_F_1 * exp((a - c + mu_W) / lambda_W) ^ p_F_2 -->
+
+<!--   out = c(0, 0) -->
+<!--   out[1] = -mu_W + c + mu_F + lambda_W * p_W_1 * (1 - n_W) - lambda_W * p_W_2 * (1 - n_F) -->
+<!--   out[2] = -mu_F - c + mu_W - lambda_F * p_F_1 * (1 - n_F) + lambda_F * p_F_2 * (1 - n_W) -->
+
+<!--   return(out) -->
+<!-- } -->
+
+<!-- a <- 1.5 -->
+<!-- fn <- function(x){ return (fn_a(x, a))} -->
+<!-- result <- nleqslv(c(1, 1), fn) -->
+
+<!-- mu_W_vec <- c() -->
+<!-- mu_F_vec <- c() -->
+<!-- a_vec <- 1:10 * 0.1 -->
+
+<!-- for (i in 1:10){ -->
+<!--   fn <- function(x){ return (fn_a(x, a_vec[i]))} -->
+<!--   result <- nleqslv(c(1, 1), fn) -->
+<!--   mu_W_vec <- c(mu_W_vec, result$x[1]) -->
+<!--   mu_F_vec <- c(mu_F_vec, result$x[2]) -->
+<!-- } -->
+
+
+<!-- g1 <- data.frame(a = a_vec, mu = mu_W_vec) %>%  -->
+<!--   ggplot(aes(x = a, y = mu)) + geom_point() + xlab("a") + ylab("m_W") -->
+
+<!-- g2 <- data.frame(a = a_vec, mu = mu_F_vec) %>%  -->
+<!--   ggplot(aes(x = a, y = mu)) + geom_point() + xlab("a") + ylab("m_F") -->
+
+<!-- gridExtra::grid.arrange(g1, g2, nrow = 1) -->
+
+
+<!-- ``` -->
+

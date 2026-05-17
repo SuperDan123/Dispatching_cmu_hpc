@@ -1,0 +1,402 @@
+---
+title: "check parameter restrictions and foc"
+author: "Daisy Dan Song"
+output: html_document
+date: "2023-11-11"
+---
+
+# initialize setting
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  results = "show"
+  )
+rm(list = ls())
+library(Dispatching)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(foreach)
+library(kableExtra)
+library(plotly)
+library(doParallel)
+registerDoParallel()
+prefix <- "output/multihome/simulate/"
+dir.create(
+  prefix, 
+  showWarnings = FALSE
+)
+```
+
+# set constants
+
+```{r}
+seed <- 1
+set.seed(seed)
+n_ths <- 2
+n_market <- 1
+n_zone <- 1
+t <- 1
+j <- 1
+n <- 10
+lower_bd <- 0.1
+upper_bd <- 10
+```
+
+# impose baseline setting 
+
+```{r}
+
+# generate template
+equilibrium <-
+  generate_equilibrium(
+    n_ths = n_ths,
+    n_market = n_market,
+    n_zone = n_zone,
+    seed = seed
+  )
+
+# c_2^F = 0
+equilibrium$parameter$gamma_f[2] <- -100
+c_f <-
+  compute_c_f_tj(
+    gamma_f = equilibrium$parameter$gamma_f,
+    x_c_f = equilibrium$exogenous[[t]][[j]]$x_c_f,
+    ec_f = equilibrium$shock[[t]][[j]]$ec_f
+  ) 
+
+c_w <- 
+  compute_c_w_tj(
+    gamma_w = equilibrium$parameter$gamma_w,
+    x_c_w = equilibrium$exogenous[[t]][[j]]$x_c_w,
+    ec_w = equilibrium$shock[[t]][[j]]$ec_w
+  ) 
+
+# no private market: mu_1 = 0
+equilibrium$shock[[t]][[j]]$mu[1] <- 0
+
+# make ths popular
+equilibrium$parameter$beta_f[2] <- 10
+
+# compute a_w
+beta_w <- equilibrium$parameter$beta_w
+x_a_w <- equilibrium$exogenous[[t]][[j]]$x_a_w
+ea_w <- equilibrium$shock[[t]][[j]]$ea_w  
+a_w <-
+  compute_a_w_tj(
+    beta_w = beta_w,
+    x_a_w = x_a_w,
+    ea_w = ea_w
+  ) 
+```
+
+# search parameters of interest
+
+```{r}
+
+m_f <- 
+  seq(
+    lower_bd,
+    1-lower_bd,
+    length.out = n
+    )
+
+lambda_f <- -
+  seq(
+    lower_bd,
+    upper_bd,
+    length.out = n
+    )
+
+lambda_w <- 
+  seq(
+    lower_bd,
+    upper_bd,
+    length.out = n
+    )
+
+tib <- 
+  tidyr::expand_grid(
+    m_f, 
+    lambda_f, 
+    lambda_w
+  ) %>%
+  dplyr::mutate(
+    k = 1:length(m_f)
+  ) %>%
+  dplyr::select(
+    k,
+    dplyr::everything()
+  )
+```
+
+# check c11 and sec1
+
+```{r}
+for (
+  k in 1:nrow(tib)
+) {
+
+  equilibrium$parameter$m_f <- tib$m_f[k]
+  equilibrium$parameter$lambda_w <- tib$lambda_w[k]
+  equilibrium$parameter$lambda_f <- tib$lambda_f[k]
+  
+  c11 <- 
+    check_c1_1(
+      equilibrium = equilibrium
+    ) 
+  
+  sec1 <- 
+    check_sec_1(
+      t = t,
+      j = j,
+      equilibrium = equilibrium
+    )
+  
+  tib$c11[k] <- c11
+  tib$sec1[k] <- sec1
+  
+}
+
+# tib %>%
+#   kbl() %>%
+#   kable_styling()
+```
+
+# visulaize paramters of interest {.tabset}
+
+## c11
+
+```{r, results = "asis"}
+for (
+  l in seq_along(m_f)
+) {
+  cat("### m_f = ", m_f[l], "\n")
+  p <-
+    tib %>%
+    dplyr::filter(
+      m_f == m_f[l]
+    ) %>%
+    ggplot(
+      aes(
+        x = lambda_f,
+        y = lambda_w,
+        color = c11
+      )
+    ) +
+    geom_point() +
+    scale_color_viridis_d() +
+    theme_classic()
+  p %>%
+    print() 
+  cat("\n")
+}
+```
+
+## sec1
+
+```{r, results = "asis"}
+for (
+  l in seq_along(m_f)
+) {
+  cat("### m_f = ", m_f[l], "\n")
+  p <-
+    tib %>%
+    dplyr::filter(
+      m_f == m_f[l]
+    ) %>%
+    ggplot(
+      aes(
+        x = lambda_f,
+        y = lambda_w,
+        color = sec1
+      )
+    ) +
+    geom_point() +
+    scale_color_viridis_d() +
+    theme_classic()
+  p %>%
+    print() 
+  cat("\n")
+}
+```
+
+## both
+
+
+```{r, results = "asis"}
+for (
+  l in seq_along(m_f)
+) {
+  cat("### m_f = ", m_f[l], "\n")
+  p <-
+    tib %>%
+    dplyr::filter(
+      m_f == m_f[l]
+    ) %>%
+    dplyr::mutate(
+      both = c11 & sec1
+    ) %>%
+    ggplot(
+      aes(
+        x = lambda_f,
+        y = lambda_w,
+        color = both
+      )
+    ) +
+    geom_point() +
+    scale_color_viridis_d() +
+    theme_classic()
+  p %>%
+    print() 
+  cat("\n")
+}
+```
+
+# check foc
+
+## solve equilibrium 
+
+```{r, eval = TRUE}
+equilibrium_list <-
+  foreach (
+    k = 1:nrow(tib),
+    .packages =
+      c(
+        "Dispatching",
+        "magrittr",
+        "foreach"
+      )
+  ) %dopar% {
+    tryCatch(
+      {
+        # replace with parameter of interest
+        equilibrium$parameter$m_f <- tib$m_f[k]
+        equilibrium$parameter$m_w <- 1 - tib$m_f[k]
+        equilibrium$parameter$lambda_w <- tib$lambda_w[k]
+        equilibrium$parameter$lambda_f <- tib$lambda_f[k]
+
+        # solve the equilibrium
+        output <-
+          solve_equilibrium_tj(
+            t = t,
+            j = j,
+            equilibrium = equilibrium,
+            solver = "nleqslv",
+            multistart = 20,
+            use_rcpp = TRUE
+            
+        )
+      }, error = function(e) {
+        output <- NULL
+      }
+    )
+  return(output)
+}
+saveRDS(
+  equilibrium_list,
+  file =
+    paste0(
+      prefix,
+      "equilibrium_list.rds"
+    ) %>%
+    here::here()
+)
+```
+
+```{r}
+equilibrium_list <-
+  readRDS(
+    file =
+      paste0(
+        prefix,
+        "equilibrium_list.rds"
+      ) %>%
+      here::here()
+  )
+tib_list <-
+  foreach (
+    k = seq_along(equilibrium_list),
+    .combine = "rbind"
+  ) %do% {
+    if (
+      !is.null(
+        equilibrium_list[[k]]
+      )
+    ) {
+      equilibrium_k <- equilibrium_list[[k]]
+      df_i <-
+        check_equilibrium_tj(
+          equilibrium = equilibrium_k,
+          t = t,
+          j = j
+        )
+      df_i <-
+        df_i %>%
+        dplyr::mutate(
+          k = k
+        ) %>%
+        dplyr::left_join(
+          tib,
+          by = "k"
+        ) %>%
+        dplyr::select(
+          k,
+          m_f,
+          lambda_w,
+          lambda_f,
+          c11,
+          sec1,
+          dplyr::everything()
+        )
+    } else {
+      df_i <- NULL
+    }
+    return(df_i)
+  }
+```
+
+```{r}
+tib_foc <-
+  tib_list %>%
+  dplyr::filter(
+    i == 2
+  ) %>%
+  dplyr::select(
+    m_f,
+    lambda_w,
+    lambda_f,
+    c11,
+    sec1,
+    foc_w,
+    foc_f
+  )
+
+tib_foc %>%
+  kbl() %>%
+  kable_styling()
+
+tib_foc %>%
+  dplyr::group_by(
+    c11,
+    sec1
+  ) %>%
+  dplyr::summarise(
+    dplyr::across(
+      .cols = c(
+        foc_w,
+        foc_f
+      ),
+      .fns = list(
+        mean = mean,
+        sd = sd
+      )
+    )
+  ) %>%
+  kbl() %>%
+  kable_styling()
+```
+

@@ -1,0 +1,972 @@
+---
+title: "report data analysis for zip data"
+author: "Chiho Taniguchi"
+date: "2023-02-26"
+output: 
+  html_document:
+    toc: true
+---
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F, fig.height = 3, fig.width = 4)
+
+library("magrittr")
+library("kableExtra")
+library("ggplot2")
+
+height <- 6
+width <- 8
+
+```
+
+
+```{r }
+
+ data_establishments <- 
+  here::here(file = "cleaned/data_establishments.rds") %>% 
+  readRDS()
+
+ data_zipcode <- 
+   here::here(file = "cleaned/data_zipcode.rds") %>% 
+   readRDS()
+ 
+ data_area <- 
+   here::here(file = "cleaned/data_area.rds") %>% 
+   readRDS()
+ 
+ data_zip_establishments <- 
+   here::here(file = "output/data_zip_establishments.rds") %>% 
+   readRDS()
+ 
+ data_cz_establishments <- 
+   here::here(file = "output/data_cz_establishments.rds") %>% 
+   readRDS()
+ 
+ data_cz_establishments_all <- 
+   here::here(file = "output/data_cz_establishments_all.rds") %>% 
+   readRDS()
+ 
+ data_zip_establishments_all <- 
+   here::here(file = "output/data_zip_establishments_all.rds") %>% 
+   readRDS()
+   
+ data_cz_establishments_all_ippann <- 
+   here::here(file = "output/data_cz_establishments_all_ippann.rds") %>% 
+   readRDS()
+ 
+ data_zip_establishments_all_ippann <- 
+   here::here(file = "output/data_zip_establishments_all_ippann.rds") %>% 
+   readRDS()
+ 
+```
+
+# Data construction
+We use data defining the market as first three digits of the zipcode (zip_three) and restrict data to the general establishments only for analysis.
+After dropping establishments which have missing either of wage / fee / zip_three data and creating log transformed wage / fee, we create N_zip_t and dummy variables indicating the N_zip_t. N_zip_t and dummy variables are explained in detail later.
+
+# Descriptive statistics {.tabset}
+
+## wage (wage_{it})
+
+```{r}
+ data_zip_establishments_wage_fee <- 
+   data_zip_establishments %>% 
+   dplyr::group_by(
+     year, 
+     zip_three
+   ) %>% 
+   dplyr::mutate(
+     wage_jt = mean(wage),
+     fee_jt = mean(fee)
+   ) 
+ 
+ wage_jt_unique <- 
+   data_zip_establishments_wage_fee %>% 
+   dplyr::select(wage_jt) %>% 
+   unique()
+ 
+ summary(wage_jt_unique$wage_jt) 
+ 
+```
+
+## fee (fee_{it})
+
+```{r}
+
+ fee_jt_unique <- 
+   data_zip_establishments_wage_fee %>% 
+   dplyr::select(fee_jt) %>% 
+   unique() 
+ 
+ summary(fee_jt_unique$fee_jt)
+
+```
+
+## N_zip_t
+
+N_zip_t is a variable that indicates the number of general establishments present in the market defined first three digits of zip code (zip) in year t.
+
+```{r }
+ N_zip_t_unique <- 
+   data_zip_establishments %>% 
+   dplyr::select(N_zip_t) %>% 
+   unique()
+ 
+ quantile(
+   N_zip_t_unique$N_zip_t, 
+   c(0.05, 0.1, 0.25, 0.5, 0.75, 1)
+ ) %>% 
+   kbl(col.names = "N_zip_t") %>% 
+   kable_styling(full_width = FALSE)
+```
+
+
+### Show historgam
+
+On the left is the distribution of N_zip_t, without duplicates, and on the right is the distribution of N_zip_t, using all data (allowing duplicates).
+
+```{r}
+# Unique data for N_zip_t
+
+histogram_N_zip_t_unique <- 
+   ggplot() + 
+   geom_histogram(
+     data = N_zip_t_unique, 
+     mapping = aes(x = N_zip_t),
+     bins = 100
+   )
+ 
+ print(histogram_N_zip_t_unique)
+ 
+ # All data for N_zip_t
+ 
+ data_zip_establishments_N_zip_t <- 
+   data_zip_establishments %>% 
+   dplyr::select(N_zip_t)
+ 
+ histogram_N_zip_t <- 
+   ggplot() + 
+   geom_histogram(
+     data = data_zip_establishments_N_zip_t, 
+     mapping = aes(x = N_zip_t),
+     bins = 100
+   )
+ 
+ print(histogram_N_zip_t)
+```
+
+# Analyze different N_zip_t {.tabset}
+
+Analyze the impact of the number of general establishments in each market (zip) on the log transformed wage / fee:
+
+$$
+
+Y_{ijt} = \beta N_{jt} + c_{j}  + c_{t} + u_{ijt},\\
+Y_{ijt} = \beta N_{jt} + c_{i} + c_{t} + u_{ijt},\\
+Y_{ijt} = \beta N_{jt} + c_{j} + c_{i} + c_{t} + u_{ijt}.
+
+$$
+
+$i$: Establishment, $j$: zip three area, $t$: Year<br>
+$Y_{ijt}$: $\log{(wage_{ijt})}$, $\log{(fee_{ijt})}$
+
+We also analyze N_zip_t is divided by the number after N_zip_t.
+
+## Analyze for N_zip_t
+
+```{r}
+
+results11 <- list()
+
+results11[[1]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results11[[2]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results11[[3]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+results11[[4]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results11[[5]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results11[[6]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+rows <- 
+  tibble::tribble(
+    ~term, ~`(1)`, ~`(2)`, ~`(3)`, ~`(4)`, ~`(5)`, ~`(6)`,
+    'j_FE', 'Y', 'N', 'Y', 'Y', 'N', 'Y',
+    't_FE', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y',
+    'i_FE', 'N', 'Y', 'Y', 'N', 'Y', 'Y',
+  )
+
+attr(rows, 'position') <- c(3, 4, 5, 6)
+
+result_11 <- 
+  list(
+    "log(fee)" = results11[[1]],
+    "log(fee)" = results11[[2]],
+    "log(fee)" = results11[[3]],
+    "log(wage)" = results11[[4]],
+    "log(wage)" = results11[[5]],
+    "log(wage)" = results11[[6]]
+  )
+
+modelsummary::modelsummary(
+  result_11,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC",
+  add_rows = rows
+) 
+
+```
+
+## Analyze for N_zip_t_10
+
+```{r}
+
+results33 <- list()
+
+results33[[1]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_10 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results33[[2]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_10 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results33[[3]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_10 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+results33[[4]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_10 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results33[[5]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_10 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results33[[6]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_10 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+attr(rows, 'position') <- c(3, 4, 5, 6)
+
+result_33 <- 
+  list(
+    "log(fee)" = results33[[1]],
+    "log(fee)" = results33[[2]],
+    "log(fee)" = results33[[3]],
+    "log(wage)" = results33[[4]],
+    "log(wage)" = results33[[5]],
+    "log(wage)" = results33[[6]]
+  )
+
+modelsummary::modelsummary(
+  result_33,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC",
+  add_rows = rows
+) 
+
+```
+
+## Analyze for N_zip_t_100
+
+```{r}
+
+results55 <- list()
+
+results55[[1]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_100 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results55[[2]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_100 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results55[[3]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_100 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+results55[[4]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_100 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results55[[5]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_100 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results55[[6]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_100 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+attr(rows, 'position') <- c(3, 4, 5, 6)
+
+result_55 <- 
+  list(
+    "log(fee)" = results55[[1]],
+    "log(fee)" = results55[[2]],
+    "log(fee)" = results55[[3]],
+    "log(wage)" = results55[[4]],
+    "log(wage)" = results55[[5]],
+    "log(wage)" = results55[[6]]
+  )
+
+modelsummary::modelsummary(
+  result_55,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC",
+  add_rows = rows
+) 
+
+```
+
+## Analyze for N_zip_t_1000
+
+```{r}
+
+results44 <- list()
+
+results44[[1]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_1000 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results44[[2]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_1000 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results44[[3]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_1000 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+results44[[4]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_1000 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results44[[5]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_1000 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results44[[6]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_1000 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+attr(rows, 'position') <- c(3, 4, 5, 6)
+
+result_44 <- 
+  list(
+    "log(fee)" = results44[[1]],
+    "log(fee)" = results44[[2]],
+    "log(fee)" = results44[[3]],
+    "log(wage)" = results44[[4]],
+    "log(wage)" = results44[[5]],
+    "log(wage)" = results44[[6]]
+  )
+
+modelsummary::modelsummary(
+  result_44,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC",
+  add_rows = rows
+) 
+
+
+```
+
+## Analyze for N_zip_t_10000
+
+```{r}
+
+results66 <- list()
+
+results66[[1]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_10000 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results66[[2]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_10000 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results66[[3]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_10000 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+results66[[4]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_10000 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results66[[5]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_10000 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results66[[6]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_10000 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+attr(rows, 'position') <- c(3, 4, 5, 6)
+
+result_66 <- 
+  list(
+    "log(fee)" = results66[[1]],
+    "log(fee)" = results66[[2]],
+    "log(fee)" = results66[[3]],
+    "log(wage)" = results66[[4]],
+    "log(wage)" = results66[[5]],
+    "log(wage)" = results66[[6]]
+  )
+
+modelsummary::modelsummary(
+  result_66,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC",
+  add_rows = rows
+) 
+
+```
+
+## Analyze for N_zip_t_100000
+
+```{r}
+
+results77 <- list()
+
+results77[[1]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_100000 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results77[[2]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_100000 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results77[[3]] <- 
+  lfe::felm(
+    formula = log_fee ~  N_zip_t_100000 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+results77[[4]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_100000 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results77[[5]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_100000 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results77[[6]] <- 
+  lfe::felm(
+    formula = log_wage ~  N_zip_t_100000 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+attr(rows, 'position') <- c(3, 4, 5, 6)
+
+result_77 <- 
+  list(
+    "log(fee)" = results77[[1]],
+    "log(fee)" = results77[[2]],
+    "log(fee)" = results77[[3]],
+    "log(wage)" = results77[[4]],
+    "log(wage)" = results77[[5]],
+    "log(wage)" = results77[[6]]
+  )
+
+modelsummary::modelsummary(
+  result_77,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC",
+  add_rows = rows
+) 
+
+```
+
+# Analyze for N_zip_t with categorical dummy variables {.tabset}
+
+Analyze the impact of the marginally increase in the number of general establishments in each market (zip) on the log transformed wage / fee:
+
+$$
+
+
+
+$$
+
+
+$i$: Establishment, $j$: zip three area, $t$: Year<br>
+$Y_{ijt}$: $\log{(wage_{ijt})}$, $\log{(fee_{ijt})}$
+
+
+## Categorical variables per quantile (20)
+
+We create categorical dummy variables as follows.
+
+D_20 : Dummy variable that takes 1 when N_zip_t is less than the 20th percentile value<br>
+D_40 : Dummy variable that takes 1 when N_zip_t is greater than or equal to the 20th percentile value and less than or equal to the 40th percentile value<br>
+D_60 : Dummy variable that takes 1 when N_zip_t is greater than the 40th percentile value and less than the 60th percentile value<br>
+D_80 : Dummy variable that takes 1 when N_zip_t is above the 60th percentile value and below the 80th percentile value<br>
+D_100 : Dummy variable that takes 1 when N_zip_t is greater than or equal to the 80th percentile value
+
+
+```{r}
+
+results222 <- list()
+
+results222[[1]] <- 
+  lfe::felm(
+    formula = log_fee ~ D_40 + D_60 + D_80 + D_100 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results222[[2]] <- 
+  lfe::felm(
+    formula = log_fee ~ D_40 + D_60 + D_80 + D_100 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results222[[3]] <- 
+  lfe::felm(
+    formula = log_fee ~ D_40 + D_60 + D_80 + D_100 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+results222[[4]] <- 
+  lfe::felm(
+    formula = log_wage ~ D_40 + D_60 + D_80 + D_100 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results222[[5]] <- 
+  lfe::felm(
+    formula = log_wage ~ D_40 + D_60 + D_80 + D_100 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results222[[6]] <- 
+  lfe::felm(
+    formula = log_wage ~ D_40 + D_60 + D_80 + D_100 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+rows_D <- 
+  tibble::tribble(
+    ~term, ~`(1)`, ~`(2)`, ~`(3)`, ~`(4)`, ~`(5)`, ~`(6)`,
+    'j_FE', 'Y', 'N', 'Y', 'Y', 'N', 'Y',
+    't_FE', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y',
+    'i_FE', 'N', 'Y', 'Y', 'N', 'Y', 'Y',
+  )
+
+attr(rows_D, 'position') <- c(9, 10, 11, 12)
+
+result_222 <- 
+  list(
+    "log(fee)" = results222[[1]],
+    "log(fee)" = results222[[2]],
+    "log(fee)" = results222[[3]],
+    "log(wage)" = results222[[4]],
+    "log(wage)" = results222[[5]],
+    "log(wage)" = results222[[6]]
+  )
+
+modelsummary::modelsummary(
+  result_222,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC",
+  add_rows = rows_D
+) 
+
+```
+
+
+## Categorical variables per quantile (10)
+
+We create categorical dummy variables as follows.
+
+D10 : Dummy variable that takes 1 when N_zip_t is less than the 10th percentile value<br>
+D20 : Dummy variable that takes 1 when N_zip_t is greater than or equal to the 10th percentile value and less than the 20th percentile value<br>
+D30 : Dummy variable that takes 1 when N_zip_t is greater than the 20th percentile value and less than the 30th percentile value<br>
+D40 : Dummy variable that takes 1 when N_zip_t is above the 30th percentile value and below the 40th percentile value<br>
+D50 : Dummy variable that takes 1 when N_zip_t is above the 40th percentile value and below the 50th percentile value<br>
+D60 : Dummy variable that takes 1 when N_zip_t is above the 50th percentile value and below the 60th percentile value<br>
+D70 : Dummy variable that takes 1 when N_zip_t is above the 60th percentile value and below the 70th percentile value<br>
+D80 : Dummy variable that takes 1 when N_zip_t is above the 70th percentile value and below the 80th percentile value<br>
+D90 : Dummy variable that takes 1 when N_zip_t is above the 80th percentile value and below the 90th percentile value<br>
+D100 : Dummy variable that takes 1 when N_zip_t is greater than or equal to the 90th percentile value
+
+```{r}
+
+results88 <- list()
+
+results88[[1]] <- 
+  lfe::felm(
+    formula = log_fee ~ D20 + D30 + D40 + D50 + D60 + D70 + D80 + D90 + D100 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results88[[2]] <- 
+  lfe::felm(
+    formula = log_fee ~ D20 + D30 + D40 + D50 + D60 + D70 + D80 + D90 + D100 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results88[[3]] <- 
+  lfe::felm(
+    formula = log_fee ~ D20 + D30 + D40 + D50 + D60 + D70 + D80 + D90 + D100 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+results88[[4]] <- 
+  lfe::felm(
+    formula = log_wage ~ D20 + D30 + D40 + D50 + D60 + D70 + D80 + D90 + D100 | zip_three + year ,
+    data = data_zip_establishments
+  )
+
+results88[[5]] <- 
+  lfe::felm(
+    formula = log_wage ~ D20 + D30 + D40 + D50 + D60 + D70 + D80 + D90 + D100 | year + firm_id ,
+    data = data_zip_establishments
+  )
+
+results88[[6]] <- 
+  lfe::felm(
+    formula = log_wage ~ D20 + D30 + D40 + D50 + D60 + D70 + D80 + D90 + D100 | year + firm_id + zip_three,
+    data = data_zip_establishments
+  )
+
+rows_D <- 
+  tibble::tribble(
+    ~term, ~`(1)`, ~`(2)`, ~`(3)`, ~`(4)`, ~`(5)`, ~`(6)`,
+    'j_FE', 'Y', 'N', 'Y', 'Y', 'N', 'Y',
+    't_FE', 'Y', 'Y', 'Y', 'Y', 'Y', 'Y',
+    'i_FE', 'N', 'Y', 'Y', 'N', 'Y', 'Y',
+  )
+
+attr(rows_D, 'position') <- c(19, 20, 21, 22)
+
+result_88 <- 
+  list(
+    "log(fee)" = results88[[1]],
+    "log(fee)" = results88[[2]],
+    "log(fee)" = results88[[3]],
+    "log(wage)" = results88[[4]],
+    "log(wage)" = results88[[5]],
+    "log(wage)" = results88[[6]]
+  )
+
+modelsummary::modelsummary(
+  result_88,
+  stars = TRUE,
+  statistic = 'conf.int',
+  conf_level = .95 ,
+  gof_omit = "AIC|BIC",
+  add_rows = rows_D
+) 
+
+```
+
+
+# Analyze using Bartik IV (bartik_zip_t) {.tabset}
+
+$$
+
+$$
+
+$i$: Establishment, $j$: zip three area, $t$: Year<br>
+$Y_{ijt}$: $\log{(wage_{ijt})}$, $\log{(fee_{ijt})}$
+
+## 2nd stage
+
+$$
+
+$$
+
+```{r}
+
+results_b11 <- list()
+ 
+ results_b11[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~ 1 | zip_three + year | (N_zip_t_1000 ~ bartik_zip_t) | zip_three,
+     data = data_zip_establishments_all_ippann
+   )
+ 
+ results_b11[[2]] <- 
+   lfe::felm(
+     formula = log_wage ~ 1 | zip_three + year | (N_zip_t_1000 ~ bartik_zip_t) | zip_three,
+     data = data_zip_establishments_all_ippann
+   )
+ 
+ rows <- 
+   tibble::tribble(
+     ~term, ~`(1)`, ~`(2)`,
+     'j_FE', 'Y', 'Y',
+     't_FE', 'Y', 'Y',
+     'i_FE', 'N', 'N', 
+   )
+ 
+ attr(rows, 'position') <- c(3, 4, 5, 6)
+ 
+ resultsb11 <- 
+   list(
+     "log(fee)" = results_b11[[1]],
+     "log(wage)" = results_b11[[2]]
+   )
+ 
+ modelsummary::modelsummary(
+   resultsb11,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+
+
+## 1st stage
+
+$$
+
+$$
+
+
+```{r}
+
+rows <- 
+   tibble::tribble(
+     ~term, ~`(1)`
+   )
+ 
+ attr(rows, 'position') <- c(3, 4, 5, 6)
+ 
+ resultsb33 <- 
+   list(
+     "N_zip_t_1000(1st stage zip)" = results_b11[[1]]$stage1
+   )
+ 
+ modelsummary::modelsummary(
+   resultsb33,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95
+ )
+
+```
+
+
+## reduced form
+
+$$
+
+$$
+
+```{r}
+
+results_b22 <- list()
+ 
+ results_b22[[1]] <- 
+   lfe::felm(
+     formula = log_fee ~ bartik_zip_t | zip_three + year ,
+     data = data_zip_establishments_all_ippann
+   )
+ 
+ results_b22[[2]] <- 
+   lfe::felm(
+     formula = log_wage ~ bartik_zip_t | zip_three + year,
+     data = data_zip_establishments_all_ippann
+   )
+ 
+ rows <- 
+   tibble::tribble(
+     ~term, ~`(1)`, ~`(2)`,
+     'j_FE', 'Y', 'Y',
+     't_FE', 'Y', 'Y',
+     'i_FE', 'N', 'N', 
+   )
+ 
+ attr(rows, 'position') <- c(3, 4, 5, 6)
+ 
+ resultsb22 <- 
+   list(
+     "log(fee)" = results_b22[[1]],
+     "log(wage)" = results_b22[[2]]
+   )
+ 
+ modelsummary::modelsummary(
+   resultsb22,
+   stars = TRUE,
+   statistic = 'conf.int',
+   conf_level = .95,
+   gof_omit = "AIC|BIC",
+   add_rows = rows
+ ) 
+
+```
+
+# Analyze residuals for zip data {.tabset}
+
+## Regress N_zip_t on zip three area (zip) / year fixed effect
+
+$$
+
+
+$$
+
+```{r}
+
+ result_u_zip <- 
+   lfe::felm(
+     formula = N_zip_t ~ 1 + zip_three + year ,
+     data = data_zip_establishments_all_ippann
+   )
+ 
+ id_zip <- c(1:72954)
+ 
+ residual_zip <-
+   as.data.frame(result_u_zip$residuals) %>% 
+   dplyr::rename(u_hat_zip = N_zip_t) %>% 
+   cbind(id_zip)
+ 
+ residual_zip_unique <- 
+   residual_zip %>% 
+   dplyr::select(
+     u_hat_zip
+   ) %>% 
+   unique() %>% 
+   as.data.frame() 
+
+```
+
+### Show histogram (unique)
+
+On the left is the distribution of the residuals, without duplicates, and on the right is the distribution of the residuals, using all data (allowing duplicates).
+
+```{r}
+ 
+histogram_residuals_zip_unique <- 
+   ggplot() + 
+   geom_histogram(
+     data = residual_zip_unique, 
+     mapping = aes(x = u_hat_zip),
+     bins = 100
+   )
+ 
+ print(histogram_residuals_zip_unique)
+
+ 
+ residual_zip_all <- 
+   residual_zip 
+ 
+ histogram_residuals_zip_all <- 
+   ggplot() + 
+   geom_histogram(
+     data = residual_zip_all, 
+     mapping = aes(x = u_hat_zip),
+     bins = 100
+   )
+ 
+ print(histogram_residuals_zip_all)
+
+```
+
+### Summary of the residuals
+
+```{r}
+
+summary(residual_zip_all$u_hat_zip)
+
+```
+

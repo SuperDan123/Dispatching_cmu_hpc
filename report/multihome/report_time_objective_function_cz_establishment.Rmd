@@ -1,0 +1,263 @@
+---
+title: "report_time_objective_function_estimation"
+author: "Daisy Dan Song"
+date: "2024-09-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(ggplot2)
+library(doParallel)
+```
+
+# set constant
+```{r}
+seed <- 1
+set.seed(seed)
+n_ths <- 2
+t <- 1
+j <- 1
+multistart <- 10
+solver <- "nleqslv"
+method_s_w <- "approximate"
+margin <- 1e-10
+quadrature_size <- 21
+tol <- 1e-16
+minimum_wage <- FALSE
+use_parallel <- TRUE
+```
+
+# load data
+```{r}
+equilibrium_list <- 
+  readRDS(
+    "output/multihome/make_equilibrium_from_data/equilibrium.rds" %>%
+    here::here()
+  )
+```
+
+# partition the market
+```{r}
+num_ths <- 
+  foreach(
+    t = seq_along(equilibrium_list$endogenous)
+  ) %do% {
+    foreach(
+      j = seq_along(equilibrium_list$endogenous[[t]])
+    ) %do% {
+   num <- length(equilibrium_list$endogenous[[t]][[j]]$w)
+   return(num)
+  }
+}
+
+order <- 
+  sort(
+    unique(
+      unlist(
+        num_ths
+        )
+      )
+    )
+order
+
+market_partition <- list()
+num_market <- c()
+
+j = 1
+for (i in order){
+  index <- 
+    which(
+      num_ths[[1]] == i
+      )
+  num_market[j] <- length(index)
+  eq <- equilibrium
+  
+  eq$endogenous <- 
+    list(
+      equilibrium_list$endogenous[[1]][index]
+    )
+
+  eq$exogenous <- 
+    list(
+        equilibrium_list$exogenous[[1]][index]
+      )
+  eq$shock <- 
+    list(
+        equilibrium_list$shock[[1]][index]
+      )
+  market_partition[[j]] <- eq
+  j = j + 1
+}
+
+```
+
+# unique number of ths
+```{r}
+order
+```
+
+# corresponding number of markets
+```{r}
+num_marketfequi
+```
+
+# subset equilibrium
+```{r}
+equilibrium <- market_partition[[1]]
+```
+
+# estimation
+```{r}
+instrument_demand <- 
+  make_demand_iv(
+    equilibrium = equilibrium
+  )
+
+moment_demand <- 
+  compute_demand_moment(
+    instrument = instrument_demand,
+    equilibrium = equilibrium,
+    use_parallel = use_parallel
+  )
+
+weighting_matrix_demand <- 
+  make_weighting_matrix(
+    moment = moment_demand
+  )
+
+instrument_supply <- 
+  make_supply_iv(
+    equilibrium = equilibrium
+  )
+
+moment_supply <- 
+  compute_supply_moment(
+    instrument = instrument_supply,
+    equilibrium = equilibrium,
+    use_parallel = use_parallel
+  )
+
+weighting_matrix_supply <- 
+  make_weighting_matrix(
+    moment = moment_supply
+  )
+
+m_w <- equilibrium$parameter$m_w
+m_f <- equilibrium$parameter$m_f
+beta_f <- equilibrium$parameter$beta_f
+beta_w <- equilibrium$parameter$beta_w
+gamma_w <- equilibrium$parameter$gamma_w
+gamma_f <- equilibrium$parameter$gamma_f
+lambda_f <- equilibrium$parameter$lambda_f
+lambda_w <- equilibrium$parameter$lambda_w
+
+theta_1 <-
+  list(
+    m_w = m_w,
+    m_f = m_f,
+    lambda_w = lambda_w,
+    lambda_f = lambda_f
+  )
+
+theta_2 <-
+  list(
+    beta_w = beta_w,
+    beta_f = beta_f,
+    gamma_f = gamma_f,
+    gamma_w = gamma_w
+  )
+
+theta <-
+  list(
+    theta_1 = theta_1,
+    theta_2 = theta_2
+  )
+
+```
+
+# demand objective
+## with parallel
+```{r}
+check_time_nopar <- 
+  system.time(
+    evaluate_objective_demand_primitive(
+      theta = theta,
+      weighting_matrix = weighting_matrix_demand,
+      instrument = instrument_demand,
+      equilibrium = equilibrium,
+      use_parallel = use_parallel
+    )
+  )
+check_time_nopar
+```
+
+## without parallel
+```{r}
+check_time_par <- 
+  system.time(
+    evaluate_objective_demand_primitive(
+      theta = theta,
+      weighting_matrix = weighting_matrix_demand,
+      instrument = instrument_demand,
+      equilibrium = equilibrium,
+      use_parallel = FALSE
+    )
+  )
+check_time_par
+```
+
+## diff
+```{r}
+check_time_nopar - check_time_par
+```
+
+# supply objective
+## with parallel
+```{r}
+check_time_nopar <- 
+  system.time(
+    evaluate_objective_supply_primitive(
+      theta = theta,
+      weighting_matrix = weighting_matrix_supply,
+      instrument = instrument_supply,
+      equilibrium = equilibrium,
+      use_parallel = use_parallel
+    )
+  )
+check_time_nopar
+```
+
+## without parallel
+```{r}
+check_time_par <- 
+  system.time(
+    evaluate_objective_supply_primitive(
+      theta = theta,
+      weighting_matrix = weighting_matrix_supply,
+      instrument = instrument_supply,
+      equilibrium = equilibrium,
+      use_parallel = FALSE
+    )
+  )
+check_time_par
+```
+
+## diff
+```{r}
+check_time_nopar - check_time_par
+```
+
+
+
+
+
+

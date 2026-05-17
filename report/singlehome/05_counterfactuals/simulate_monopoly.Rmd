@@ -1,0 +1,362 @@
+---
+title: "Simulate Monopoly"
+author: "Katsuhiro Komatsu"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+
+library("magrittr")
+library("ggplot2")
+library("foreach")
+library("Dispatching")
+library("jpndistrict") # Error happens if you use jpndistrict::jpn_pref()
+```
+
+
+```{r}
+commuting_zone <- readRDS(here::here("cleaned/data_area.RDS"))
+
+eq_baseline <- readRDS(here::here("output/estimate_structural_parameters/equilibrium_data_distance_IV.RDS"))
+data_act <- eq_baseline$generate_dataframe()
+
+eq_cf <- readRDS(here::here("output/simulate_monopoly/result_monopoly.RDS"))
+data_cf <- eq_cf$generate_dataframe()
+
+```
+
+
+```{r}
+
+data_cf <- data_cf %>% 
+  dplyr::rename(
+    wage_cf = wage,
+    fee_cf = fee,
+    s_W_cf = s_W,
+    s_F_cf = s_F
+  ) %>% 
+  dplyr::select(id_unique, wage_cf, fee_cf, s_W_cf, s_F_cf)
+
+
+data_cf <- data_act %>% 
+  dplyr::select(year, cz, id_unique) %>% 
+  dplyr::left_join(data_cf, ., by = "id_unique")
+
+data_dif <- data_act %>% 
+  dplyr::select(id_unique, wage, fee, s_W, s_F) %>% 
+  dplyr::left_join(data_cf, by = "id_unique") %>% 
+  dplyr::mutate(
+    wage_logdif = log(wage_cf) - log(wage),
+    fee_logdif = log(fee_cf) - log(fee),
+    s_W_logdif = log(s_W_cf) - log(s_W),
+    s_F_logdif = log(s_F_cf) - log(s_F),
+    net_price_dif = (fee_cf - wage_cf) - (fee - wage)
+  ) %>% 
+  dplyr::mutate(dplyr::across(wage_logdif:s_F_logdif,  ~ .x * 100))
+
+```
+
+
+- Simulate monopoly in the actual markets by changing the ownership matrix $(\Delta_{ij})$
+  - Set $\Delta_{ij}=1$ for all $i$ and $j$ and solve FOCs.
+
+# Percentage change of prices and shares
+
+```{r}
+
+summary_table <- data_dif %>% 
+  dplyr::select(wage_logdif:s_F_logdif) %>% 
+  psych::describe(skew = F, ranges = F, quant = c(0.1, 0.5, 0.9))
+
+summary_table <- as.data.frame(summary_table)
+summary_table$vars <- NULL
+summary_table$se <- NULL
+summary_table$sd <- NULL
+summary_table$n <- NULL
+summary_table <- round(summary_table, digits = 2)
+rownames(summary_table) <- c("Wage", "Fee", "Worker share", "Client firm share")
+colnames(summary_table) <- c("Mean", "10\\%", "Median", "90\\%")
+  
+  
+summary_table %>%
+  kableExtra::kbl(
+    format = "html",
+    booktabs = TRUE,
+    align = rep("r", 6),
+    linesep = "",
+    format.args = list(big.mark = ",")
+  ) %>% 
+  kableExtra::kable_classic(full_width = F, html_font = "Cambria")
+
+summary_table %>%
+  kableExtra::kbl(
+    format = "latex",
+    booktabs = TRUE,
+    align = rep("r", 6),
+    linesep = "",
+    format.args = list(big.mark = ",")
+  ) %>% 
+  kableExtra::save_kable(., file = here::here("figuretable/simulate_monopoly/monopoly_impact.tex")) 
+
+```
+
+# Level difference in net price (fee - wage)
+
+```{r}
+summary_table <- data_dif %>% 
+  dplyr::select(net_price_dif) %>% 
+  psych::describe(skew = F, ranges = F, quant = c(0.1, 0.5, 0.9))
+
+summary_table <- as.data.frame(summary_table)
+summary_table$vars <- NULL
+summary_table$se <- NULL
+summary_table$sd <- NULL
+summary_table$n <- NULL
+summary_table <- round(summary_table, digits = 2)
+rownames(summary_table) <- c("Net price")
+colnames(summary_table) <- c("Mean", "10\\%", "Median", "90\\%")
+  
+  
+summary_table %>%
+  kableExtra::kbl(
+    format = "html",
+    booktabs = TRUE,
+    align = rep("r", 6),
+    linesep = "",
+    format.args = list(big.mark = ",")
+  ) %>% 
+  kableExtra::kable_classic(full_width = F, html_font = "Cambria")
+```
+
+
+
+
+
+# Surplus 
+- Unit: 10K Yen / Day
+
+```{r}
+
+surplus_baseline <- compute_surplus(eq_baseline) %>% as.data.frame()
+surplus_cf <- compute_surplus(eq_cf) %>% as.data.frame()
+
+surplus <- surplus_baseline %>% 
+  dplyr::left_join(surplus_cf, by = c("year", "cz"), suffix = c("_baseline", "_cf")) %>% 
+  dplyr::mutate(
+    WS = WS_cf - WS_baseline,
+    FS = FS_cf - FS_baseline,
+    profit = profit_cf - profit_baseline
+  )
+
+
+summary_table <- surplus %>% 
+  dplyr::select(WS:profit) %>% 
+  psych::describe(skew = F, ranges = F, quant = c(0.1, 0.5, 0.9))
+
+summary_table <- as.data.frame(summary_table)
+summary_table$vars <- NULL
+summary_table$se <- NULL
+summary_table$sd <- NULL
+summary_table$n <- NULL
+summary_table <- round(summary_table, digits = 2)
+rownames(summary_table) <- c("Worker CV", "Firm CV", "Profit change")
+colnames(summary_table) <- c("Mean", "10\\%", "Median", "90\\%")
+  
+  
+summary_table %>%
+  kableExtra::kbl(
+    format = "html",
+    booktabs = TRUE,
+    align = rep("r", 6),
+    linesep = "",
+    format.args = list(big.mark = ",")
+  ) %>% 
+  kableExtra::kable_classic(full_width = F, html_font = "Cambria")
+
+
+```
+
+
+
+
+
+
+
+
+# Geographic distribution {.tabset}
+- Calculate average wage, fee, worker share, and client firm in commuting zone (pooling across years)
+- Calculate the log difference of the averages in the baseline equilibrium and the counterfactual.
+
+```{r}
+
+# Construct data to show geographic variations
+pref_all <- list()
+for (i in 1:47){
+  pref_all[[i]] <- jpn_pref(i, district = TRUE)
+}
+
+pref_all <- do.call(rbind, pref_all)
+
+pref_all <- pref_all %>%
+  dplyr::mutate(mun = as.numeric(city_code))
+
+
+# Large cities
+large_cities <- data.frame(
+  city = c("Sapporo", "Tokyo", "Nagoya", "Osaka", "Hiroshima"),
+  lat = c(43.066666, 35.652832, 35.183334, 34.672314, 34.385203),
+  lng = c(141.350006, 139.839478, 136.899994, 135.484802, 132.455293)
+)
+
+large_cities <- sf::st_as_sf(large_cities, coords = c("lng", "lat"), remove = FALSE,
+                             crs = "epsg:4326", agr = "constant")
+
+```
+
+
+```{r}
+data_1 <- data_act %>%
+  dplyr::group_by(cz) %>%
+  dplyr::summarise(
+    wage = mean(wage),
+    fee = mean(fee),
+    s_W = mean(s_W),
+    s_F = mean(s_F)
+  ) %>%
+  dplyr::ungroup()
+
+data_2 <- data_cf %>%
+  dplyr::group_by(cz) %>%
+  dplyr::summarise(
+    wage_cf = mean(wage_cf),
+    fee_cf = mean(fee_cf),
+    s_W_cf = mean(s_W_cf),
+    s_F_cf = mean(s_F_cf)
+  ) %>%
+  dplyr::ungroup()
+
+data_agg_dif <- data_1 %>%
+  dplyr::left_join(data_2, by = c("cz")) %>%
+  dplyr::mutate(
+    wage_logdif = log(wage_cf) - log(wage),
+    fee_logdif = log(fee_cf) - log(fee),
+    s_W_logdif = log(s_W_cf) - log(s_W),
+    s_F_logdif = log(s_F_cf) - log(s_F)
+  )
+
+data_agg_dif <- commuting_zone %>%
+  dplyr::left_join(data_agg_dif, by = "cz") %>%
+  dplyr::select(-cz) %>%
+  na.omit()
+
+```
+
+## Wage
+
+```{r}
+
+pref_all %>%
+  dplyr::left_join(data_agg_dif, by = "mun") %>%
+  dplyr::mutate(
+    wage_logdif = round(wage_logdif * 100, digits = 2),
+    wage_logdif_cat = cut_number(wage_logdif, n = 5)
+  ) %>%
+  ggplot() +
+  geom_sf(aes(fill = wage_logdif_cat),  lwd = 0.05) +
+  coord_sf(datum = NA, expand = F) +
+  theme_classic() +
+  scale_fill_viridis_d(na.value = "grey50", option = "viridis") +
+  labs(fill = "Percent change in wages") +
+  xlab("") + ylab("") +
+  theme(
+    legend.key.size = unit(0.3, "cm"),
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 6),
+    legend.position = c(0.3, 0.9),
+    plot.margin = grid::unit(c(0, -20, -40, -20), "mm")
+  )
+
+```
+
+## Fee
+
+```{r}
+pref_all %>%
+  dplyr::left_join(data_agg_dif, by = "mun") %>%
+  dplyr::mutate(
+    fee_logdif = round(fee_logdif * 100, digits = 2),
+    fee_logdif_cat = cut_number(fee_logdif, n = 5)
+  ) %>%
+  ggplot() +
+  geom_sf(aes(fill = fee_logdif_cat),  lwd = 0.05) +
+  coord_sf(datum = NA, expand = F) +
+  theme_classic() +
+  scale_fill_viridis_d(na.value = "grey50", option = "viridis") +
+  labs(fill = "Percent change in fees") +
+  xlab("") + ylab("") +
+  theme(
+    legend.key.size = unit(0.3, "cm"),
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 6),
+    legend.position = c(0.3, 0.9),
+    plot.margin = grid::unit(c(0, -20, -40, -20), "mm")
+  )
+```
+
+
+
+## Worker share
+
+```{r}
+pref_all %>%
+  dplyr::left_join(data_agg_dif, by = "mun") %>%
+  dplyr::mutate(
+    s_W_logdif = round(s_W_logdif * 100, digits = 2),
+    s_W_logdif_cat = cut_number(s_W_logdif, n = 5)
+  ) %>%
+  ggplot() +
+  geom_sf(aes(fill = s_W_logdif_cat),  lwd = 0.05) +
+  coord_sf(datum = NA, expand = F) +
+  theme_classic() +
+  scale_fill_viridis_d(na.value = "grey50", option = "viridis") +
+  labs(fill = "Percent change in worker shares") +
+  xlab("") + ylab("") +
+  theme(
+    legend.key.size = unit(0.3, "cm"),
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 6),
+    legend.position = c(0.3, 0.9),
+    plot.margin = grid::unit(c(0, -20, -40, -20), "mm")
+  )
+```
+
+
+## Client firm share
+
+```{r}
+pref_all %>%
+  dplyr::left_join(data_agg_dif, by = "mun") %>%
+  dplyr::mutate(
+    s_F_logdif = round(s_F_logdif * 100, digits = 2),
+    s_F_logdif_cat = cut_number(s_F_logdif, n = 5)
+  ) %>%
+  ggplot() +
+  geom_sf(aes(fill = s_F_logdif_cat),  lwd = 0.05) +
+  coord_sf(datum = NA, expand = F) +
+  theme_classic() +
+  scale_fill_viridis_d(na.value = "grey50", option = "viridis") +
+  labs(fill = "Percent change in client firm shares") +
+  xlab("") + ylab("") +
+  theme(
+    legend.key.size = unit(0.3, "cm"),
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 6),
+    legend.position = c(0.3, 0.9),
+    plot.margin = grid::unit(c(0, -20, -40, -20), "mm")
+  )
+```

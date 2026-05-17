@@ -1,0 +1,241 @@
+---
+title: "report_unconstrained_equilibrium_monopoly_without_ths_1"
+author: "Daisy Dan Song"
+date: "2024-04-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+```
+
+# Set constant
+
+```{r}
+seed <- 1
+set.seed(seed)
+n_ths <- 3
+n_market <- 1
+n_zone <- 1
+t <- 1
+j <- 1
+multistart <- 20
+
+```
+
+# impose baseline setting without ths = 1
+
+```{r}
+# generate template
+equilibrium <-
+  generate_equilibrium(
+    n_ths = n_ths,
+    n_market = n_market,
+    n_zone = n_zone,
+    seed = seed
+  )
+
+# c_3^F = 0
+equilibrium$parameter$gamma_f[3] <- -100
+c_f <-
+  compute_c_f_tj(
+    gamma_f = equilibrium$parameter$gamma_f,
+    x_c_f = equilibrium$exogenous[[t]][[j]]$x_c_f,
+    ec_f = equilibrium$shock[[t]][[j]]$ec_f,
+    use_exp = equilibrium$constant$use_exp
+  ) 
+
+c_w <- 
+  compute_c_w_tj(
+    gamma_w = equilibrium$parameter$gamma_w,
+    x_c_w = equilibrium$exogenous[[t]][[j]]$x_c_w,
+    ec_w = equilibrium$shock[[t]][[j]]$ec_w,
+    use_exp = equilibrium$constant$use_exp
+  ) 
+
+# no private market: mu_1 = 0
+equilibrium$shock[[t]][[j]]$mu[1] <- 0
+
+# make ths popular
+equilibrium$parameter$beta_f[3] <- 10
+
+# compute a_w
+beta_w <- equilibrium$parameter$beta_w
+x_a_w <- equilibrium$exogenous[[t]][[j]]$x_a_w
+ea_w <- equilibrium$shock[[t]][[j]]$ea_w  
+a_w <-
+  compute_a_w_tj(
+    beta_w = beta_w,
+    x_a_w = x_a_w,
+    ea_w = ea_w
+  ) 
+```
+
+# nleqslv solve_equilibrium_t
+
+```{r}
+eq1_nleqslv <-
+  solve_equilibrium_tj(
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = "nleqslv",
+    multistart = multistart
+  ) 
+eq1_nleqslv
+```
+
+## compute foc for nleqslv
+
+```{r}
+m_w <- eq1_nleqslv$parameter$m_w
+m_f <- eq1_nleqslv$parameter$m_f
+beta_f <- eq1_nleqslv$parameter$beta_f
+beta_w <- eq1_nleqslv$parameter$beta_w
+gamma_f <- eq1_nleqslv$parameter$gamma_f
+gamma_w <- eq1_nleqslv$parameter$gamma_w
+size_w <- eq1_nleqslv$exogenous[[t]][[j]]$size_w
+size_f <- eq1_nleqslv$exogenous[[t]][[j]]$size_f
+lambda_f <- eq1_nleqslv$parameter$lambda_f
+lambda_w <- eq1_nleqslv$parameter$lambda_w
+mu <- eq1_nleqslv$shock[[t]][[j]]$mu
+ea_f <- eq1_nleqslv$shock[[t]][[j]]$ea_f
+ec_f <- eq1_nleqslv$shock[[t]][[j]]$ec_f
+f <- eq1_nleqslv$endogenous[[t]][[j]]$f
+s_f <- eq1_nleqslv$endogenous[[t]][[j]]$s_f
+ea_f <- eq1_nleqslv$shock[[t]][[j]]$ea_f
+ec_f <- eq1_nleqslv$shock[[t]][[j]]$ec_f
+ea_w <- eq1_nleqslv$shock[[t]][[j]]$ea_w
+ec_w <- eq1_nleqslv$shock[[t]][[j]]$ec_w
+x_a_w <- eq1_nleqslv$exogenous[[t]][[j]]$x_a_w
+x_c_f <- eq1_nleqslv$exogenous[[t]][[j]]$x_c_f
+x_a_f <- eq1_nleqslv$exogenous[[t]][[j]]$x_a_f
+x_c_w <- eq1_nleqslv$exogenous[[t]][[j]]$x_c_w
+f <- eq1_nleqslv$endogenous[[t]][[j]]$f
+s_f <- eq1_nleqslv$endogenous[[t]][[j]]$s_f
+s_w <- eq1_nleqslv$endogenous[[t]][[j]]$s_w
+w <- eq1_nleqslv$endogenous[[t]][[j]]$w
+owner <- eq1_nleqslv$exogenous[[t]][[j]]$owner
+margin <- eq1_nleqslv$constant$margin
+quadrature_size <- eq1_nleqslv$constant$quadrature_size
+tol <- eq1_nleqslv$constant$tol
+use_exp <- equilibrium$constant$use_exp
+compute_foc_tj(
+  m_w = m_w,
+  m_f = m_f,
+  beta_w = beta_w,
+  beta_f = beta_f,
+  gamma_w = gamma_w,
+  gamma_f = gamma_f,
+  lambda_w = lambda_w,
+  lambda_f = lambda_f,
+  x_a_w = x_a_w,
+  x_a_f = x_a_f,
+  x_c_w = x_c_w,
+  x_c_f = x_c_f,
+  size_w = size_w,
+  size_f = size_f,
+  owner = owner,
+  mu = mu,
+  ea_w = ea_w,
+  ea_f = ea_f,
+  ec_w = ec_w,
+  ec_f = ec_f,
+  w = w,
+  f = f,
+  s_f = s_f,
+  method_s_w = "exact",
+  margin = margin,
+  quadrature_size = quadrature_size,
+  tol = tol,
+  use_exp = use_exp
+) 
+```
+
+## compute profit for nleqslv
+
+```{r}
+compute_profit_ths_tj(
+  m_w = m_w,
+  m_f = m_f,
+  gamma_w = gamma_w,
+  gamma_f = gamma_f,
+  x_c_w = x_c_w,
+  x_c_f = x_c_f,
+  size_w = size_w,
+  size_f = size_f,
+  owner = owner,
+  mu = mu,
+  ec_w = ec_w,
+  ec_f = ec_f,
+  w = w,
+  f = f,
+  s_w = s_w,
+  s_f = s_f,
+  use_exp = use_exp
+) 
+```
+
+# nleqslv solve_equilibrium_minimum_wage_t
+
+```{r}
+w_0 <- -10
+
+eq_unconstrained_1 <- 
+  solve_equilibrium_minimum_wage_tj(
+    t = t,
+    j = j,
+    eta_w = 1e-16,
+    equilibrium = equilibrium, 
+    solver = "nleqslv",
+    w_0 = w_0,
+    multistart = 20
+  )
+eq_unconstrained_1
+```
+
+## check equilibrium difference
+
+```{r}
+eq_unconstrained_1$endogenous[[t]][[j]]$w - 
+  eq1_nleqslv$endogenous[[t]][[j]]$w
+eq_unconstrained_1$endogenous[[t]][[j]]$f - 
+  eq1_nleqslv$endogenous[[t]][[j]]$f
+```
+
+# nleqslv solve_equilibrium_maximum_margin_t
+
+```{r}
+m_bar <- 0.9
+eq_unconstrained_2 <- 
+  solve_equilibrium_maximum_margin_tj(
+    t = t,
+    j = j,
+    eta_f = 1e-16,
+    equilibrium = equilibrium,
+    solver = "nleqslv",
+    m_bar = m_bar,
+    multistart = 20
+  )
+eq_unconstrained_2
+```
+
+## check equilibrium difference
+
+```{r}
+eq_unconstrained_2$endogenous[[t]][[j]]$w - 
+  eq1_nleqslv$endogenous[[t]][[j]]$w
+eq_unconstrained_2$endogenous[[t]][[j]]$f - 
+  eq1_nleqslv$endogenous[[t]][[j]]$f
+```

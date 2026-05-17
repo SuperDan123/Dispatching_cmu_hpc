@@ -1,0 +1,500 @@
+---
+title: "report_constrained_equilibrium_maximum_margin_monopoly"
+author: "Daisy Dan Song"
+date: "2024-05-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE
+  )
+rm(list = ls())
+library(Dispatching)
+library(foreach)
+library(magrittr)
+library(codetools)
+library(ggplot2)
+library(kableExtra)
+```
+
+# Set constant
+
+```{r}
+seed <- 1
+set.seed(seed)
+n_ths <- 2
+n_market <- 1
+n_zone <- 1
+t <- 1
+j <- 1
+multistart <- 10
+
+```
+
+# impose baseline setting
+
+```{r}
+# generate template
+equilibrium <-
+  generate_equilibrium(
+    n_ths = n_ths,
+    n_market = n_market,
+    n_zone = n_zone,
+    seed = seed
+  )
+```
+
+# check lower bound of m_bar
+
+```{r}
+equilibrium$constant$use_exp <- FALSE
+m_w <- equilibrium$parameter$m_w
+m_f <- equilibrium$parameter$m_f
+beta_w <- equilibrium$parameter$beta_w
+lambda_w <- equilibrium$parameter$lambda_w
+gamma_w <- equilibrium$parameter$gamma_w
+beta_f <- equilibrium$parameter$beta_f
+lambda_f <- equilibrium$parameter$lambda_f
+gamma_f <- equilibrium$parameter$gamma_f
+x_a_w <- equilibrium$exogenous[[t]][[j]]$x_a_w
+x_a_f <- equilibrium$exogenous[[t]][[j]]$x_a_f
+x_c_w <- equilibrium$exogenous[[t]][[j]]$x_c_w
+x_c_f <- equilibrium$exogenous[[t]][[j]]$x_c_f
+size_w <- equilibrium$exogenous[[t]][[j]]$size_w
+size_f <- equilibrium$exogenous[[t]][[j]]$size_f
+w_0 <- equilibrium$exogenous[[t]][[j]]$w_0
+owner <- equilibrium$exogenous[[t]][[j]]$owner
+mu <- equilibrium$shock[[t]][[j]]$mu
+ea_w <- equilibrium$shock[[t]][[j]]$ea_w
+ec_w <- equilibrium$shock[[t]][[j]]$ec_w
+ea_f <- equilibrium$shock[[t]][[j]]$ea_f
+ec_f <- equilibrium$shock[[t]][[j]]$ec_f
+w <- equilibrium$endogenous[[t]][[j]]$w
+f <- equilibrium$endogenous[[t]][[j]]$f
+s_f <- equilibrium$endogenous[[t]][[j]]$s_f
+method_s_w <- equilibrium$constant$method_s_w
+margin <- equilibrium$constant$margin
+quadrature_size <- equilibrium$constant$quadrature_size
+tol <- equilibrium$constant$tol
+use_exp <- equilibrium$constant$use_exp
+bound <-
+  compute_monopoly_bound_tj(
+    m_w = m_w,
+    m_f = m_f,
+    beta_w = beta_w,
+    beta_f = beta_f,
+    gamma_w = gamma_w,
+    gamma_f = gamma_f,
+    lambda_w = lambda_w,
+    lambda_f = lambda_f,
+    x_a_w = x_a_w,
+    x_a_f = x_a_f,
+    x_c_w = x_c_w,
+    x_c_f = x_c_f,
+    w_0 = w_0,
+    size_w = size_w,
+    size_f = size_f,
+    owner = owner,
+    mu = mu,
+    ea_w = ea_w,
+    ea_f = ea_f,
+    ec_w = ec_w,
+    ec_f = ec_f,
+    w = w,
+    f = f,
+    s_f = s_f,
+    method_s_w = method_s_w,
+    margin = margin,
+    quadrature_size = quadrature_size,
+    tol = tol,
+    use_exp = use_exp
+  )
+
+bound <-
+  relax_bound_tj(
+    bound = bound
+  )
+
+c_w <- 
+  compute_c_w_tj(
+    gamma_w = gamma_w,
+    x_c_w = x_c_w,
+    ec_w = ec_w,
+    use_exp = use_exp
+  ) 
+
+(
+  bound$upper[
+    1:(length(w) - 1)
+    ] +
+  c_w[
+    2:length(w)
+    ]-
+  bound$upper[
+    1:(length(w) - 1)
+    ]
+)/(
+  bound$upper[
+    1:(length(w) - 1)
+    ] +
+    c_w[2:length(w)]
+  )
+```
+
+# start from unconstrained solution
+
+```{r}
+eq1_nleqslv <-
+  solve_equilibrium_tj(
+    t = t,
+    j = j,
+    equilibrium = equilibrium,
+    solver = "nleqslv",
+    multistart = multistart
+  )
+equilibrium$endogenous[[t]][[j]]$w <- eq1_nleqslv$endogenous[[t]][[j]]$w
+equilibrium$endogenous[[t]][[j]]$f <- eq1_nleqslv$endogenous[[t]][[j]]$f
+w <- equilibrium$endogenous[[t]][[j]]$w
+f <- equilibrium$endogenous[[t]][[j]]$f
+w
+f
+```
+
+# threshold
+
+```{r}
+(f[2:length(f)] - w[2:length(w)])/f[2:length(f)]
+```
+
+# m_bar
+
+```{r}
+m_bar <- 0.2
+m_bar
+```
+
+# solve constrained equilibrium bounded
+
+## nleqslv
+```{r}
+eq_constrained_nleqslv <- 
+  solve_equilibrium_maximum_margin_tj(
+    t = t,
+    j = j,
+    eta_f = 1e-16,
+    equilibrium = equilibrium,
+    solver = "nleqslv",
+    m_bar = m_bar,
+    multistart = 20
+  )
+eq_constrained_nleqslv$endogenous
+```
+
+### compute profit
+
+```{r}
+compute_profit_ths_tj(
+  m_w = eq_constrained_nleqslv$parameter$m_w,
+  m_f = eq_constrained_nleqslv$parameter$m_f,
+  gamma_w = eq_constrained_nleqslv$parameter$gamma_w,
+  gamma_f = eq_constrained_nleqslv$parameter$gamma_f,
+  x_c_w = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_c_w,
+  x_c_f = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_c_f,
+  size_w = eq_constrained_nleqslv$exogenous[[t]][[j]]$size_w,
+  size_f = eq_constrained_nleqslv$exogenous[[t]][[j]]$size_f,
+  owner = eq_constrained_nleqslv$exogenous[[t]][[j]]$owner,
+  mu = eq_constrained_nleqslv$shock[[t]][[j]]$mu,
+  ec_w = eq_constrained_nleqslv$shock[[t]][[j]]$ec_w,
+  ec_f = eq_constrained_nleqslv$shock[[t]][[j]]$ec_f,
+  w = eq_constrained_nleqslv$endogenous[[t]][[j]]$w,
+  f = eq_constrained_nleqslv$endogenous[[t]][[j]]$f,
+  s_w = eq_constrained_nleqslv$endogenous[[t]][[j]]$s_w,
+  s_f = eq_constrained_nleqslv$endogenous[[t]][[j]]$s_f,
+  use_exp = eq_constrained_nleqslv$constant$use_exp
+) 
+```
+
+### compute augmented foc
+
+```{r}
+compute_foc_maximum_margin_tj(
+  m_w = eq_constrained_nleqslv$parameter$m_w,
+  m_f = eq_constrained_nleqslv$parameter$m_f,
+  beta_w = eq_constrained_nleqslv$parameter$beta_w,
+  beta_f = eq_constrained_nleqslv$parameter$beta_f,
+  gamma_w = eq_constrained_nleqslv$parameter$gamma_w,
+  gamma_f = eq_constrained_nleqslv$parameter$gamma_f,
+  lambda_w = eq_constrained_nleqslv$parameter$lambda_w,
+  lambda_f = eq_constrained_nleqslv$parameter$lambda_f,
+  x_a_w = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_a_w,
+  x_a_f = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_a_f,
+  x_c_w = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_c_w,
+  x_c_f = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_c_f,
+  size_w = eq_constrained_nleqslv$exogenous[[t]][[j]]$size_w,
+  size_f = eq_constrained_nleqslv$exogenous[[t]][[j]]$size_f,
+  owner = eq_constrained_nleqslv$exogenous[[t]][[j]]$owner,
+  mu = eq_constrained_nleqslv$shock[[t]][[j]]$mu,
+  ea_w = eq_constrained_nleqslv$shock[[t]][[j]]$ea_w,
+  ea_f = eq_constrained_nleqslv$shock[[t]][[j]]$ea_f,
+  ec_w = eq_constrained_nleqslv$shock[[t]][[j]]$ec_w,
+  ec_f = eq_constrained_nleqslv$shock[[t]][[j]]$ec_f,
+  w = eq_constrained_nleqslv$endogenous[[t]][[j]]$w,
+  f = eq_constrained_nleqslv$endogenous[[t]][[j]]$f,
+  s_f = eq_constrained_nleqslv$endogenous[[t]][[j]]$s_f,
+  eta_f = eq_constrained_nleqslv$endogenous[[t]][[j]]$eta_f,
+  m_bar = m_bar,
+  method_s_w = "exact",
+  margin = eq_constrained_nleqslv$constant$margin,
+  quadrature_size = eq_constrained_nleqslv$constant$quadrature_size,
+  tol = eq_constrained_nleqslv$constant$tol,
+  use_exp = eq_constrained_nleqslv$constant$use_exp
+) 
+```
+
+### foc_shape_w
+
+```{r}
+g <-
+  seq(
+    -10,
+    20,
+    by = 0.1
+  ) %>%
+  purrr::map(
+    function(x) {
+      w_x <- w
+      w_x[2] <- x
+      foc <-
+        compute_foc_maximum_margin_tj(
+          m_w = eq_constrained_nleqslv$parameter$m_w,
+          m_f = eq_constrained_nleqslv$parameter$m_f,
+          beta_w = eq_constrained_nleqslv$parameter$beta_w,
+          beta_f = eq_constrained_nleqslv$parameter$beta_f,
+          gamma_w = eq_constrained_nleqslv$parameter$gamma_w,
+          gamma_f = eq_constrained_nleqslv$parameter$gamma_f,
+          lambda_w = eq_constrained_nleqslv$parameter$lambda_w,
+          lambda_f = eq_constrained_nleqslv$parameter$lambda_f,
+          x_a_w = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_a_w,
+          x_a_f = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_a_f,
+          x_c_w = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_c_w,
+          x_c_f = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_c_f,
+          size_w = eq_constrained_nleqslv$exogenous[[t]][[j]]$size_w,
+          size_f = eq_constrained_nleqslv$exogenous[[t]][[j]]$size_f,
+          owner = eq_constrained_nleqslv$exogenous[[t]][[j]]$owner,
+          mu = eq_constrained_nleqslv$shock[[t]][[j]]$mu,
+          ea_w = eq_constrained_nleqslv$shock[[t]][[j]]$ea_w,
+          ea_f = eq_constrained_nleqslv$shock[[t]][[j]]$ea_f,
+          ec_w = eq_constrained_nleqslv$shock[[t]][[j]]$ec_w,
+          ec_f = eq_constrained_nleqslv$shock[[t]][[j]]$ec_f,
+          w = w_x,
+          f = eq_constrained_nleqslv$endogenous[[t]][[j]]$f,
+          s_f = eq_constrained_nleqslv$endogenous[[t]][[j]]$s_f,
+          eta_f = eq_constrained_nleqslv$endogenous[[t]][[j]]$eta_f,
+          m_bar = m_bar,
+          method_s_w = "exact",
+          margin = eq_constrained_nleqslv$constant$margin,
+          quadrature_size = eq_constrained_nleqslv$constant$quadrature_size,
+          tol = eq_constrained_nleqslv$constant$tol,
+          use_exp = eq_constrained_nleqslv$constant$use_exp
+        ) 
+      return(
+        tibble::tibble(
+          x = x,
+          aug_foc_w = foc[1]
+        )
+      )
+    }
+  ) %>%
+  dplyr::bind_rows()
+
+g %>%
+  ggplot(
+    aes(
+      x = x,
+      y = aug_foc_w
+    )
+  ) +
+  geom_line() +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed"
+  ) +
+  geom_vline(
+    xintercept = w[2],
+    linetype = "dashed"
+  ) +
+  theme_classic()
+```
+
+### foc_shape_f
+
+```{r}
+g <-
+  seq(
+    -10,
+    15,
+    by = 0.1
+  ) %>%
+  purrr::map(
+    function(x) {
+      f_x <- f
+      f_x[2] <- x
+      foc <-
+         compute_foc_maximum_margin_tj(
+          m_w = eq_constrained_nleqslv$parameter$m_w,
+          m_f = eq_constrained_nleqslv$parameter$m_f,
+          beta_w = eq_constrained_nleqslv$parameter$beta_w,
+          beta_f = eq_constrained_nleqslv$parameter$beta_f,
+          gamma_w = eq_constrained_nleqslv$parameter$gamma_w,
+          gamma_f = eq_constrained_nleqslv$parameter$gamma_f,
+          lambda_w = eq_constrained_nleqslv$parameter$lambda_w,
+          lambda_f = eq_constrained_nleqslv$parameter$lambda_f,
+          x_a_w = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_a_w,
+          x_a_f = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_a_f,
+          x_c_w = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_c_w,
+          x_c_f = eq_constrained_nleqslv$exogenous[[t]][[j]]$x_c_f,
+          size_w = eq_constrained_nleqslv$exogenous[[t]][[j]]$size_w,
+          size_f = eq_constrained_nleqslv$exogenous[[t]][[j]]$size_f,
+          owner = eq_constrained_nleqslv$exogenous[[t]][[j]]$owner,
+          mu = eq_constrained_nleqslv$shock[[t]][[j]]$mu,
+          ea_w = eq_constrained_nleqslv$shock[[t]][[j]]$ea_w,
+          ea_f = eq_constrained_nleqslv$shock[[t]][[j]]$ea_f,
+          ec_w = eq_constrained_nleqslv$shock[[t]][[j]]$ec_w,
+          ec_f = eq_constrained_nleqslv$shock[[t]][[j]]$ec_f,
+          w = eq_constrained_nleqslv$endogenous[[t]][[j]]$w,
+          f = f_x,
+          s_f = eq_constrained_nleqslv$endogenous[[t]][[j]]$s_f,
+          eta_f = eq_constrained_nleqslv$endogenous[[t]][[j]]$eta_f,
+          m_bar = m_bar,
+          method_s_w = "exact",
+          margin = eq_constrained_nleqslv$constant$margin,
+          quadrature_size = eq_constrained_nleqslv$constant$quadrature_size,
+          tol = eq_constrained_nleqslv$constant$tol,
+          use_exp = eq_constrained_nleqslv$constant$use_exp
+        ) 
+      return(
+        tibble::tibble(
+          x = x,
+          aug_foc_f = foc[2]
+        )
+      )
+    }
+  ) %>%
+  dplyr::bind_rows()
+
+g %>%
+  ggplot(
+    aes(
+      x = x,
+      y = aug_foc_f
+    )
+  ) +
+  geom_line() +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed"
+  ) +
+  geom_vline(
+    xintercept = f[2],
+    linetype = "dashed"
+  ) +
+  theme_classic()
+```
+
+## iteration
+```{r}
+eq_constrained_iteration <- 
+  solve_equilibrium_maximum_margin_tj(
+    t = t,
+    j = j,
+    eta_f = 1e-16,
+    equilibrium = equilibrium,
+    solver = "iteration",
+    m_bar = m_bar,
+    multistart = 20
+  )
+eq_constrained_iteration$endogenous
+```
+
+### compute profit
+
+```{r}
+compute_profit_ths_tj(
+  m_w = eq_constrained_iteration$parameter$m_w,
+  m_f = eq_constrained_iteration$parameter$m_f,
+  gamma_w = eq_constrained_iteration$parameter$gamma_w,
+  gamma_f = eq_constrained_iteration$parameter$gamma_f,
+  x_c_w = eq_constrained_iteration$exogenous[[t]][[j]]$x_c_w,
+  x_c_f = eq_constrained_iteration$exogenous[[t]][[j]]$x_c_f,
+  size_w = eq_constrained_iteration$exogenous[[t]][[j]]$size_w,
+  size_f = eq_constrained_iteration$exogenous[[t]][[j]]$size_f,
+  owner = eq_constrained_iteration$exogenous[[t]][[j]]$owner,
+  mu = eq_constrained_iteration$shock[[t]][[j]]$mu,
+  ec_w = eq_constrained_iteration$shock[[t]][[j]]$ec_w,
+  ec_f = eq_constrained_iteration$shock[[t]][[j]]$ec_f,
+  w = eq_constrained_iteration$endogenous[[t]][[j]]$w,
+  f = eq_constrained_iteration$endogenous[[t]][[j]]$f,
+  s_w = eq_constrained_iteration$endogenous[[t]][[j]]$s_w,
+  s_f = eq_constrained_iteration$endogenous[[t]][[j]]$s_f,
+  use_exp = eq_constrained_iteration$constant$use_exp
+) 
+```
+
+
+## nloptr
+```{r}
+eq_constrained_nloptr <- 
+  solve_equilibrium_maximum_margin_tj(
+    t = t,
+    j = j,
+    eta_f = 1e-16,
+    equilibrium = equilibrium,
+    solver = "nloptr",
+    m_bar = m_bar,
+    multistart = 20
+  )
+eq_constrained_nloptr$endogenous
+```
+
+### compute profit
+
+```{r}
+compute_profit_ths_tj(
+  m_w = eq_constrained_nloptr$parameter$m_w,
+  m_f = eq_constrained_nloptr$parameter$m_f,
+  gamma_w = eq_constrained_nloptr$parameter$gamma_w,
+  gamma_f = eq_constrained_nloptr$parameter$gamma_f,
+  x_c_w = eq_constrained_nloptr$exogenous[[t]][[j]]$x_c_w,
+  x_c_f = eq_constrained_nloptr$exogenous[[t]][[j]]$x_c_f,
+  size_w = eq_constrained_nloptr$exogenous[[t]][[j]]$size_w,
+  size_f = eq_constrained_nloptr$exogenous[[t]][[j]]$size_f,
+  owner = eq_constrained_nloptr$exogenous[[t]][[j]]$owner,
+  mu = eq_constrained_nloptr$shock[[t]][[j]]$mu,
+  ec_w = eq_constrained_nloptr$shock[[t]][[j]]$ec_w,
+  ec_f = eq_constrained_nloptr$shock[[t]][[j]]$ec_f,
+  w = eq_constrained_nloptr$endogenous[[t]][[j]]$w,
+  f = eq_constrained_nloptr$endogenous[[t]][[j]]$f,
+  s_w = eq_constrained_nloptr$endogenous[[t]][[j]]$s_w,
+  s_f = eq_constrained_nloptr$endogenous[[t]][[j]]$s_f,
+  use_exp = eq_constrained_nloptr$constant$use_exp
+) 
+```
+
+# comparision of algorithm
+```{r}
+cbind(
+  eq_constrained_nleqslv$endogenous[[t]][[j]]$w,
+    eq_constrained_iteration$endogenous[[t]][[j]]$w,
+    eq_constrained_nloptr$endogenous[[t]][[j]]$w
+)
+
+cbind(
+  eq_constrained_nleqslv$endogenous[[t]][[j]]$f,
+    eq_constrained_iteration$endogenous[[t]][[j]]$f,
+    eq_constrained_nloptr$endogenous[[t]][[j]]$f
+)
+```
+

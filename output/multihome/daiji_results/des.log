@@ -1,0 +1,153 @@
+---------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\DAIJI\Documents\GitHub\Dispatching\output\daiji_results\des
+> .log
+  log type:  text
+ opened on:   1 Sep 2023, 15:28:55
+
+. set more off;
+
+. *set graphics off;
+. clear;
+
+. use $workpath\03_analyze_data\tempagency.dta;
+
+. tab year;
+
+       year |      Freq.     Percent        Cum.
+------------+-----------------------------------
+       2010 |      6,813       28.88       28.88
+       2011 |         33        0.14       29.02
+       2012 |      6,391       27.09       56.10
+       2013 |      3,764       15.95       72.06
+       2014 |      6,593       27.94      100.00
+------------+-----------------------------------
+      Total |     23,594      100.00
+
+. sutex2 tempdaily tempperm tempfixed temptot register client wage fee margin
+> wagedaily feedaily margindaily staffperm stafffixed rstaff rtraining 
+> rlength1d rlength2d_7d rlength8d_31d rlength3m rlength4m_6m rlength7m_12m 
+> rlength13m_36m rlengthmisc mktsize_p share_p hh_p hh_p_p hh_f_p hh_d_p top3_p,
+> perc(10 50 90) varlabels tabular replace 
+> saving($outpath\descstat.tex);
+Warning: if 'TABULAR' option is on, 'TABLABel' and 'CAPTION' have no effects.
+
+(file
+    C:\Users\DAIJI\Documents\GitHub\Dispatching\output\daiji_results\descstat.t
+    > ex not found)
+file C:\Users\DAIJI\Documents\GitHub\Dispatching\output\daiji_results\descstat.te
+> x saved
+
+. *graph;
+. histogram margin;
+(bin=43, start=0, width=.02239069)
+
+. graph export $outpath\margin.pdf, as(pdf) replace;
+file
+    C:\Users\DAIJI\Documents\GitHub\Dispatching\output\daiji_results\margin.pdf
+    saved as PDF format
+
+. forvalues i=1/15 {;
+  2. histogram margin`i', name(margin`i', replace) xsc(r(0 1)) ysc(r(0 8)) xlabel
+> (0 (0.2) 1) ylabel (0 (2) 8);
+  3. };
+(bin=37, start=0, width=.02179159)
+(bin=35, start=0, width=.02271131)
+(bin=24, start=0, width=.02088791)
+(bin=21, start=0, width=.02620936)
+(bin=40, start=0, width=.02316933)
+(bin=34, start=0, width=.02738017)
+(bin=33, start=0, width=.02231861)
+(bin=32, start=0, width=.02831885)
+(bin=31, start=0, width=.02423557)
+(bin=36, start=0, width=.02597683)
+(bin=34, start=0, width=.02728374)
+(bin=30, start=0, width=.02019314)
+(bin=16, start=0, width=.03798653)
+(bin=31, start=0, width=.0226393)
+(bin=30, start=0, width=.03100377)
+
+. forvalues i=17/26 {;
+  2. histogram margin`i', name(margin`i', replace) xsc(r(0 1)) ysc(r(0 8)) xlabel
+> (0 (0.2) 1) ylabel (0 (2) 8);
+  3. };
+(bin=36, start=0, width=.02596618)
+(bin=30, start=0, width=.02614712)
+(bin=31, start=0, width=.02518945)
+(bin=31, start=0, width=.02343236)
+(bin=28, start=0, width=.02319541)
+(bin=10, start=.04264519, width=.04573548)
+(bin=33, start=0, width=.02805836)
+(bin=37, start=0, width=.02492269)
+(bin=32, start=0, width=.02922652)
+(bin=7, start=0, width=.07595874)
+
+. graph combine margin1 margin2 margin3 margin4 margin5 margin6 margin7 margin8
+> margin9;
+
+. graph export $outpath\margin1-9.pdf, as(pdf) replace;
+file
+    C:\Users\DAIJI\Documents\GitHub\Dispatching\output\daiji_results\margin1-9.
+    > pdf saved as PDF format
+
+. graph combine margin10 margin11 margin12 margin13 margin14 margin15 margin17 ma
+> rgin18
+> margin19;
+
+. graph export $outpath\margin10-19.pdf, as(pdf) replace;
+file
+    C:\Users\DAIJI\Documents\GitHub\Dispatching\output\daiji_results\margin10-1
+    > 9.pdf saved as PDF format
+
+. graph combine margin20 margin21 margin22 margin23 margin24 margin25 margin26;
+
+. graph export $outpath\margin20-26.pdf, as(pdf) replace;
+file
+    C:\Users\DAIJI\Documents\GitHub\Dispatching\output\daiji_results\margin20-2
+    > 6.pdf saved as PDF format
+
+. *histogram number if year==2010 , name(margin`i', replace) xsc(r(0 1)) ysc(r(0 
+> 8)) xlabel(0 (0.2) 1) ylabel (0 (2) 8);
+. ;
+. *the effect of the revision effctive Oct 1, 2012;
+. tabstat tempdaily, by(year);
+
+Summary for variables: tempdaily
+Group variable: year 
+
+    year |      Mean
+---------+----------
+    2010 |  4.720828
+    2011 |  2.878788
+    2012 |  5.500235
+    2013 |  3.174548
+    2014 |  3.365084
+---------+----------
+   Total |  4.303848
+--------------------
+
+. preserve;
+
+. collapse hh_p hh_d_p hh_p_p hh_f_p margin top3_p, by(pref year);
+
+. keep if year==2010;
+(157 observations deleted)
+
+. drop if pref==.;
+(0 observations deleted)
+
+. drop year;
+
+. export delimited using $workpath\hh2010.csv, replace;
+(file C:\Users\DAIJI\Documents\GitHub\Dispatching\main\multihome\hh2010.csv not
+    found)
+file C:\Users\DAIJI\Documents\GitHub\Dispatching\main\multihome\hh2010.csv saved
+
+. *restore;
+. log close;
+      name:  <unnamed>
+       log:  C:\Users\DAIJI\Documents\GitHub\Dispatching\output\daiji_results\des
+> .log
+  log type:  text
+ closed on:   1 Sep 2023, 15:29:56
+---------------------------------------------------------------------------------

@@ -1,0 +1,68 @@
+---
+title: "Unionize Temp Workers"
+author: "Katsuhiro Komatsu"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+gc()
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+```
+
+
+- Unionize temp workers.
+- Choose wages and fees in a market to maximize the worker surplus subject to non-negative profits.
+- Currently, compute equilibrium for only markets with 5 or less THS establishments
+- Specification: Log \& ridge
+
+### Distribution of changes in endogenous variables \& surplus
+- Each point corresponds to each establishment other than the figure for surplus.
+- Surplus is calculated for each market.
+
+:::: {style="display: grid; grid-template-columns: 1fr 1fr; grid-column-gap: 10px; "}
+
+::: {}
+
+#### Margin
+```{r, out.width = "90%"}
+knitr::include_graphics(here::here("figuretable/counterfactual/union/small_markets/margin_change_ecdf.png"))
+```
+
+
+:::
+
+::: {}
+
+#### Wage \& Fee
+```{r, out.width = "90%"}
+knitr::include_graphics(here::here("figuretable/counterfactual/union/small_markets/price_change_ecdf.png"))
+```
+
+:::
+
+::::
+
+:::: {style="display: grid; grid-template-columns: 1fr 1fr; grid-column-gap: 10px; "}
+
+::: {}
+
+#### Shares
+```{r, out.width = "90%"}
+knitr::include_graphics(here::here("figuretable/counterfactual/union/small_markets/share_change_ecdf.png"))
+```
+
+
+:::
+
+::: {}
+
+#### Surplus
+```{r, out.width = "90%"}
+knitr::include_graphics(here::here("figuretable/counterfactual/union/small_markets/surplus_gain_ecdf.png"))
+```
+
+:::
+
+::::

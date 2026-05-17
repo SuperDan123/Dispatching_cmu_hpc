@@ -1,0 +1,593 @@
+---------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\DAIJI\Documents\GitHub\Dispatching\output\daiji_results\clt
+> emp.log
+  log type:  text
+ opened on:   1 Sep 2023, 15:24:46
+
+. set more off;
+
+. clear;
+
+. use $datapath\data_establishments.dta;
+
+. merge m:1 zipcode using $datapath\data_zipcode.dta;
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                       119,190
+        from master                     7,848  (_merge==1)
+        from using                    111,342  (_merge==2)
+
+    Matched                           362,920  (_merge==3)
+    -----------------------------------------
+
+. tab _merge;
+
+   Matching result from |
+                  merge |      Freq.     Percent        Cum.
+------------------------+-----------------------------------
+        Master only (1) |      7,848        1.63        1.63
+         Using only (2) |    111,342       23.09       24.72
+            Matched (3) |    362,920       75.28      100.00
+------------------------+-----------------------------------
+                  Total |    482,110      100.00
+
+. keep if _merge==3;
+(119,190 observations deleted)
+
+. drop _merge;
+
+. merge m:1 area_code using $datapath\data_area.dta;
+(variable area_code was long, now double to accommodate using data's values)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           370
+        from master                        85  (_merge==1)
+        from using                        285  (_merge==2)
+
+    Matched                           362,835  (_merge==3)
+    -----------------------------------------
+
+. tab _merge;
+
+   Matching result from |
+                  merge |      Freq.     Percent        Cum.
+------------------------+-----------------------------------
+        Master only (1) |         85        0.02        0.02
+         Using only (2) |        285        0.08        0.10
+            Matched (3) |    362,835       99.90      100.00
+------------------------+-----------------------------------
+                  Total |    363,205      100.00
+
+. keep if _merge==3;
+(370 observations deleted)
+
+. drop _merge;
+
+. merge m:1 pref year using $datapath\data_pref_year_minimum_wage.dta;
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                           362,835  (_merge==3)
+    -----------------------------------------
+
+. tab _merge;
+
+   Matching result from |
+                  merge |      Freq.     Percent        Cum.
+------------------------+-----------------------------------
+            Matched (3) |    362,835      100.00      100.00
+------------------------+-----------------------------------
+                  Total |    362,835      100.00
+
+. keep if _merge==3;
+(0 observations deleted)
+
+. drop _merge;
+
+. merge m:1 pref year using $datapath\data_pref_year_partwage.dta;
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                           362,835  (_merge==3)
+    -----------------------------------------
+
+. tab _merge;
+
+   Matching result from |
+                  merge |      Freq.     Percent        Cum.
+------------------------+-----------------------------------
+            Matched (3) |    362,835      100.00      100.00
+------------------------+-----------------------------------
+                  Total |    362,835      100.00
+
+. keep if _merge==3;
+(0 observations deleted)
+
+. drop _merge;
+
+. merge m:1 year using $datapath\data_year.dta;
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                           362,835  (_merge==3)
+    -----------------------------------------
+
+. tab _merge;
+
+   Matching result from |
+                  merge |      Freq.     Percent        Cum.
+------------------------+-----------------------------------
+            Matched (3) |    362,835      100.00      100.00
+------------------------+-----------------------------------
+                  Total |    362,835      100.00
+
+. keep if _merge==3;
+(0 observations deleted)
+
+. drop _merge;
+
+. gen temptot=tempperm+tempfixed;
+
+. *data construction;
+. count;
+  362,835
+
+. drop if register==0;
+(196,122 observations deleted)
+
+. count;
+  166,713
+
+. drop if temptot==0;
+(59,792 observations deleted)
+
+. count;
+  106,921
+
+. drop if temptot<=5;
+(48,278 observations deleted)
+
+. count;
+  58,643
+
+. *size;
+. gen tot=perm+fixed;
+
+. gen rday=tempdaily/temptot;
+
+. gen rperm=tempperm/temptot;
+
+. gen rtemp=tempfixed/temptot;
+
+. *staff;
+. gen staffperm=perm-tempperm;
+
+. replace staffperm=. if staffperm<0;
+(3,363 real changes made, 3,363 to missing)
+
+. gen stafffixed=fixed-tempfixed;
+
+. replace stafffixed=. if stafffixed<0;
+(4,638 real changes made, 4,638 to missing)
+
+. gen staff=staffperm+stafffixed;
+(7,319 missing values generated)
+
+. replace staff=. if staff<0;
+(0 real changes made)
+
+. gen rstaff=staff/tot;
+(7,319 missing values generated)
+
+. *training;
+. gen rtraining=trainingnumber/temptot;
+
+. *cz market;
+. egen mktsize_cz=sum(temptot), by(year cz);
+
+. egen mktsize_d_cz=sum(tempdaily), by(year cz);
+
+. egen mktsize_p_cz=sum(tempperm), by(year cz);
+
+. egen mktsize_f_cz=sum(tempfixed), by(year cz);
+
+. gen share_cz=temptot/mktsize_cz;
+
+. gen share_d_cz=tempdaily/mktsize_d_cz;
+(1,538 missing values generated)
+
+. gen share_p_cz=tempperm/mktsize_p_cz;
+(14 missing values generated)
+
+. gen share_f_cz=tempfixed/mktsize_f_cz;
+(190 missing values generated)
+
+. gen share2_cz=share_cz^2;
+
+. gen share_d2_cz=share_d_cz^2;
+(1,538 missing values generated)
+
+. gen share_p2_cz=share_p_cz^2;
+(14 missing values generated)
+
+. gen share_f2_cz=share_f_cz^2;
+(190 missing values generated)
+
+. egen hh_cz=sum(share2_cz), by(year cz);
+
+. egen hh_d_cz=sum(share_d2_cz), by(year cz);
+
+. egen hh_p_cz=sum(share_p2_cz), by(year cz);
+
+. egen hh_f_cz=sum(share_f2_cz), by(year cz);
+
+. egen srank_cz=rank(share_cz), by(year cz);
+
+. gen sharealt_cz=share_cz if srank_cz>=1&srank_cz<=3;
+(56,412 missing values generated)
+
+. replace sharealt_cz=0 if srank_cz>=4&srank_cz<.;
+(56,204 real changes made)
+
+. egen top3_cz=sum(sharealt_cz), by(year cz);
+
+. *zip three digits market;
+. gen zip3=substr(zip, 1, 3);
+
+. destring zip3, replace;
+zip3: all characters numeric; replaced as int
+
+. egen mktsize_zip3=sum(temptot), by(year zip3);
+
+. egen mktsize_d_zip3=sum(tempdaily), by(year zip3);
+
+. egen mktsize_p_zip3=sum(tempperm), by(year zip3);
+
+. egen mktsize_f_zip3=sum(tempfixed), by(year zip3);
+
+. gen share_zip3=temptot/mktsize_zip3;
+
+. gen share_d_zip3=tempdaily/mktsize_d_zip3;
+(8,263 missing values generated)
+
+. gen share_p_zip3=tempperm/mktsize_p_zip3;
+(108 missing values generated)
+
+. gen share_f_zip3=tempfixed/mktsize_f_zip3;
+(1,253 missing values generated)
+
+. gen share2_zip3=share_zip3^2;
+
+. gen share_d2_zip3=share_d_zip3^2;
+(8,263 missing values generated)
+
+. gen share_p2_zip3=share_p_zip3^2;
+(108 missing values generated)
+
+. gen share_f2_zip3=share_f_zip3^2;
+(1,253 missing values generated)
+
+. egen hh_zip3=sum(share2_zip3), by(year zip3);
+
+. egen hh_d_zip3=sum(share_d2_zip3), by(year zip3);
+
+. egen hh_p_zip3=sum(share_p2_zip3), by(year zip3);
+
+. egen hh_f_zip3=sum(share_f2_zip3), by(year zip3);
+
+. egen srank_zip3=rank(share_zip3), by(year zip3);
+
+. gen sharealt_zip3=share_zip3 if srank_zip3>=1&srank_zip3<=3;
+(49,442 missing values generated)
+
+. replace sharealt_zip3=0 if srank_zip3>=4&srank_zip3<.;
+(48,844 real changes made)
+
+. egen top3_zip3=sum(sharealt_zip3), by(year zip3);
+
+. *prefecture market;
+. egen mktsize_p=sum(temptot), by(year pref);
+
+. egen mktsize_d_p=sum(tempdaily), by(year pref);
+
+. egen mktsize_p_p=sum(tempperm), by(year pref);
+
+. egen mktsize_f_p=sum(tempfixed), by(year pref);
+
+. gen share_p=temptot/mktsize_p;
+
+. gen share_d_p=tempdaily/mktsize_d_p;
+
+. gen share_p_p=tempperm/mktsize_p_p;
+
+. gen share_f_p=tempfixed/mktsize_f_p;
+
+. gen share2_p=share_p^2;
+
+. gen share_d2_p=share_d_p^2;
+
+. gen share_p2_p=share_p_p^2;
+
+. gen share_f2_p=share_f_p^2;
+
+. egen hh_p=sum(share2_p), by(year pref);
+
+. egen hh_d_p=sum(share_d2_p), by(year pref);
+
+. egen hh_p_p=sum(share_p2_p), by(year pref);
+
+. egen hh_f_p=sum(share_f2_p), by(year pref);
+
+. egen srank_p=rank(share_p), by(year pref);
+
+. gen sharealt_p=share_p if srank_p>=1&srank_p<=3;
+(58,236 missing values generated)
+
+. replace sharealt_p=0 if srank_p>=4&srank_p<.;
+(58,142 real changes made)
+
+. egen top3_p=sum(sharealt_p), by(year pref);
+
+. *margin;
+. gen margin=(fee-wage)/fee;
+(392 missing values generated)
+
+. replace margin=. if margin<0;
+(208 real changes made, 208 to missing)
+
+. gen margindaily=(feedaily-wagedaily)/feedaily;
+(44,246 missing values generated)
+
+. replace margindaily=. if margindaily<0;
+(88 real changes made, 88 to missing)
+
+. forvalues i=1/26{;
+  2. gen margin`i'=(fee`i'-wage`i')/fee`i';
+  3. replace margin`i'=. if margin`i'<0;
+  4. };
+(43,488 missing values generated)
+(67 real changes made, 67 to missing)
+(49,614 missing values generated)
+(43 real changes made, 43 to missing)
+(57,339 missing values generated)
+(13 real changes made, 13 to missing)
+(57,544 missing values generated)
+(8 real changes made, 8 to missing)
+(37,741 missing values generated)
+(139 real changes made, 139 to missing)
+(54,005 missing values generated)
+(13 real changes made, 13 to missing)
+(54,241 missing values generated)
+(23 real changes made, 23 to missing)
+(55,284 missing values generated)
+(31 real changes made, 31 to missing)
+(56,407 missing values generated)
+(25 real changes made, 25 to missing)
+(50,482 missing values generated)
+(43 real changes made, 43 to missing)
+(53,902 missing values generated)
+(25 real changes made, 25 to missing)
+(56,751 missing values generated)
+(11 real changes made, 11 to missing)
+(58,141 missing values generated)
+(6 real changes made, 6 to missing)
+(55,673 missing values generated)
+(32 real changes made, 32 to missing)
+(56,135 missing values generated)
+(21 real changes made, 21 to missing)
+(51,995 missing values generated)
+(50 real changes made, 50 to missing)
+(50,192 missing values generated)
+(40 real changes made, 40 to missing)
+(56,169 missing values generated)
+(36 real changes made, 36 to missing)
+(56,269 missing values generated)
+(9 real changes made, 9 to missing)
+(56,101 missing values generated)
+(11 real changes made, 11 to missing)
+(57,257 missing values generated)
+(9 real changes made, 9 to missing)
+(58,446 missing values generated)
+(1 real change made, 1 to missing)
+(54,159 missing values generated)
+(27 real changes made, 27 to missing)
+(49,915 missing values generated)
+(36 real changes made, 36 to missing)
+(54,995 missing values generated)
+(27 real changes made, 27 to missing)
+(58,531 missing values generated)
+(2 real changes made, 2 to missing)
+
+. gen lfee=ln(fee);
+(131 missing values generated)
+
+. gen lwage=ln(wage);
+(343 missing values generated)
+
+. gen lfee_wage=lfee-lwage;
+(392 missing values generated)
+
+. egen lengthtotal=rowtotal(length1d length2d_7d length8d_1m length2m length3m le
+> ngth4m_6m length7m_12m length13m_36m lengthmisc);
+
+. gen rlength1d=length1d/lengthtotal;
+(24,837 missing values generated)
+
+. gen rlength2d_7d=length2d_7d/lengthtotal;
+(23,352 missing values generated)
+
+. gen rlength8d_31d=length8d_1m/lengthtotal;
+(18,253 missing values generated)
+
+. gen rlength2m=length2m/lengthtotal;
+(15,295 missing values generated)
+
+. gen rlength3m=length3m/lengthtotal;
+(11,998 missing values generated)
+
+. gen rlength4m_6m=length4m_6m/lengthtotal;
+(12,025 missing values generated)
+
+. gen rlength7m_12m=length7m_12m/lengthtotal;
+(12,501 missing values generated)
+
+. gen rlength13m_36m=length13m_36m/lengthtotal;
+(19,421 missing values generated)
+
+. gen rlengthmisc=lengthmisc/lengthtotal;
+(27,474 missing values generated)
+
+. label variable tempdaily "派遣労働者：日雇い";
+
+. label variable tempperm "派遣労働者：常用";
+
+. label variable tempfixed "派遣労働者：有期";
+
+. label variable temptot "派遣労働者：常用+有期";
+
+. label variable register "登録派遣労働者";
+
+. label variable client "派遣先";
+
+. label variable wage "8時間賃金";
+
+. label variable fee "8時間料金";
+
+. label variable margin "(料金-賃金)/料金";
+
+. label variable lfee "対数料金";
+
+. label variable lwage "対数賃金";
+
+. label variable wagedaily "日雇い8時間賃金";
+
+. label variable feedaily "日雇い8時間料金";
+
+. label variable margindaily "日雇い：(料金-賃金)/料金";
+
+. label variable staffperm "間接労働者：日雇い";
+
+. label variable staffperm "間接労働者：常用";
+
+. label variable stafffixed "間接労働者：有期";
+
+. label variable temptot "派遣労働者：常用+有期";
+
+. label variable rstaff "間接労働者/派遣労働者";
+
+. label variable rtraining "延べ訓練参加者/派遣労働者";
+
+. label variable mktsize_p "年・都道府県の市場規模";
+
+. label variable share_p "年・都道府県内でのシェア";
+
+. label variable hh_p "HHI";
+
+. label variable hh_d_p "HHI: 日雇";
+
+. label variable hh_p_p "HHI: 常用";
+
+. label variable hh_f_p "HHI: 有期";
+
+. label variable top3_p "上位3事業所シェア";
+
+. label variable rlength1d "期間：1日";
+
+. label variable rlength2d_7d "期間：2-7日";
+
+. label variable rlength8d_31d "期間：8-31日";
+
+. label variable rlength2m "期間：2か月";
+
+. label variable rlength3m "期間：3か月";
+
+. label variable rlength4m_6m "期間：4-6か月";
+
+. label variable rlength7m_12m "期間：7-12か月";
+
+. label variable rlength13m_36m "期間：13-36か月";
+
+. label variable rlengthmisc "期間：その他";
+
+. label variable margin1 "IT";
+
+. label variable margin2 "Machinery design";
+
+. label variable margin3 "Broadcasting, operator";
+
+. label variable margin4 "Broadcasting, production";
+
+. label variable margin5 "Machinery operation";
+
+. label variable margin6 "Translation";
+
+. label variable margin7 "Secretary";
+
+. label variable margin8 "Filing";
+
+. label variable margin9 "Research";
+
+. label variable margin10 "Accounting";
+
+. label variable margin11 "Trade";
+
+. label variable margin12 "Demo";
+
+. label variable margin13 "Tour conductor";
+
+. label variable margin14 "Clearning";
+
+. label variable margin15 "Maintenance";
+
+. label variable margin17 "R+D";
+
+. label variable margin18 "Planning";
+
+. label variable margin19 "Editor";
+
+. label variable margin20 "PR design";
+
+. label variable margin21 "Interior coodinator";
+
+. label variable margin22 "Announcer";
+
+. label variable margin23 "IT instructor";
+
+. label variable margin24 "Telemarketing";
+
+. label variable margin25 "Sales";
+
+. label variable margin26 "Broadcasting, staging";
+
+. egen number=count(id), by(year id);
+
+. drop if year==2015;
+(0 observations deleted)
+
+. qui regress margin hh_p rstaff rtraining rlength2d_7d-rlengthmisc tempdaily tem
+> pperm tempfixed register client i.year;
+
+. drop if e(sample)~=1;
+(35,049 observations deleted)
+
+. save $workpath\03_analyze_data\tempagency, replace;
+(file
+    C:\Users\DAIJI\Documents\GitHub\Dispatching\main\multihome\03_analyze_data\
+    > tempagency.dta not found)
+file
+    C:\Users\DAIJI\Documents\GitHub\Dispatching\main\multihome\03_analyze_data\
+    > tempagency.dta saved
+
+. log close;
+      name:  <unnamed>
+       log:  C:\Users\DAIJI\Documents\GitHub\Dispatching\output\daiji_results\clt
+> emp.log
+  log type:  text
+ closed on:   1 Sep 2023, 15:24:54
+---------------------------------------------------------------------------------
