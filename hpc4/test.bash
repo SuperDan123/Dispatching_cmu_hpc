@@ -28,9 +28,8 @@
 #SBATCH --mail-user=dansong@andrew.cmu.edu
 #SBATCH --mail-type=ALL
 
-# Local Enroot image (use absolute path — #SBATCH does not expand $PWD):
-#   cd hpc4 && sbatch --container-image="$(pwd)/python311.sqsh" test.bash
-#SBATCH --container-image=/path/to/hpc4/python311.sqsh
+# Local Enroot image — must be an absolute path (#SBATCH does not expand $PWD or ~).
+#SBATCH --container-image=/home/dansong/Dispatching_cmu_hpc/hpc4/python311_custom.sqsh
 
 # Mount host paths into the container as host:container (comma-separated).
 #SBATCH --container-mounts=/tmp:/tmp
