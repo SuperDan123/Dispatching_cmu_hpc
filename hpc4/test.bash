@@ -29,7 +29,7 @@
 #SBATCH --mail-type=ALL
 
 # Local Enroot image — must be an absolute path (#SBATCH does not expand $PWD or ~).
-#SBATCH --container-image=/home/dansong/Dispatching_cmu_hpc/hpc4/python311_custom.sqsh
+#SBATCH --container-image=/home/dansong/Dispatching_cmu_hpc/hpc4/python311.sqsh
 
 # Mount host paths into the container as host:container (comma-separated).
 #SBATCH --container-mounts=/tmp:/tmp
