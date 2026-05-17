@@ -46,7 +46,7 @@ set -euo pipefail
 echo "Job ID: ${SLURM_JOB_ID:-n/a}  Node: ${SLURMD_NODENAME:-n/a}"
 echo "Running inside Enroot/Pyxis container."
 
-cd "${SLURM_SUBMIT_DIR:-.}"
+cd /home/dansong/Dispatching_cmu_hpc/hpc4
 python train.py
 
 echo "Done."
