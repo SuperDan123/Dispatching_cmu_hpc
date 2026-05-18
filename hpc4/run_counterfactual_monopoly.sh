@@ -109,16 +109,23 @@ LOG_ERR="${OUT_DIR}/log_${SLURM_JOB_ID:-local}.err"
 # Run the R script
 # ---------------------------------------------------------------
 echo "Starting Rscript at $(date)"
+echo "  stdout -> ${LOG_OUT}"
+echo "  stderr -> ${LOG_ERR}"
+
+# `|| RSCRIPT_EXIT_CODE=$?` keeps `set -e` from aborting before we can
+# print a useful error message and dump the tail of the R log.
+RSCRIPT_EXIT_CODE=0
 Rscript main/multihome/06_counterfactual/counterfactual_monopoly.R \
   >  "${LOG_OUT}" \
-  2> "${LOG_ERR}"
-RSCRIPT_EXIT_CODE=$?
+  2> "${LOG_ERR}" \
+  || RSCRIPT_EXIT_CODE=$?
 
 if [ "${RSCRIPT_EXIT_CODE}" -ne 0 ]; then
   echo "ERROR: Rscript failed with exit code ${RSCRIPT_EXIT_CODE}" >&2
-  echo "Logs:" >&2
-  echo "  ${LOG_OUT}" >&2
-  echo "  ${LOG_ERR}" >&2
+  echo "Tail of stderr (${LOG_ERR}):" >&2
+  tail -n 60 "${LOG_ERR}" >&2 || true
+  echo "Tail of stdout (${LOG_OUT}):" >&2
+  tail -n 30 "${LOG_OUT}" >&2 || true
   exit "${RSCRIPT_EXIT_CODE}"
 fi
 
