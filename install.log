@@ -1,0 +1,23 @@
+* installing to library ‘/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library’
+* installing *source* package ‘Dispatching’ ...
+** using staged installation
+** libs
+using C++ compiler: ‘Apple clang version 21.0.0 (clang-2100.0.123.102)’
+using SDK: ‘MacOSX26.4.sdk’
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG -w -std=c++17 -O3 -I/opt/homebrew/Cellar/gsl/2.8/include -I'/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/RcppGSL/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c RcppExports.cpp -o RcppExports.o
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG -w -std=c++17 -O3 -I/opt/homebrew/Cellar/gsl/2.8/include -I'/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/RcppGSL/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c functions.cpp -o functions.o
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG -w -std=c++17 -O3 -I/opt/homebrew/Cellar/gsl/2.8/include -I'/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/RcppGSL/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c functions_multihome.cpp -o functions_multihome.o
+clang++ -arch arm64 -std=gnu++17 -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG -w -std=c++17 -O3 -I/opt/homebrew/Cellar/gsl/2.8/include -I'/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/Rcpp/include' -I'/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/RcppEigen/include' -I'/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/RcppGSL/include' -I/opt/R/arm64/include    -fPIC  -falign-functions=64 -Wall -g -O2   -c rcppeigen_hello_world.cpp -o rcppeigen_hello_world.o
+clang++ -arch arm64 -std=gnu++17 -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -L/Library/Frameworks/R.framework/Resources/lib -L/opt/R/arm64/lib -o Dispatching.so RcppExports.o functions.o functions_multihome.o rcppeigen_hello_world.o -L/opt/homebrew/Cellar/gsl/2.8/lib -lgsl -lgslcblas -F/Library/Frameworks/R.framework/.. -framework R -Wl,-framework -Wl,CoreFoundation
+installing to /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/library/00LOCK-Dispatching_cmu_hpc/00new/Dispatching/libs
+** R
+** byte-compile and prepare package for lazy loading
+** help
+No man pages found in package  ‘Dispatching’ 
+*** installing help indices
+** building package indices
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (Dispatching)

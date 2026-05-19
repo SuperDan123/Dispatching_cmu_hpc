@@ -29,7 +29,7 @@
 #SBATCH --job-name=cf-monopoly
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32              # doParallel uses detectCores(); set per ORCHARD node size
+#SBATCH --cpus-per-task=120              # doParallel uses detectCores(); set per ORCHARD node size
 #SBATCH --time=24:00:00                 # full multi-market solve; raise/lower as needed
 ##SBATCH --partition=<set-your-partition>
 ##SBATCH --account=<set-your-account>

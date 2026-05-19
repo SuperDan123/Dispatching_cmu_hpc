@@ -16,24 +16,8 @@ equilibrium <-
     file = "output/multihome/estimate_data/equilibrium_updated_constrained.rds" %>%
       here::here()
   )
-updated_ownership <-
-  readRDS(
-    file = "output/multihome/make_equilibrium_nationwide_top5_from_data/updated_ownership_matrix.rds" %>%
-      here::here()
-  )
 
 equilibrium$constant$use_exp <- FALSE
-
-# update ownership -----------------------------------------------------
-for (
-  t in seq_along(equilibrium$exogenous)
-) {
-  for (
-    j in seq_along(equilibrium$exogenous[[t]])
-  ) {
-    equilibrium$exogenous[[t]][[j]]$owner <- updated_ownership[[t]][[j]]$owner
-  }
-}
 
 # monopoly counterfactual setup ----------------------------------------
 #
@@ -143,20 +127,32 @@ for (
   }
 }
 
+# correct bugs ---------------------------------------------------------
+for (
+  t in seq_along(equilibrium$exogenous)
+) {
+  for (
+    j in seq_along(equilibrium$exogenous[[t]])
+  ) {
+    
+  equilibrium[["exogenous"]][[t]][[j]]$w_0 <- equilibrium[["exogenous"]][[t]][[j]]$w_0[1]
+  }
+}
+
 # time a single market-zone solve --------------------------------------
 # `solve_equilibrium_tj` returns the modified equilibrium; R does not update the
 # caller's `equilibrium` object in place. Assign the return value back, or you
 # will still see the pre-solve endogenous values on `equilibrium`.
-system.time(
-  equilibrium <-
-    solve_equilibrium_tj(
-      t = 1,
-      j = 2,
-      equilibrium = equilibrium,
-      solver = "nleqslv",
-      multistart = 20
-    )
-)
+
+equilibrium_1 <-
+  solve_equilibrium_tj(
+    t = 1,
+    j = 29,
+    equilibrium = equilibrium,
+    solver = "nleqslv",
+    multistart = 20
+  )
+
 
 # run counterfactual for all markets -----------------------------------
 # Same rule as `solve_equilibrium_tj`: use the returned object
