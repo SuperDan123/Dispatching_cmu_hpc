@@ -1,0 +1,37 @@
+[2026-05-18T14:06:21.367] error: Unable to create TMPDIR [/mnt/tmp/2720117]: No such file or directory
+[2026-05-18T14:06:21.368] error: Setting TMPDIR to /tmp
+==========================================
+Job ID:     121961
+Node:       orchard-community-4
+User:       dansong
+Host:       orchard-community-4
+Date:       Mon May 18 06:06:21 PM UTC 2026
+PWD:        /
+Container:  r-dispatching (Enroot/Pyxis)
+==========================================
+R location:       /usr/local/bin/R
+Rscript location: /usr/local/bin/Rscript
+R version:
+R version 4.4.0 (2024-04-24) 
+R library paths:
+/usr/local/lib/R/site-library
+/usr/local/lib/R/library
+
+Dispatching package:
+OK, version 1.0 
+Starting Rscript at Mon May 18 06:06:21 PM UTC 2026
+  stdout -> output/multihome/counterfactual/monopoly/log_121961.out
+  stderr -> output/multihome/counterfactual/monopoly/log_121961.err
+ERROR: Rscript failed with exit code 1
+Tail of stderr (output/multihome/counterfactual/monopoly/log_121961.err):
+Loading required package: iterators
+Loading required package: parallel
+Error in { : task 1 failed - "ℹ In index: 1.
+Caused by error in `solve_s_f_tj_rcpp()`:
+! could not find function "solve_s_f_tj_rcpp""
+Calls: system.time ... solve_equilibrium_tj -> solve_endogenous_tj -> %do% -> <Anonymous>
+Timing stopped at: 0.267 0.039 0.306
+Execution halted
+Tail of stdout (output/multihome/counterfactual/monopoly/log_121961.out):
+[1] 208
+[2026-05-18T14:06:23.332] error: pyxis: child 2656422 failed with error code: 1

@@ -1,0 +1,24 @@
+[2026-05-18T13:02:48.038] error: Unable to create TMPDIR [/mnt/tmp/2720117]: No such file or directory
+[2026-05-18T13:02:48.038] error: Setting TMPDIR to /tmp
+==========================================
+Job ID:     121957
+Node:       orchard-flame-2
+User:       dansong
+Host:       orchard-flame-2
+Date:       Mon May 18 05:02:48 PM UTC 2026
+PWD:        /
+Container:  r-dispatching (Enroot/Pyxis)
+==========================================
+R location:       /usr/local/bin/R
+Rscript location: /usr/local/bin/Rscript
+R version:
+R version 4.4.0 (2024-04-24) 
+R library paths:
+/usr/local/lib/R/site-library
+/usr/local/lib/R/library
+
+Dispatching package:
+OK, version 1.0 
+* installing to library ‘/usr/local/lib/R/site-library’
+Error: ERROR: no permission to install to directory ‘/usr/local/lib/R/site-library’
+[2026-05-18T13:02:48.757] error: pyxis: child 194530 failed with error code: 1

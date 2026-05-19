@@ -1,0 +1,6 @@
+Loading required package: iterators
+Loading required package: parallel
+Error in { : task 1 failed - "there is no package called ‘purrr’"
+Calls: system.time ... solve_equilibrium_tj -> solve_endogenous_tj -> %do% -> <Anonymous>
+Timing stopped at: 0.009 0 0.009
+Execution halted
