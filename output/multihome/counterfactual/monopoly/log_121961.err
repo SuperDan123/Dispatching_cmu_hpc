@@ -1,8 +1,0 @@
-Loading required package: iterators
-Loading required package: parallel
-Error in { : task 1 failed - "ℹ In index: 1.
-Caused by error in `solve_s_f_tj_rcpp()`:
-! could not find function "solve_s_f_tj_rcpp""
-Calls: system.time ... solve_equilibrium_tj -> solve_endogenous_tj -> %do% -> <Anonymous>
-Timing stopped at: 0.267 0.039 0.306
-Execution halted
